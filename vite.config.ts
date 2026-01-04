@@ -8,9 +8,6 @@ export default defineConfig({
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY)
   },
   resolve: {
-    extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json']
-  },
-  server: {
-    port: 3000
+    extensions: ['.js', '.ts', '.jsx', '.tsx', '.json']
   }
 });
