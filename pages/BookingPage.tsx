@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { AdminSettings, Booking } from '../types';
 import { TIME_SLOTS, OFFERS, TERMS_AND_CONDITIONS } from '../constants';
 
-const BookingPage: React.FC<{ settings: AdminSettings, bookings: Booking[], onProceed: any }> = ({ settings, bookings }) => {
+const BookingPage: React.FC<{ settings: AdminSettings, bookings: Booking[], onProceed: any }> = ({ settings, bookings, onProceed }) => {
   const navigate = useNavigate();
   const [date, setDate] = useState('');
   const [slot, setSlot] = useState(TIME_SLOTS[0]);
@@ -69,6 +69,7 @@ const BookingPage: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
       status: 'pending' 
     };
     sessionStorage.setItem('swp_draft_booking', JSON.stringify(draft));
+    if (onProceed) onProceed(draft);
     navigate('/payment');
   };
 
