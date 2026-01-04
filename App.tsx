@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import LoginPage from './pages/login_gate';
-import BookingPage from './pages/booking_gate';
-import AdminPanel from './pages/admin_portal';
-import PaymentPage from './pages/secure_payment';
-import MyBookings from './pages/ticket_history';
+import LoginGate from './pages/login_gate';
+import BookingGate from './pages/booking_gate';
+import AdminPortal from './pages/admin_portal';
+import SecurePayment from './pages/secure_payment';
+import TicketHistory from './pages/ticket_history';
 import { AuthState, Booking, AdminSettings } from './types';
 import { DEFAULT_ADMIN_SETTINGS } from './constants';
 
@@ -46,22 +46,23 @@ const AppContent: React.FC = () => {
         <div className="flex items-center gap-4">
           {auth.role === 'guest' && (
             <div className="flex gap-2">
-               <Link to="/book" className="px-4 py-2 font-bold text-xs uppercase text-blue-600">Book</Link>
-               <Link to="/my-bookings" className="px-4 py-2 font-bold text-xs uppercase text-gray-500">Tickets</Link>
+               <Link to="/book" className={`px-4 py-2 font-bold text-xs uppercase ${location.pathname === '/book' ? 'text-blue-600' : 'text-gray-400'}`}>Book</Link>
+               <Link to="/my-bookings" className={`px-4 py-2 font-bold text-xs uppercase ${location.pathname === '/my-bookings' ? 'text-blue-600' : 'text-gray-400'}`}>Tickets</Link>
             </div>
           )}
           {auth.role && (
-            <button onClick={logout} className="text-red-500 font-black text-xs uppercase ml-2">Logout</button>
+            <button onClick={logout} className="text-red-500 font-black text-xs uppercase ml-2 px-4 py-2 bg-red-50 rounded-lg hover:bg-red-100 transition-colors">Logout</button>
           )}
         </div>
       </header>
+
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8">
         <Routes>
-          <Route path="/" element={auth.role === 'admin' ? <Navigate to="/admin" /> : auth.role === 'guest' ? <Navigate to="/book" /> : <LoginPage onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />} />
-          <Route path="/book" element={auth.role === 'guest' ? <BookingPage settings={settings} bookings={bookings} onProceed={(b: any) => b} /> : <Navigate to="/" />} />
-          <Route path="/payment" element={auth.role === 'guest' ? <PaymentPage addBooking={addBooking} /> : <Navigate to="/" />} />
-          <Route path="/my-bookings" element={auth.role === 'guest' ? <MyBookings bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
-          <Route path="/admin" element={auth.role === 'admin' ? <AdminPanel bookings={bookings} settings={settings} onUpdateSettings={updateSettings} /> : <Navigate to="/" />} />
+          <Route path="/" element={auth.role === 'admin' ? <Navigate to="/admin" /> : auth.role === 'guest' ? <Navigate to="/book" /> : <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />} />
+          <Route path="/book" element={auth.role === 'guest' ? <BookingGate settings={settings} bookings={bookings} onProceed={(b: any) => b} /> : <Navigate to="/" />} />
+          <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} /> : <Navigate to="/" />} />
+          <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
+          <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={updateSettings} /> : <Navigate to="/" />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>
