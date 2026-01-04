@@ -51,7 +51,7 @@ const AppContent: React.FC = () => {
             </div>
           )}
           {auth.role && (
-            <button onClick={logout} className="text-red-500 font-black text-xs uppercase ml-2 px-4 py-2 bg-red-50 rounded-lg hover:bg-red-100 transition-colors">Logout</button>
+            <button onClick={logout} className="text-red-500 font-black text-xs uppercase ml-2 px-4 py-2 bg-red-50 rounded-lg">Logout</button>
           )}
         </div>
       </header>
