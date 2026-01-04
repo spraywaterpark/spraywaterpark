@@ -1,19 +1,13 @@
+
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import LoginPage from './pages/LoginPage';
-import BookingPage from './pages/BookingPage';
-import AdminPanel from './pages/AdminPanel';
-import PaymentPage from './pages/PaymentPage';
-import MyBookings from './pages/MyBookings';
+import LoginPage from './pages/login_gate';
+import BookingPage from './pages/booking_gate';
+import AdminPanel from './pages/admin_portal';
+import PaymentPage from './pages/secure_payment';
+import MyBookings from './pages/ticket_history';
 import { AuthState, Booking, AdminSettings } from './types';
 import { DEFAULT_ADMIN_SETTINGS } from './constants';
-
-const HeaderLink = ({ to, icon, label, active }: { to: string, icon: string, label: string, active: boolean }) => (
-  <Link to={to} className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold text-sm ${active ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50/50'}`}>
-    <i className={`fas ${icon}`}></i>
-    <span className="hidden sm:inline">{label}</span>
-  </Link>
-);
 
 const AppContent: React.FC = () => {
   const [auth, setAuth] = useState<AuthState>(() => {
@@ -45,30 +39,23 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fbff] flex flex-col text-[#334155]">
-      <header className="sticky top-0 z-[100] px-4 md:px-6 py-4 flex justify-between items-center bg-white/80 backdrop-blur-lg border-b border-gray-100 shadow-sm no-print">
-        <div className="flex items-center gap-4 md:gap-8">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 blue-gradient rounded-xl flex items-center justify-center text-white shadow-lg shrink-0">
-              <i className="fas fa-water text-lg"></i>
-            </div>
-            <h1 className="text-sm md:text-xl font-black text-[#1B2559] uppercase tracking-tighter">Spray Aqua Resort</h1>
-          </Link>
-          {auth.role === 'guest' && (
-            <nav className="flex items-center gap-1">
-              <HeaderLink to="/book" icon="fa-ticket-alt" label="Book" active={location.pathname === '/book'} />
-              <HeaderLink to="/my-bookings" icon="fa-history" label="History" active={location.pathname === '/my-bookings'} />
-            </nav>
-          )}
-        </div>
+      <header className="sticky top-0 z-[100] px-6 py-4 flex justify-between items-center bg-white shadow-sm no-print">
+        <Link to="/" className="flex items-center gap-3">
+          <div className="w-10 h-10 blue-gradient rounded-xl flex items-center justify-center text-white"><i className="fas fa-water"></i></div>
+          <h1 className="text-xl font-black uppercase tracking-tighter">Spray Aqua</h1>
+        </Link>
         <div className="flex items-center gap-4">
+          {auth.role === 'guest' && (
+            <div className="flex gap-2">
+               <Link to="/book" className="px-4 py-2 font-bold text-xs uppercase">Book</Link>
+               <Link to="/my-bookings" className="px-4 py-2 font-bold text-xs uppercase">Tickets</Link>
+            </div>
+          )}
           {auth.role && (
-            <button onClick={logout} title="Logout" className="w-10 h-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all">
-              <i className="fas fa-sign-out-alt text-sm"></i>
-            </button>
+            <button onClick={logout} className="text-red-500 font-black text-xs uppercase">Logout</button>
           )}
         </div>
       </header>
-
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8">
         <Routes>
           <Route path="/" element={auth.role === 'admin' ? <Navigate to="/admin" /> : auth.role === 'guest' ? <Navigate to="/book" /> : <LoginPage onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />} />
@@ -79,10 +66,6 @@ const AppContent: React.FC = () => {
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>
-      
-      <footer className="py-8 text-center text-gray-400 text-xs font-bold uppercase tracking-widest no-print">
-        &copy; {new Date().getFullYear()} Spray Aqua Resort. All Splash Reserved.
-      </footer>
     </div>
   );
 };
