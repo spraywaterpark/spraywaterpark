@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import LoginPage from './pages/login_gate';
@@ -47,12 +46,12 @@ const AppContent: React.FC = () => {
         <div className="flex items-center gap-4">
           {auth.role === 'guest' && (
             <div className="flex gap-2">
-               <Link to="/book" className="px-4 py-2 font-bold text-xs uppercase">Book</Link>
-               <Link to="/my-bookings" className="px-4 py-2 font-bold text-xs uppercase">Tickets</Link>
+               <Link to="/book" className="px-4 py-2 font-bold text-xs uppercase text-blue-600">Book</Link>
+               <Link to="/my-bookings" className="px-4 py-2 font-bold text-xs uppercase text-gray-500">Tickets</Link>
             </div>
           )}
           {auth.role && (
-            <button onClick={logout} className="text-red-500 font-black text-xs uppercase">Logout</button>
+            <button onClick={logout} className="text-red-500 font-black text-xs uppercase ml-2">Logout</button>
           )}
         </div>
       </header>
