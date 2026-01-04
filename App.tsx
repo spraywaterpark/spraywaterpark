@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import LoginPage from './pages/LoginPage.tsx';
-import BookingPage from './pages/BookingPage.tsx';
-import AdminPanel from './pages/AdminPanel.tsx';
-import PaymentPage from './pages/PaymentPage.tsx';
-import MyBookings from './pages/MyBookings.tsx';
-import { AuthState, Booking, AdminSettings } from './types.ts';
-import { DEFAULT_ADMIN_SETTINGS } from './constants.ts';
+import LoginPage from './pages/LoginPage';
+import BookingPage from './pages/BookingPage';
+import AdminPanel from './pages/AdminPanel';
+import PaymentPage from './pages/PaymentPage';
+import MyBookings from './pages/MyBookings';
+import { AuthState, Booking, AdminSettings } from './types';
+import { DEFAULT_ADMIN_SETTINGS } from './constants';
 
 const HeaderLink = ({ to, icon, label, active }: { to: string, icon: string, label: string, active: boolean }) => (
   <Link to={to} className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold text-sm ${active ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50/50'}`}>
@@ -73,7 +73,7 @@ const AppContent: React.FC = () => {
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8">
         <Routes>
           <Route path="/" element={auth.role === 'admin' ? <Navigate to="/admin" /> : auth.role === 'guest' ? <Navigate to="/book" /> : <LoginPage onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />} />
-          <Route path="/book" element={auth.role === 'guest' ? <BookingPage settings={settings} bookings={bookings} onProceed={(b) => b} /> : <Navigate to="/" />} />
+          <Route path="/book" element={auth.role === 'guest' ? <BookingPage settings={settings} bookings={bookings} onProceed={(b: any) => b} /> : <Navigate to="/" />} />
           <Route path="/payment" element={auth.role === 'guest' ? <PaymentPage addBooking={addBooking} /> : <Navigate to="/" />} />
           <Route path="/my-bookings" element={auth.role === 'guest' ? <MyBookings bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
           <Route path="/admin" element={auth.role === 'admin' ? <AdminPanel bookings={bookings} settings={settings} onUpdateSettings={updateSettings} /> : <Navigate to="/" />} />
