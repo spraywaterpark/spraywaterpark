@@ -1,0 +1,7 @@
+{
+  "name": "Spray Aqua Resort Booking",
+  "description": "Professional water park ticket booking system with AI-powered messaging and admin controls.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
