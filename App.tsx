@@ -95,9 +95,9 @@ const AppContent: React.FC = () => {
               <i className="fas fa-water text-xl"></i>
             </div>
             <div>
-              <h1 className="text-2xl font-black text-[#1B2559] tracking-tighter uppercase leading-none">SPRAY AQUA</h1>
+              <h1 className="text-xl md:text-2xl font-black text-[#1B2559] tracking-tighter uppercase leading-none">Spray Aqua Resort</h1>
               <div className="flex items-center gap-2 mt-1">
-                  <p className="text-[10px] font-black text-blue-500 tracking-[0.2em] uppercase">Premium Resort</p>
+                  <p className="text-[10px] font-black text-blue-500 tracking-[0.2em] uppercase">Jaipur's Finest</p>
                   {isCloudConnected ? (
                     <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 rounded-full border border-emerald-100">
                       <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
