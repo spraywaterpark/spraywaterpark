@@ -29,12 +29,10 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
     if (date) {
       if (alreadyBooked < 100) {
         discountPercent = settings.earlyBirdDiscount;
-        tierText = `🔥 TIER 1 DEAL: ${discountPercent}% Discount Applied!`;
+        tierText = `Tier 1 Discount: ${discountPercent}% OFF`;
       } else if (alreadyBooked < 200) {
         discountPercent = settings.extraDiscountPercent;
-        tierText = `⚡ TIER 2 DEAL: ${discountPercent}% Discount Applied!`;
-      } else {
-        tierText = "STANDARD RATE: Limited Tickets Remaining";
+        tierText = `Tier 2 Discount: ${discountPercent}% OFF`;
       }
     }
 
@@ -43,7 +41,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
   }, [date, slot, adults, kids, adultRate, kidRate, bookings, settings]);
 
   const handleCheckout = () => {
-    if (!date) return alert("Select a date for your visit.");
+    if (!date) return alert("Please select your visit date.");
     setShowTerms(true);
   };
 
@@ -62,127 +60,163 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
   };
 
   return (
-    <div className="max-w-6xl mx-auto pb-12 animate-fade">
-      {/* Page Header */}
-      <div className="mb-8 px-4 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+    <div className="max-w-7xl mx-auto px-4 md:px-8 space-y-8 md:space-y-12 animate-fade">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
-          <h2 className="text-4xl font-black text-[#1B2559] uppercase tracking-tighter">Splash Booking</h2>
-          <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest">Spray Aqua Resort • Direct Online Booking</p>
+          <h2 className="text-2xl md:text-3xl font-extrabold text-[#1B2559] tracking-tight">Reserve Your Experience</h2>
+          <p className="text-slate-400 font-medium text-sm mt-1">Book your visit to Spray Aqua Resort.</p>
         </div>
-        {date && (
-            <div className="bg-blue-600 px-6 py-2 rounded-2xl text-white text-xs font-black uppercase animate-pulse">
-                {pricingData.tierText || "Best Price Guaranteed"}
-            </div>
+        {date && pricingData.discountPercent > 0 && (
+          <div className="bg-green-500 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-green-100 animate-pulse">
+            <i className="fas fa-bolt mr-2"></i> {pricingData.tierText}
+          </div>
         )}
-      </div>
+      </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 px-4">
-        {/* Main Inputs */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white p-6 md:p-10 rounded-[2.5rem] card-shadow border border-white space-y-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
+        {/* Reservation Details */}
+        <div className="lg:col-span-8 space-y-6 md:space-y-8">
+          <div className="card-premium p-6 md:p-12 space-y-8 md:space-y-12">
             
-            <div className="space-y-4">
-              <label className="text-[10px] font-black text-gray-400 uppercase ml-2 flex items-center gap-2">
-                <i className="fas fa-calendar-alt text-blue-500"></i> Select Date
-              </label>
-              <input type="date" className="input-field text-lg" onChange={e => setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} value={date} />
-            </div>
+            {/* Step 1: Date & Time */}
+            <section className="space-y-4 md:space-y-6">
+              <h4 className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em] flex items-center gap-3">
+                <span className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-[9px] md:text-[10px]">1</span>
+                Visit Schedule
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                <div className="space-y-2 md:space-y-3">
+                  <label className="text-xs md:text-sm font-bold text-slate-600 ml-1">Select Date</label>
+                  <input 
+                    type="date" 
+                    className="input-premium text-base md:text-lg" 
+                    onChange={e => setDate(e.target.value)} 
+                    min={new Date().toISOString().split('T')[0]} 
+                    value={date} 
+                  />
+                </div>
+                <div className="space-y-2 md:space-y-3">
+                  <label className="text-xs md:text-sm font-bold text-slate-600 ml-1">Choose Shift</label>
+                  <div className="flex flex-col gap-2 md:gap-3">
+                    {TIME_SLOTS.map(s => (
+                      <button 
+                        key={s} 
+                        onClick={() => setSlot(s)} 
+                        className={`p-3 md:p-4 rounded-xl border-2 text-left transition-all flex items-center justify-between ${slot === s ? 'border-blue-600 bg-blue-50 text-blue-600 shadow-sm' : 'border-slate-100 hover:bg-slate-50'}`}
+                      >
+                         <span className="font-bold text-xs md:text-sm uppercase">{s.split(' - ')[1]}</span>
+                         <span className="text-[9px] md:text-[10px] font-black opacity-40">{s.split(' - ')[0]}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </section>
 
-            <div className="space-y-4">
-              <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Choose Your Shift</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {TIME_SLOTS.map(s => (
-                  <button key={s} onClick={() => setSlot(s)} className={`p-6 rounded-3xl border-2 text-left transition-all ${slot === s ? 'border-blue-600 bg-blue-50 text-blue-600' : 'border-gray-50 bg-gray-50/50'}`}>
-                     <p className="font-black text-sm uppercase">{s.split(' - ')[1]}</p>
-                     <p className="text-[10px] font-bold opacity-60 mt-1">{s.split(' - ')[0]}</p>
-                  </button>
-                ))}
+            {/* Step 2: Inclusions Display */}
+            <div className="relative group overflow-hidden rounded-[1.5rem] md:rounded-3xl">
+              <div className={`p-6 md:p-10 text-white flex flex-col md:flex-row items-center gap-4 md:gap-8 transition-all duration-500 ${isMorning ? 'bg-amber-500' : 'blue-gradient'}`}>
+                  <div className="w-16 h-16 md:w-20 md:h-20 bg-white/20 rounded-2xl flex items-center justify-center text-3xl md:text-4xl backdrop-blur-md animate-float">
+                      <i className={isMorning ? "fas fa-utensils" : "fas fa-hamburger"}></i>
+                  </div>
+                  <div className="text-center md:text-left">
+                      <p className="text-[9px] font-bold uppercase opacity-60 tracking-[0.3em] mb-1">Included With Your Ticket</p>
+                      <h5 className="text-lg md:text-2xl font-black uppercase leading-tight">{currentOffer}</h5>
+                  </div>
+                  <i className="fas fa-medal absolute -right-4 -bottom-4 text-white/10 text-7xl md:text-9xl"></i>
               </div>
             </div>
 
-            {/* Premium Offer Badge */}
-            <div className={`p-6 rounded-[2rem] text-white flex items-center gap-6 shadow-xl relative overflow-hidden ${isMorning ? 'bg-orange-500' : 'blue-gradient'}`}>
-                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-3xl backdrop-blur-md">
-                    <i className={isMorning ? "fas fa-utensils" : "fas fa-hamburger"}></i>
+            {/* Step 3: Guests */}
+            <section className="space-y-4 md:space-y-6">
+              <h4 className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em] flex items-center gap-3">
+                <span className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-[9px] md:text-[10px]">2</span>
+                Guest Information
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+                <div className="p-4 md:p-6 bg-slate-50 rounded-2xl flex justify-between items-center">
+                  <label className="text-sm font-bold text-slate-700">Adults <br/><span className="text-slate-400 font-medium text-xs">₹{adultRate}</span></label>
+                  <div className="flex items-center gap-3 md:gap-4 bg-white p-1.5 md:p-2 rounded-xl border border-slate-200 shadow-sm">
+                    <button onClick={() => setAdults(Math.max(1, adults-1))} className="w-8 h-8 md:w-10 md:h-10 rounded-lg font-bold">-</button>
+                    <span className="w-6 text-center font-bold text-base md:text-lg">{adults}</span>
+                    <button onClick={() => setAdults(adults+1)} className="w-8 h-8 md:w-10 md:h-10 rounded-lg font-bold">+</button>
+                  </div>
                 </div>
-                <div>
-                    <p className="text-[9px] font-black uppercase opacity-60 tracking-widest mb-1">Resort Special Offer</p>
-                    <p className="text-lg font-black uppercase leading-tight">{currentOffer}</p>
-                </div>
-                <i className="fas fa-star absolute -right-6 -bottom-6 text-white/10 text-8xl"></i>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Adults (₹{adultRate}/pp)</label>
-                <div className="flex items-center gap-4 bg-gray-50 p-2 rounded-2xl border border-gray-100">
-                    <button onClick={() => setAdults(Math.max(1, adults-1))} className="w-12 h-12 bg-white rounded-xl font-black shadow-sm text-lg">-</button>
-                    <span className="flex-1 text-center font-black text-xl">{adults}</span>
-                    <button onClick={() => setAdults(adults+1)} className="w-12 h-12 bg-white rounded-xl font-black shadow-sm text-lg">+</button>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Kids (₹{kidRate}/pp)</label>
-                <div className="flex items-center gap-4 bg-gray-50 p-2 rounded-2xl border border-gray-100">
-                    <button onClick={() => setKids(Math.max(0, kids-1))} className="w-12 h-12 bg-white rounded-xl font-black shadow-sm text-lg">-</button>
-                    <span className="flex-1 text-center font-black text-xl">{kids}</span>
-                    <button onClick={() => setKids(kids+1)} className="w-12 h-12 bg-white rounded-xl font-black shadow-sm text-lg">+</button>
+                <div className="p-4 md:p-6 bg-slate-50 rounded-2xl flex justify-between items-center">
+                  <label className="text-sm font-bold text-slate-700">Children <br/><span className="text-slate-400 font-medium text-xs">₹{kidRate}</span></label>
+                  <div className="flex items-center gap-3 md:gap-4 bg-white p-1.5 md:p-2 rounded-xl border border-slate-200 shadow-sm">
+                    <button onClick={() => setKids(Math.max(0, kids-1))} className="w-8 h-8 md:w-10 md:h-10 rounded-lg font-bold">-</button>
+                    <span className="w-6 text-center font-bold text-base md:text-lg">{kids}</span>
+                    <button onClick={() => setKids(kids+1)} className="w-8 h-8 md:w-10 md:h-10 rounded-lg font-bold">+</button>
+                  </div>
                 </div>
               </div>
-            </div>
+            </section>
           </div>
         </div>
 
-        {/* Floating Checkout Sidebar */}
-        <div className="space-y-6">
-          <div className="bg-[#1B2559] p-10 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
-            <h4 className="text-[10px] font-black uppercase opacity-40 tracking-[0.2em] mb-10 text-center">Checkout Summary</h4>
-            <div className="space-y-6">
-                <div className="flex justify-between items-center text-xs font-bold opacity-60 uppercase">
-                    <span>Tickets ({adults + kids})</span>
-                    <span>₹{pricingData.subtotal}</span>
+        {/* Sidebar Summary */}
+        <div className="lg:col-span-4">
+          <div className="card-premium p-8 md:p-10 bg-[#1B2559] text-white lg:sticky lg:top-32 overflow-hidden shadow-2xl">
+            <div className="relative z-10">
+              <h4 className="text-[10px] font-bold uppercase opacity-40 tracking-[0.3em] mb-8 md:mb-12 text-center">Reservation Folio</h4>
+              <div className="space-y-4 md:space-y-6">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400 font-medium">Guest Capacity</span>
+                  <span className="font-bold">{adults + kids} People</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400 font-medium">Admission Subtotal</span>
+                  <span className="font-bold">₹{pricingData.subtotal}</span>
                 </div>
                 {pricingData.discount > 0 && (
-                  <div className="flex justify-between items-center text-xs font-black text-green-400 uppercase">
-                      <span>Early Bird Saved</span>
-                      <span>- ₹{pricingData.discount}</span>
+                  <div className="flex justify-between items-center text-sm text-green-400 font-bold">
+                    <span>Loyalty Benefit</span>
+                    <span>- ₹{pricingData.discount}</span>
                   </div>
                 )}
-                <div className="pt-6 border-t border-white/10 flex justify-between items-end">
+                <div className="pt-6 md:pt-8 border-t border-white/10 mt-4 md:mt-6">
+                  <div className="flex justify-between items-end">
                     <div>
-                        <p className="text-[10px] font-black uppercase opacity-40 mb-1">Net Payable</p>
-                        <p className="text-5xl font-black tracking-tighter">₹{pricingData.total}</p>
+                      <p className="text-[10px] font-bold uppercase opacity-30 mb-1">Total Fee Payable</p>
+                      <p className="text-4xl md:text-5xl font-extrabold tracking-tighter">₹{pricingData.total}</p>
                     </div>
+                  </div>
                 </div>
+              </div>
+              <button onClick={handleCheckout} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 md:py-5 rounded-2xl mt-8 md:mt-12 transition-all shadow-xl shadow-blue-900/40 uppercase tracking-widest text-sm">
+                Confirm & Pay
+              </button>
             </div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-3xl"></div>
           </div>
-          
-          <button onClick={handleCheckout} className="w-full btn-primary py-7 text-xl shadow-2xl shadow-blue-100 uppercase tracking-widest">
-             Proceed to Pay <i className="fas fa-arrow-right ml-2"></i>
-          </button>
         </div>
       </div>
 
-      {/* Terms Overlay */}
       {showTerms && (
-        <div className="fixed inset-0 z-[200] bg-[#1B2559]/80 backdrop-blur-md flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white p-8 md:p-12 rounded-[2.5rem] max-w-lg w-full animate-fade">
-            <h3 className="text-2xl font-black text-[#1B2559] uppercase mb-6 text-center">Resort Policy</h3>
-            <div className="space-y-4 mb-10">
+        <div className="fixed inset-0 z-[200] bg-slate-900/90 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-6">
+          <div className="bg-white p-8 md:p-14 rounded-t-[32px] md:rounded-[32px] max-w-xl w-full animate-fade shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="text-center mb-8">
+              <h3 className="text-2xl font-extrabold text-[#1B2559] uppercase tracking-tight">Park Protocol</h3>
+              <p className="text-slate-400 text-sm mt-2">Please acknowledge our safety and entry rules.</p>
+            </div>
+            <div className="space-y-3 mb-8">
               {TERMS_AND_CONDITIONS.map((t, i) => (
-                <div key={i} className="flex gap-4 text-xs font-bold text-gray-500 leading-relaxed">
-                    <span className="text-blue-600 font-black">•</span>
-                    <p>{t}</p>
+                <div key={i} className="flex gap-4 items-start bg-slate-50 p-4 rounded-xl">
+                    <i className="fas fa-info-circle text-blue-500 mt-1"></i>
+                    <p className="text-xs font-semibold text-slate-600 leading-relaxed">{t}</p>
                 </div>
               ))}
             </div>
-            <label className="flex items-center gap-4 bg-blue-50 p-6 rounded-2xl cursor-pointer mb-8 border border-blue-100">
-              <input type="checkbox" className="w-6 h-6 rounded-lg accent-blue-600" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} />
-              <span className="text-[10px] font-black uppercase text-[#1B2559]">I understand & Agree to all Rules</span>
-            </label>
-            <div className="grid grid-cols-2 gap-4">
-                <button onClick={() => setShowTerms(false)} className="py-5 font-black uppercase text-xs text-gray-400">Cancel</button>
-                <button onClick={finalProceed} disabled={!acceptedTerms} className="btn-primary py-5 text-sm uppercase disabled:opacity-30">Confirm</button>
+            <div className="space-y-4">
+              <label className="flex items-center gap-4 bg-blue-50/50 p-5 rounded-2xl cursor-pointer border border-blue-100/50">
+                <input type="checkbox" className="w-6 h-6 rounded-lg accent-blue-600" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} />
+                <span className="text-xs font-bold uppercase text-[#1B2559] tracking-wider">I agree to the Resort Policy</span>
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                  <button onClick={() => setShowTerms(false)} className="py-4 font-bold uppercase text-xs text-slate-400">Cancel</button>
+                  <button onClick={finalProceed} disabled={!acceptedTerms} className="bg-[#1B2559] text-white py-4 rounded-xl text-xs font-bold uppercase tracking-widest disabled:opacity-20">Pay Now</button>
+              </div>
             </div>
           </div>
         </div>
