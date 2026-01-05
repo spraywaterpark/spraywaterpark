@@ -75,20 +75,31 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                   <input type="date" className="input-luxury border-slate-400" onChange={e => setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} value={date} />
                 </div>
                 <div className="space-y-4">
-                  <label className="text-[11px] font-black text-slate-800 uppercase tracking-widest ml-1">Shift Timing & Details</label>
+                  <label className="text-[11px] font-black text-slate-800 uppercase tracking-widest ml-1">Shift Timing & Activity Details</label>
                   <div className="grid grid-cols-1 gap-4">
-                    {TIME_SLOTS.map(s => (
-                      <button key={s} onClick={() => setSlot(s)} className={`w-full p-6 rounded-2xl border-2 text-left transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${slot === s ? 'border-blue-600 bg-blue-50 text-blue-800 shadow-sm' : 'border-slate-200 hover:border-blue-300'}`}>
-                         <div>
-                            <span className="font-black text-base uppercase tracking-tight block">{s.split(' - ')[1]}</span>
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 block">Full Session Duration</span>
-                         </div>
-                         <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-[10px] font-black bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm text-slate-700">{s.split(' - ')[0]}</span>
-                            {slot === s && <i className="fas fa-check-circle text-blue-600 text-lg"></i>}
-                         </div>
-                      </button>
-                    ))}
+                    {TIME_SLOTS.map(s => {
+                      const [title, details] = s.split(': ');
+                      const [timeRange, activityInfo] = details.split(' (');
+                      return (
+                        <button 
+                          key={s} 
+                          onClick={() => setSlot(s)} 
+                          className={`w-full p-6 rounded-3xl border-2 text-left transition-all flex flex-col gap-2 ${slot === s ? 'border-blue-600 bg-blue-50 text-blue-800 shadow-sm' : 'border-slate-200 hover:border-blue-300'}`}
+                        >
+                           <div className="flex items-center justify-between w-full">
+                              <span className="font-black text-lg uppercase tracking-tight">{title}</span>
+                              <span className="text-[10px] font-black bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm text-blue-600">{timeRange}</span>
+                           </div>
+                           <div className="flex items-center gap-3">
+                              <div className="h-1 w-12 bg-blue-600 rounded-full"></div>
+                              <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">
+                                {activityInfo.replace(')', '')}
+                              </span>
+                           </div>
+                           {slot === s && <div className="mt-2 text-[9px] font-black text-blue-500 uppercase tracking-[0.2em] italic">Selected Schedule</div>}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -97,7 +108,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
             {/* Step 2: Meal Offer Banner */}
             <div className={`p-10 rounded-[2.5rem] text-white flex items-center gap-8 relative overflow-hidden shadow-2xl ${isMorning ? 'bg-amber-600' : 'blue-gradient'}`}>
                 <div className="w-20 h-20 bg-white/30 rounded-3xl flex items-center justify-center text-4xl backdrop-blur-md border border-white/20">
-                    <i className={isMorning ? "fas fa-utensils" : "fas fa-utensils"}></i>
+                    <i className="fas fa-utensils"></i>
                 </div>
                 <div className="relative z-10">
                     <p className="text-[10px] font-black uppercase opacity-70 tracking-[0.4em] mb-2">Complimentary Meal Included</p>
