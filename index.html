@@ -12,13 +12,13 @@
       :root {
         --resort-navy: #1B2559;
         --resort-blue: #0066FF;
-        --resort-bg: #F8FAFC;
+        --resort-bg: #F4F7FE; /* Slightly more defined background */
       }
 
       body { 
         font-family: 'Plus Jakarta Sans', sans-serif; 
         background-color: var(--resort-bg); 
-        color: #1E293B;
+        color: #1B2559; /* Darker default text */
         -webkit-font-smoothing: antialiased;
         overflow-x: hidden;
       }
@@ -28,22 +28,24 @@
       .card-premium { 
         background: white;
         border-radius: 24px;
-        border: 1px solid rgba(226, 232, 240, 0.8);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.02), 0 4px 6px -2px rgba(0, 0, 0, 0.01);
+        border: 1px solid #E2E8F0; /* Darker border for visibility */
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04);
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       }
 
       .input-premium { 
-        background: #F1F5F9; 
+        background: #EDF2F7; /* More visible input background */
         border: 2px solid transparent; 
         border-radius: 12px; 
         padding: 14px 18px; 
         width: 100%; 
         outline: none; 
         transition: all 0.2s;
-        font-weight: 500;
+        font-weight: 600;
+        color: #1B2559;
         appearance: none;
       }
+      .input-premium::placeholder { color: #718096; }
       .input-premium:focus { 
         background: white;
         border-color: var(--resort-blue); 
@@ -61,7 +63,7 @@
         align-items: center;
         justify-content: center;
         gap: 10px;
-        letter-spacing: -0.01em;
+        letter-spacing: 0.02em;
         cursor: pointer;
         touch-action: manipulation;
       }
@@ -72,10 +74,9 @@
 
       @media print { .no-print { display: none !important; } }
       
-      /* Mobile optimization for long lists */
-      ::-webkit-scrollbar { width: 4px; }
+      ::-webkit-scrollbar { width: 6px; }
       ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 10px; }
+      ::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 10px; }
     </style>
 <script type="importmap">
 {
