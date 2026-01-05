@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import LoginGate from './pages/login_gate';
 import BookingGate from './pages/booking_gate';
@@ -6,7 +6,8 @@ import AdminPortal from './pages/admin_portal';
 import SecurePayment from './pages/secure_payment';
 import TicketHistory from './pages/ticket_history';
 import { AuthState, Booking, AdminSettings } from './types';
-import { DEFAULT_ADMIN_SETTINGS } from './constants';
+import { DEFAULT_ADMIN_SETTINGS, MASTER_SYNC_ID } from './constants';
+import { cloudSync } from './services/cloud_sync';
 
 const AppContent: React.FC = () => {
   const [auth, setAuth] = useState<AuthState>(() => {
@@ -24,17 +25,46 @@ const AppContent: React.FC = () => {
     return saved ? JSON.parse(saved) : DEFAULT_ADMIN_SETTINGS;
   });
 
+  // Use MASTER_SYNC_ID by default so all devices connect automatically
+  const [syncId, setSyncId] = useState<string>(() => localStorage.getItem('swp_sync_id') || MASTER_SYNC_ID);
   const location = useLocation();
 
   useEffect(() => { localStorage.setItem('swp_auth', JSON.stringify(auth)); }, [auth]);
   useEffect(() => { localStorage.setItem('swp_bookings', JSON.stringify(bookings)); }, [bookings]);
   useEffect(() => { localStorage.setItem('swp_settings', JSON.stringify(settings)); }, [settings]);
+  useEffect(() => { localStorage.setItem('swp_sync_id', syncId); }, [syncId]);
+
+  // LIVE MONITORING: Pull latest bookings from cloud every 10 seconds
+  useEffect(() => {
+    const syncInterval = setInterval(async () => {
+      const remoteData = await cloudSync.fetchData(syncId);
+      if (remoteData && Array.isArray(remoteData)) {
+        // Only update if there's new data to avoid unnecessary re-renders
+        if (remoteData.length !== bookings.length) {
+          console.log("Cloud Update Received: Syncing New Bookings...");
+          setBookings(remoteData);
+        }
+      }
+    }, 10000); // 10 seconds polling for fast updates
+    return () => clearInterval(syncInterval);
+  }, [syncId, bookings.length]);
 
   const loginAsGuest = (name: string, mobile: string) => setAuth({ role: 'guest', user: { name, mobile } });
   const loginAsAdmin = (email: string) => setAuth({ role: 'admin', user: { email } });
   const logout = () => { setAuth({ role: null, user: null }); sessionStorage.clear(); };
-  const addBooking = (booking: Booking) => setBookings(prev => [booking, ...prev]);
+  
+  const addBooking = async (booking: Booking) => {
+    // 1. Update local state immediately for speed
+    const updated = [booking, ...bookings];
+    setBookings(updated);
+    
+    // 2. Push to Cloud Database INSTANTLY so Admin sees it
+    console.log("Pushing new booking to Cloud Database...");
+    await cloudSync.updateData(syncId, updated);
+  };
+
   const updateSettings = (newSettings: AdminSettings) => setSettings(newSettings);
+  const setupSyncId = (id: string) => setSyncId(id || MASTER_SYNC_ID);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFC]">
@@ -51,6 +81,11 @@ const AppContent: React.FC = () => {
           </Link>
 
           <div className="flex items-center gap-3 md:gap-6">
+            <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
+                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Live Cloud Enabled</span>
+            </div>
+            
             {auth.role === 'guest' && (
               <nav className="flex items-center gap-1">
                 <Link to="/book" className={`px-3 py-2 text-xs md:text-sm font-bold rounded-lg transition-all ${location.pathname === '/book' ? 'text-blue-600' : 'text-slate-400'}`}>Book</Link>
@@ -74,7 +109,7 @@ const AppContent: React.FC = () => {
           <Route path="/book" element={auth.role === 'guest' ? <BookingGate settings={settings} bookings={bookings} onProceed={(b: any) => b} /> : <Navigate to="/" />} />
           <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} /> : <Navigate to="/" />} />
           <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
-          <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={updateSettings} /> : <Navigate to="/" />} />
+          <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={updateSettings} syncId={syncId} onSyncSetup={setupSyncId} /> : <Navigate to="/" />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>
