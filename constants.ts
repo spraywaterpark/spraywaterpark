@@ -1,4 +1,3 @@
-
 export const TERMS_AND_CONDITIONS = [
   "Single male or only males group are not allowed.",
   "Alcohol or smoking strictly not allowed.",
@@ -32,3 +31,7 @@ export const TIME_SLOTS = [
   "10:00 AM - Morning Shift",
   "04:00 PM - Evening Shift"
 ];
+
+// This is the "Bridge" that connects all devices. 
+// For Spray Water Park, we use this specific ID.
+export const MASTER_SYNC_ID = "spray-aqua-resort-master-v1";
