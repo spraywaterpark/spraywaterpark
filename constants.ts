@@ -32,6 +32,6 @@ export const TIME_SLOTS = [
   "04:00 PM - Evening Shift"
 ];
 
-// This is the "Bridge" that connects all devices. 
-// For Spray Water Park, we use this specific ID.
-export const MASTER_SYNC_ID = "spray-aqua-resort-master-v1";
+// NOTE: Please replace this with a real UUID from jsonblob.com if sync fails.
+// Or the app will auto-generate one on first admin setup.
+export const MASTER_SYNC_ID = "1351141753443835904"; 
