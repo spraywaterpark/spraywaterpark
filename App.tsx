@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import LoginGate from './pages/login_gate';
 import BookingGate from './pages/booking_gate';
@@ -28,38 +28,50 @@ const AppContent: React.FC = () => {
   const [syncId, setSyncId] = useState<string>(() => localStorage.getItem('swp_sync_id') || MASTER_SYNC_ID);
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const location = useLocation();
+  
+  // Use a ref for the latest bookings to avoid closure staleness in the sync loop
+  const bookingsRef = useRef<Booking[]>(bookings);
+  useEffect(() => { bookingsRef.current = bookings; }, [bookings]);
 
   useEffect(() => { localStorage.setItem('swp_auth', JSON.stringify(auth)); }, [auth]);
   useEffect(() => { localStorage.setItem('swp_bookings', JSON.stringify(bookings)); }, [bookings]);
   useEffect(() => { localStorage.setItem('swp_settings', JSON.stringify(settings)); }, [settings]);
   useEffect(() => { localStorage.setItem('swp_sync_id', syncId); }, [syncId]);
 
-  // Live Sync Logic - Fixed to allow MASTER_SYNC_ID
+  // Robust Live Sync Logic
   useEffect(() => {
     if (!syncId) return;
     
+    let isMounted = true;
     const syncData = async () => {
-      try {
-        const remoteData = await cloudSync.fetchData(syncId);
-        if (remoteData && Array.isArray(remoteData)) {
-          setIsCloudConnected(true);
-          // Only update state if data has actually changed to prevent infinite loops
-          setBookings(prev => {
-            if (JSON.stringify(remoteData) !== JSON.stringify(prev)) {
-              return remoteData;
-            }
-            return prev;
-          });
+      const remoteData = await cloudSync.fetchData(syncId);
+      
+      if (!isMounted) return;
+
+      if (remoteData) {
+        setIsCloudConnected(true);
+        // Compare stringified versions to check for changes
+        const currentStr = JSON.stringify(bookingsRef.current);
+        const remoteStr = JSON.stringify(remoteData);
+        
+        if (currentStr !== remoteStr) {
+          setBookings(remoteData);
         }
-      } catch (e) {
+      } else {
+        // If fetch returns null, it might be a temporary network issue
+        // We stay silent but update the UI status if it persists
         setIsCloudConnected(false);
-        console.error("Sync fetch error:", e);
       }
     };
 
     syncData();
-    const interval = setInterval(syncData, 5000); // Faster 5-second sync
-    return () => clearInterval(interval);
+    // Keep sync interval at a reasonable pace to avoid hitting rate limits
+    const interval = setInterval(syncData, 5000); 
+    
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [syncId]);
 
   const loginAsGuest = (name: string, mobile: string) => setAuth({ role: 'guest', user: { name, mobile } });
@@ -67,11 +79,13 @@ const AppContent: React.FC = () => {
   const logout = () => { setAuth({ role: null, user: null }); sessionStorage.clear(); };
   
   const addBooking = async (booking: Booking) => {
-    const updated = [booking, ...bookings];
+    const updated = [booking, ...bookingsRef.current];
     setBookings(updated);
-    // Push immediately to cloud so other devices see it
+    
+    // Immediate push to cloud
     if (syncId) {
-      await cloudSync.updateData(syncId, updated);
+      const success = await cloudSync.updateData(syncId, updated);
+      setIsCloudConnected(success);
     }
   };
 
