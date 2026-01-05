@@ -10,7 +10,8 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
 
   useEffect(() => {
     const saved = sessionStorage.getItem('swp_draft_booking');
-    const auth = JSON.parse(localStorage.getItem('swp_auth') || '{}');
+    // Using sessionStorage for auth as updated in App.tsx
+    const auth = JSON.parse(sessionStorage.getItem('swp_auth') || '{}');
     if (saved) setDraft({ ...JSON.parse(saved), ...auth.user });
     else navigate('/');
   }, [navigate]);
