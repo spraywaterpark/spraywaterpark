@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import LoginGate from './pages/login_gate';
 import BookingGate from './pages/booking_gate';
@@ -25,8 +25,8 @@ const AppContent: React.FC = () => {
     return saved ? JSON.parse(saved) : DEFAULT_ADMIN_SETTINGS;
   });
 
-  // Use MASTER_SYNC_ID by default so all devices connect automatically
   const [syncId, setSyncId] = useState<string>(() => localStorage.getItem('swp_sync_id') || MASTER_SYNC_ID);
+  const [isCloudConnected, setIsCloudConnected] = useState(false);
   const location = useLocation();
 
   useEffect(() => { localStorage.setItem('swp_auth', JSON.stringify(auth)); }, [auth]);
@@ -34,76 +34,96 @@ const AppContent: React.FC = () => {
   useEffect(() => { localStorage.setItem('swp_settings', JSON.stringify(settings)); }, [settings]);
   useEffect(() => { localStorage.setItem('swp_sync_id', syncId); }, [syncId]);
 
-  // LIVE MONITORING: Pull latest bookings from cloud every 10 seconds
+  // SAFE POLLING: Only depends on syncId
   useEffect(() => {
-    const syncInterval = setInterval(async () => {
-      const remoteData = await cloudSync.fetchData(syncId);
-      if (remoteData && Array.isArray(remoteData)) {
-        // Only update if there's new data to avoid unnecessary re-renders
-        if (remoteData.length !== bookings.length) {
-          console.log("Cloud Update Received: Syncing New Bookings...");
-          setBookings(remoteData);
+    if (!syncId || syncId === MASTER_SYNC_ID) return;
+    
+    const syncData = async () => {
+      try {
+        const remoteData = await cloudSync.fetchData(syncId);
+        if (remoteData && Array.isArray(remoteData)) {
+          setIsCloudConnected(true);
+          setBookings(prev => {
+            // Only update if data length or content has actually changed
+            if (JSON.stringify(remoteData) !== JSON.stringify(prev)) {
+              return remoteData;
+            }
+            return prev;
+          });
+        } else {
+          setIsCloudConnected(false);
         }
+      } catch (e) {
+        setIsCloudConnected(false);
       }
-    }, 10000); // 10 seconds polling for fast updates
-    return () => clearInterval(syncInterval);
-  }, [syncId, bookings.length]);
+    };
+
+    syncData();
+    const interval = setInterval(syncData, 10000); // 10s polling for stability
+    return () => clearInterval(interval);
+  }, [syncId]);
 
   const loginAsGuest = (name: string, mobile: string) => setAuth({ role: 'guest', user: { name, mobile } });
   const loginAsAdmin = (email: string) => setAuth({ role: 'admin', user: { email } });
   const logout = () => { setAuth({ role: null, user: null }); sessionStorage.clear(); };
   
   const addBooking = async (booking: Booking) => {
-    // 1. Update local state immediately for speed
     const updated = [booking, ...bookings];
     setBookings(updated);
-    
-    // 2. Push to Cloud Database INSTANTLY so Admin sees it
-    console.log("Pushing new booking to Cloud Database...");
-    await cloudSync.updateData(syncId, updated);
+    if (syncId && syncId !== MASTER_SYNC_ID) {
+      await cloudSync.updateData(syncId, updated);
+    }
   };
 
   const updateSettings = (newSettings: AdminSettings) => setSettings(newSettings);
-  const setupSyncId = (id: string) => setSyncId(id || MASTER_SYNC_ID);
+  const setupSyncId = (id: string) => setSyncId(id);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F8FAFC]">
-      <header className="sticky top-0 z-[100] bg-white/90 backdrop-blur-md border-b border-slate-100 no-print">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 md:h-20 flex justify-between items-center">
-          <Link to="/" className="flex items-center gap-2 md:gap-3">
-            <div className="w-8 h-8 md:w-10 md:h-10 blue-gradient rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
-              <i className="fas fa-water text-sm md:text-base"></i>
+    <div className="min-h-screen flex flex-col bg-[#F4F7FE]">
+      <header className="sticky top-0 z-[100] bg-white/90 backdrop-blur-md border-b border-slate-200 no-print shadow-sm h-20 md:h-24 flex items-center">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 w-full flex justify-between items-center">
+          <Link to="/" className="flex items-center gap-4">
+            <div className="w-12 h-12 blue-gradient rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-200">
+              <i className="fas fa-water text-xl"></i>
             </div>
             <div>
-              <h1 className="text-lg md:text-xl font-extrabold text-[#1B2559] tracking-tight leading-none uppercase">SPRAY AQUA</h1>
-              <p className="text-[8px] md:text-[9px] font-bold text-blue-500 tracking-widest uppercase mt-0.5">Resort</p>
+              <h1 className="text-2xl font-black text-[#1B2559] tracking-tighter uppercase leading-none">SPRAY AQUA</h1>
+              <div className="flex items-center gap-2 mt-1">
+                  <p className="text-[10px] font-black text-blue-500 tracking-[0.2em] uppercase">Premium Resort</p>
+                  {isCloudConnected ? (
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 rounded-full border border-emerald-100">
+                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                      <span className="text-[8px] font-black text-emerald-600 uppercase">Live</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 rounded-full border border-slate-200">
+                      <span className="w-1.5 h-1.5 bg-slate-400 rounded-full"></span>
+                      <span className="text-[8px] font-black text-slate-400 uppercase">Standby</span>
+                    </div>
+                  )}
+              </div>
             </div>
           </Link>
 
-          <div className="flex items-center gap-3 md:gap-6">
-            <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
-                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Live Cloud Enabled</span>
-            </div>
-            
+          <div className="flex items-center gap-6">
             {auth.role === 'guest' && (
-              <nav className="flex items-center gap-1">
-                <Link to="/book" className={`px-3 py-2 text-xs md:text-sm font-bold rounded-lg transition-all ${location.pathname === '/book' ? 'text-blue-600' : 'text-slate-400'}`}>Book</Link>
-                <Link to="/my-bookings" className={`px-3 py-2 text-xs md:text-sm font-bold rounded-lg transition-all ${location.pathname === '/my-bookings' ? 'text-blue-600' : 'text-slate-400'}`}>Tickets</Link>
+              <nav className="hidden md:flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl">
+                <Link to="/book" className={`px-6 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${location.pathname === '/book' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-400'}`}>Reserve</Link>
+                <Link to="/my-bookings" className={`px-6 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${location.pathname === '/my-bookings' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-400'}`}>Tickets</Link>
               </nav>
             )}
             
             {auth.role && (
-              <button onClick={logout} className="text-[10px] font-black text-red-400 hover:text-red-500 uppercase tracking-widest transition-colors">
-                <i className="fas fa-sign-out-alt md:hidden text-base"></i>
-                <span className="hidden md:inline">Sign Out</span>
+              <button onClick={logout} className="flex items-center gap-2 text-[10px] font-black text-red-500 hover:bg-red-50 px-4 py-2.5 rounded-xl uppercase tracking-widest transition-all border border-transparent hover:border-red-100">
+                <i className="fas fa-sign-out-alt"></i>
+                <span className="hidden md:inline">Logout</span>
               </button>
             )}
           </div>
         </div>
       </header>
 
-      <main className="flex-1 py-6 md:py-12">
+      <main className="flex-1 py-10">
         <Routes>
           <Route path="/" element={auth.role === 'admin' ? <Navigate to="/admin" /> : auth.role === 'guest' ? <Navigate to="/book" /> : <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />} />
           <Route path="/book" element={auth.role === 'guest' ? <BookingGate settings={settings} bookings={bookings} onProceed={(b: any) => b} /> : <Navigate to="/" />} />
@@ -113,21 +133,6 @@ const AppContent: React.FC = () => {
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>
-
-      <footer className="py-8 md:py-12 bg-white border-t border-slate-100 mt-12 no-print">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="text-center md:text-left">
-            <h3 className="text-base md:text-lg font-bold text-slate-800">Spray Aqua Resort</h3>
-            <p className="text-xs md:text-sm text-slate-400 mt-1">Jagatpura, Jaipur, Rajasthan</p>
-          </div>
-          <div className="flex gap-6 text-slate-300 text-xl">
-            <i className="fab fa-instagram hover:text-pink-500 cursor-pointer"></i>
-            <i className="fab fa-facebook hover:text-blue-600 cursor-pointer"></i>
-            <i className="fab fa-whatsapp hover:text-green-500 cursor-pointer"></i>
-          </div>
-          <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">© 2024 Spray Aqua Resort</p>
-        </div>
-      </footer>
     </div>
   );
 };
