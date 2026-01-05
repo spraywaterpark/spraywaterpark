@@ -8,55 +8,57 @@ export const cloudSync = {
       const response = await fetch(CLOUD_API_BASE, {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(initialData)
       });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) return null;
       const location = response.headers.get("Location");
       return location ? location.split('/').pop() || null : null;
     } catch (e) {
-      console.error("Cloud Create Error:", e);
       return null;
     }
   },
 
   updateData: async (roomId: string, data: Booking[]): Promise<boolean> => {
-    if (!roomId || roomId === "1351141753443835904" || roomId.length < 5) return false;
+    if (!roomId || roomId.length < 5) return false;
     try {
       const response = await fetch(`${CLOUD_API_BASE}/${roomId}`, {
         method: 'PUT',
         headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(data)
       });
       return response.ok;
     } catch (e) {
-      console.error("Cloud Update Error:", e);
       return false;
     }
   },
 
   fetchData: async (roomId: string): Promise<Booking[] | null> => {
-    if (!roomId || roomId === "1351141753443835904" || roomId.length < 5) return null;
+    if (!roomId || roomId.length < 5) return null;
     try {
+      // Use a AbortController to handle timeouts gracefully
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
       const response = await fetch(`${CLOUD_API_BASE}/${roomId}`, {
         method: 'GET',
-        headers: { 
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        mode: 'cors'
+        // Removing explicit headers to avoid extra CORS preflight OPTIONS requests
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
+
       if (response.ok) {
-        return await response.json();
+        const data = await response.json();
+        return Array.isArray(data) ? data : null;
       }
+      
       return null;
     } catch (e) {
-      console.error("Cloud Fetch Error:", e);
+      // Quietly return null on network failure to avoid "Failed to fetch" spam in the console
       return null;
     }
   }
