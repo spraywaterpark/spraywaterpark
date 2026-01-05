@@ -12,10 +12,8 @@ interface AdminPanelProps {
 
 const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings, syncId, onSyncSetup }) => {
   const [activeTab, setActiveTab] = useState<'bookings' | 'settings' | 'sync'>('bookings');
-  // Changed default view mode to 'sales_today' as per user request
   const [viewMode, setViewMode] = useState<'sales_today' | 'visit_today' | 'all'>('sales_today');
   const [draft, setDraft] = useState<AdminSettings>(settings);
-  const [changed, setChanged] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>(new Date().toLocaleTimeString());
 
@@ -31,11 +29,9 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     let list = [...bookings].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     
     if (viewMode === 'sales_today') {
-      // Filter by CREATION DATE (Aaj kitne logo ne booking kari)
       return list.filter(b => b.createdAt.split('T')[0] === todayStr);
     }
     if (viewMode === 'visit_today') {
-      // Filter by VISIT DATE (Aaj kitne log aayenge)
       return list.filter(b => b.date === todayStr);
     }
     return list;
@@ -52,17 +48,17 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
   const handleUpdate = (field: keyof AdminSettings, value: any) => {
     setDraft({ ...draft, [field]: value });
-    setChanged(true);
   };
 
   const manualRefresh = async () => {
     setIsSyncing(true);
-    await new Promise(r => setTimeout(r, 800));
-    window.location.reload(); 
+    // Trigger a small delay to simulate action, but the App.tsx loop will handle the real fetch
+    await new Promise(r => setTimeout(r, 1000));
     setIsSyncing(false);
   };
 
   const reLinkCloud = async () => {
+    if (!confirm("Are you sure? This will generate a new Room ID. Other devices will need this new ID to stay synced.")) return;
     setIsSyncing(true);
     const newId = await cloudSync.createRoom(bookings);
     if (newId) onSyncSetup(newId);
@@ -83,7 +79,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
               {viewMode === 'sales_today' ? "Today's New Bookings" : "Daily Activity"}
             </h2>
             <p className="text-blue-300 font-bold text-sm mt-3 uppercase tracking-widest">
-              Total Sales Done Today: <span className="text-white text-lg ml-2">₹{viewStats.totalRev.toLocaleString()}</span>
+              Total Sales Recorded Today: <span className="text-white text-lg ml-2">₹{viewStats.totalRev.toLocaleString()}</span>
             </p>
           </div>
           
@@ -107,29 +103,33 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
       {/* Real-time Counter Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 no-print">
-        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm hover:border-blue-300 transition-colors">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Bookings Count</p>
           <div className="flex items-end gap-2">
             <h3 className="text-4xl font-black text-[#1B2559]">{viewStats.totalTickets}</h3>
-            <span className="text-emerald-500 text-xs font-black mb-1 uppercase tracking-tighter">Done</span>
+            <span className="text-emerald-500 text-xs font-black mb-1 uppercase tracking-tighter">Live</span>
           </div>
         </div>
         
         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Adults Booked</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Adults</p>
           <h3 className="text-4xl font-black text-[#1B2559]">{viewStats.totalAdults}</h3>
         </div>
 
         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Kids Booked</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Kids</p>
           <h3 className="text-4xl font-black text-[#1B2559]">{viewStats.totalKids}</h3>
         </div>
 
         <div className="blue-gradient p-8 rounded-[2.5rem] text-white shadow-xl flex flex-col justify-center">
-          <p className="text-[10px] font-black uppercase opacity-60 tracking-widest mb-2">Last Update At</p>
+          <p className="text-[10px] font-black uppercase opacity-60 tracking-widest mb-2">Last Sync At</p>
           <h3 className="text-2xl font-black">{lastUpdated}</h3>
-          <button onClick={manualRefresh} className="mt-2 text-[9px] font-black uppercase tracking-widest text-blue-200 hover:text-white flex items-center gap-2">
-            <i className="fas fa-sync-alt text-[8px]"></i> Refresh Now
+          <button 
+            disabled={isSyncing}
+            onClick={manualRefresh} 
+            className="mt-2 text-[9px] font-black uppercase tracking-widest text-blue-200 hover:text-white flex items-center gap-2 disabled:opacity-50"
+          >
+            <i className={`fas fa-sync-alt text-[8px] ${isSyncing ? 'fa-spin' : ''}`}></i> {isSyncing ? 'Refreshing...' : 'Refresh Now'}
           </button>
         </div>
       </div>
@@ -137,7 +137,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       <div className="bg-white rounded-[3rem] overflow-hidden border border-slate-200 shadow-xl">
         <div className="p-6 md:p-10">
           <div className="space-y-8 animate-fade">
-              {/* Detailed Live Table */}
               <div className="overflow-x-auto rounded-[2rem] border border-slate-200">
                 <table className="w-full text-left">
                   <thead className="bg-slate-50/50">
@@ -152,7 +151,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredBookings.length === 0 ? (
-                      <tr><td colSpan={6} className="py-32 text-center text-slate-300 font-black uppercase text-[10px] tracking-[0.4em]">No sales recorded yet for today</td></tr>
+                      <tr><td colSpan={6} className="py-32 text-center text-slate-300 font-black uppercase text-[10px] tracking-[0.4em]">No sales activity recorded for this criteria</td></tr>
                     ) : (
                       filteredBookings.map(b => (
                         <tr key={b.id} className="hover:bg-blue-50/30 transition-all group">
@@ -164,14 +163,14 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                           </td>
                           <td className="py-6 px-8">
                              <div className="font-black text-[#1B2559] text-lg uppercase tracking-tight">{b.name}</div>
-                             <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Verified Customer</div>
+                             <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Confirmed Guest</div>
                           </td>
                           <td className="py-6 px-8">
                              <div className="text-sm font-bold text-slate-600">{b.mobile}</div>
                           </td>
                           <td className="py-6 px-8">
                              <div className="text-xs font-black text-blue-700 uppercase tracking-widest">{b.date}</div>
-                             <div className="text-[10px] text-slate-400 font-bold uppercase">{b.time.split(' - ')[1]}</div>
+                             <div className="text-[10px] text-slate-400 font-bold uppercase">{b.time.split(' Slot: ')[0]}</div>
                           </td>
                           <td className="py-6 px-8 text-center">
                              <div className="flex items-center justify-center gap-2">
@@ -197,10 +196,10 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
       {/* Tabs for Other Actions (Settings/Sync) */}
       <div className="flex justify-center gap-4 no-print">
-          <button onClick={() => setActiveTab('settings')} className="px-8 py-4 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-600">
+          <button onClick={() => setActiveTab('settings')} className="px-8 py-4 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-600 transition-colors">
             System Rates
           </button>
-          <button onClick={() => setActiveTab('sync')} className="px-8 py-4 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-600">
+          <button onClick={() => setActiveTab('sync')} className="px-8 py-4 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-600 transition-colors">
             Cloud Sync ID
           </button>
       </div>
@@ -211,7 +210,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
             <div className="bg-white rounded-[3rem] w-full max-w-4xl p-10 animate-fade max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-10">
                     <h3 className="text-2xl font-black text-[#1B2559] uppercase tracking-tighter">System {activeTab}</h3>
-                    <button onClick={() => setActiveTab('bookings')} className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500">
+                    <button onClick={() => setActiveTab('bookings')} className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
                         <i className="fas fa-times"></i>
                     </button>
                 </div>
@@ -236,15 +235,22 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                                 <input type="number" className="input-luxury !py-3" value={draft.eveningKidRate} onChange={e => handleUpdate('eveningKidRate', Number(e.target.value))} />
                             </div>
                         </div>
-                        <button onClick={() => { onUpdateSettings(draft); setActiveTab('bookings'); }} className="btn-premium w-full py-6">Save & Deploy Changes</button>
+                        <button onClick={() => { onUpdateSettings(draft); setActiveTab('bookings'); }} className="btn-premium w-full py-6">Save & Sync New Rates</button>
                     </div>
                 )}
 
                 {activeTab === 'sync' && (
                     <div className="text-center space-y-8 py-10">
-                        <p className="text-sm font-bold text-slate-500">Connect other devices using this Master ID:</p>
-                        <p className="text-3xl font-mono font-black text-blue-700 bg-slate-50 p-8 rounded-3xl border-2 border-slate-100 select-all">{syncId}</p>
-                        <button onClick={reLinkCloud} className="btn-premium py-5 px-10 mx-auto">Generate New Cloud Key</button>
+                        <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 text-blue-800 text-sm font-bold flex items-center gap-4">
+                            <i className="fas fa-info-circle text-xl"></i>
+                            <p>Use this Room ID to sync data across multiple mobiles. All devices must use the same ID.</p>
+                        </div>
+                        <p className="text-sm font-black text-slate-400 uppercase tracking-widest">Master Cloud Sync ID:</p>
+                        <p className="text-3xl font-mono font-black text-blue-700 bg-slate-50 p-8 rounded-3xl border-2 border-slate-100 select-all tracking-wider">{syncId}</p>
+                        <button onClick={reLinkCloud} disabled={isSyncing} className="btn-premium py-5 px-10 mx-auto">
+                            {isSyncing ? 'Creating Room...' : 'Generate New Room ID'}
+                        </button>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase italic">Note: Only change this if current ID stops syncing.</p>
                     </div>
                 )}
             </div>
@@ -252,7 +258,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       )}
       
       <div className="text-center py-6 no-print opacity-30">
-         <p className="text-[10px] font-black text-slate-900 uppercase tracking-[0.6em]">Spray Aqua Resort • Sales Terminal</p>
+         <p className="text-[10px] font-black text-slate-900 uppercase tracking-[0.6em]">Spray Aqua Resort • Sales Dashboard v2.0</p>
       </div>
     </div>
   );
