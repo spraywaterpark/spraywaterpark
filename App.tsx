@@ -34,32 +34,31 @@ const AppContent: React.FC = () => {
   useEffect(() => { localStorage.setItem('swp_settings', JSON.stringify(settings)); }, [settings]);
   useEffect(() => { localStorage.setItem('swp_sync_id', syncId); }, [syncId]);
 
-  // SAFE POLLING: Only depends on syncId
+  // Live Sync Logic - Fixed to allow MASTER_SYNC_ID
   useEffect(() => {
-    if (!syncId || syncId === MASTER_SYNC_ID) return;
+    if (!syncId) return;
     
     const syncData = async () => {
       try {
         const remoteData = await cloudSync.fetchData(syncId);
         if (remoteData && Array.isArray(remoteData)) {
           setIsCloudConnected(true);
+          // Only update state if data has actually changed to prevent infinite loops
           setBookings(prev => {
-            // Only update if data length or content has actually changed
             if (JSON.stringify(remoteData) !== JSON.stringify(prev)) {
               return remoteData;
             }
             return prev;
           });
-        } else {
-          setIsCloudConnected(false);
         }
       } catch (e) {
         setIsCloudConnected(false);
+        console.error("Sync fetch error:", e);
       }
     };
 
     syncData();
-    const interval = setInterval(syncData, 10000); // 10s polling for stability
+    const interval = setInterval(syncData, 5000); // Faster 5-second sync
     return () => clearInterval(interval);
   }, [syncId]);
 
@@ -70,7 +69,8 @@ const AppContent: React.FC = () => {
   const addBooking = async (booking: Booking) => {
     const updated = [booking, ...bookings];
     setBookings(updated);
-    if (syncId && syncId !== MASTER_SYNC_ID) {
+    // Push immediately to cloud so other devices see it
+    if (syncId) {
       await cloudSync.updateData(syncId, updated);
     }
   };
@@ -80,7 +80,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F4F7FE]">
-      <header className="sticky top-0 z-[100] bg-white/90 backdrop-blur-md border-b border-slate-200 no-print shadow-sm h-20 md:h-24 flex items-center">
+      <header className="sticky top-0 z-[100] bg-white/90 backdrop-blur-xl border-b border-slate-100 no-print shadow-sm h-20 md:h-24 flex items-center">
         <div className="max-w-7xl mx-auto px-4 md:px-8 w-full flex justify-between items-center">
           <Link to="/" className="flex items-center gap-4">
             <div className="w-12 h-12 blue-gradient rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-200">
@@ -93,12 +93,12 @@ const AppContent: React.FC = () => {
                   {isCloudConnected ? (
                     <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 rounded-full border border-emerald-100">
                       <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                      <span className="text-[8px] font-black text-emerald-600 uppercase">Live</span>
+                      <span className="text-[8px] font-black text-emerald-600 uppercase">Live Sync</span>
                     </div>
                   ) : (
                     <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 rounded-full border border-slate-200">
                       <span className="w-1.5 h-1.5 bg-slate-400 rounded-full"></span>
-                      <span className="text-[8px] font-black text-slate-400 uppercase">Standby</span>
+                      <span className="text-[8px] font-black text-slate-400 uppercase">Local Mode</span>
                     </div>
                   )}
               </div>
@@ -109,7 +109,7 @@ const AppContent: React.FC = () => {
             {auth.role === 'guest' && (
               <nav className="hidden md:flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl">
                 <Link to="/book" className={`px-6 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${location.pathname === '/book' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-400'}`}>Reserve</Link>
-                <Link to="/my-bookings" className={`px-6 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${location.pathname === '/my-bookings' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-400'}`}>Tickets</Link>
+                <Link to="/my-bookings" className={`px-6 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${location.pathname === '/my-bookings' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-400'}`}>My Tickets</Link>
               </nav>
             )}
             
