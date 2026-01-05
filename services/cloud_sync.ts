@@ -3,31 +3,34 @@ import { Booking } from "../types";
 const CLOUD_API_BASE = "https://jsonblob.com/api/jsonBlob";
 
 export const cloudSync = {
-  // Create a new cloud sync room and return the ID
   createRoom: async (initialData: Booking[]): Promise<string | null> => {
     try {
       const response = await fetch(CLOUD_API_BASE, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify(initialData)
       });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const location = response.headers.get("Location");
-      if (location) {
-        return location.split('/').pop() || null;
-      }
-      return null;
+      return location ? location.split('/').pop() || null : null;
     } catch (e) {
       console.error("Cloud Create Error:", e);
       return null;
     }
   },
 
-  // Update existing cloud data
   updateData: async (roomId: string, data: Booking[]): Promise<boolean> => {
+    if (!roomId || roomId === "1351141753443835904" || roomId.length < 5) return false;
     try {
       const response = await fetch(`${CLOUD_API_BASE}/${roomId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify(data)
       });
       return response.ok;
@@ -37,12 +40,16 @@ export const cloudSync = {
     }
   },
 
-  // Fetch data from cloud
   fetchData: async (roomId: string): Promise<Booking[] | null> => {
+    if (!roomId || roomId === "1351141753443835904" || roomId.length < 5) return null;
     try {
       const response = await fetch(`${CLOUD_API_BASE}/${roomId}`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }
+        headers: { 
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        mode: 'cors'
       });
       if (response.ok) {
         return await response.json();
