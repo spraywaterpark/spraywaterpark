@@ -10,8 +10,9 @@ import { DEFAULT_ADMIN_SETTINGS, MASTER_SYNC_ID } from './constants';
 import { cloudSync } from './services/cloud_sync';
 
 const AppContent: React.FC = () => {
+  // Use sessionStorage instead of localStorage for auth to ensure Login is "First Page" for new sessions
   const [auth, setAuth] = useState<AuthState>(() => {
-    const saved = localStorage.getItem('swp_auth');
+    const saved = sessionStorage.getItem('swp_auth');
     return saved ? JSON.parse(saved) : { role: null, user: null };
   });
 
@@ -29,16 +30,14 @@ const AppContent: React.FC = () => {
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const location = useLocation();
   
-  // Use a ref for the latest bookings to avoid closure staleness in the sync loop
   const bookingsRef = useRef<Booking[]>(bookings);
   useEffect(() => { bookingsRef.current = bookings; }, [bookings]);
 
-  useEffect(() => { localStorage.setItem('swp_auth', JSON.stringify(auth)); }, [auth]);
+  useEffect(() => { sessionStorage.setItem('swp_auth', JSON.stringify(auth)); }, [auth]);
   useEffect(() => { localStorage.setItem('swp_bookings', JSON.stringify(bookings)); }, [bookings]);
   useEffect(() => { localStorage.setItem('swp_settings', JSON.stringify(settings)); }, [settings]);
   useEffect(() => { localStorage.setItem('swp_sync_id', syncId); }, [syncId]);
 
-  // Robust Live Sync Logic
   useEffect(() => {
     if (!syncId) return;
     
@@ -50,7 +49,6 @@ const AppContent: React.FC = () => {
 
       if (remoteData) {
         setIsCloudConnected(true);
-        // Compare stringified versions to check for changes
         const currentStr = JSON.stringify(bookingsRef.current);
         const remoteStr = JSON.stringify(remoteData);
         
@@ -58,14 +56,11 @@ const AppContent: React.FC = () => {
           setBookings(remoteData);
         }
       } else {
-        // If fetch returns null, it might be a temporary network issue
-        // We stay silent but update the UI status if it persists
         setIsCloudConnected(false);
       }
     };
 
     syncData();
-    // Keep sync interval at a reasonable pace to avoid hitting rate limits
     const interval = setInterval(syncData, 5000); 
     
     return () => {
@@ -82,7 +77,6 @@ const AppContent: React.FC = () => {
     const updated = [booking, ...bookingsRef.current];
     setBookings(updated);
     
-    // Immediate push to cloud
     if (syncId) {
       const success = await cloudSync.updateData(syncId, updated);
       setIsCloudConnected(success);
@@ -139,7 +133,11 @@ const AppContent: React.FC = () => {
 
       <main className="flex-1 py-10">
         <Routes>
-          <Route path="/" element={auth.role === 'admin' ? <Navigate to="/admin" /> : auth.role === 'guest' ? <Navigate to="/book" /> : <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />} />
+          <Route path="/" element={
+            auth.role === 'admin' ? <Navigate to="/admin" /> : 
+            auth.role === 'guest' ? <Navigate to="/book" /> : 
+            <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />
+          } />
           <Route path="/book" element={auth.role === 'guest' ? <BookingGate settings={settings} bookings={bookings} onProceed={(b: any) => b} /> : <Navigate to="/" />} />
           <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} /> : <Navigate to="/" />} />
           <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
