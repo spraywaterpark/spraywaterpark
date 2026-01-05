@@ -2,21 +2,80 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spray Aqua Resort | Booking</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Spray Aqua Resort | Premium Water Park Booking</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap');
-      body { font-family: 'Outfit', sans-serif; background: #F4F7FE; margin: 0; }
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+      
+      :root {
+        --resort-navy: #1B2559;
+        --resort-blue: #0066FF;
+        --resort-bg: #F8FAFC;
+      }
+
+      body { 
+        font-family: 'Plus Jakarta Sans', sans-serif; 
+        background-color: var(--resort-bg); 
+        color: #1E293B;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+
       .blue-gradient { background: linear-gradient(135deg, #0066FF 0%, #0044CC 100%); }
-      .card-shadow { box-shadow: 0px 40px 58px -20px rgba(112, 144, 176, 0.12); }
-      .input-field { background: #FFFFFF; border: 1px solid #E0E5F2; border-radius: 16px; padding: 12px 20px; width: 100%; outline: none; transition: border 0.2s; }
-      .input-field:focus { border-color: #0066FF; }
-      .btn-primary { background: #0066FF; color: white; border-radius: 16px; font-weight: 700; cursor: pointer; border: none; display: flex; align-items: center; justify-content: center; padding: 12px 24px; }
-      .animate-fade { animation: fadeIn 0.4s ease-out; }
-      @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      
+      .card-premium { 
+        background: white;
+        border-radius: 24px;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.02), 0 4px 6px -2px rgba(0, 0, 0, 0.01);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .input-premium { 
+        background: #F1F5F9; 
+        border: 2px solid transparent; 
+        border-radius: 12px; 
+        padding: 14px 18px; 
+        width: 100%; 
+        outline: none; 
+        transition: all 0.2s;
+        font-weight: 500;
+        appearance: none;
+      }
+      .input-premium:focus { 
+        background: white;
+        border-color: var(--resort-blue); 
+        box-shadow: 0 0 0 4px rgba(0, 102, 255, 0.1);
+      }
+
+      .btn-luxury { 
+        background: var(--resort-navy); 
+        color: white; 
+        border-radius: 14px; 
+        font-weight: 700; 
+        padding: 16px 32px;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        letter-spacing: -0.01em;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+      .btn-luxury:active { transform: scale(0.98); opacity: 0.9; }
+
+      .animate-float { animation: float 6s ease-in-out infinite; }
+      @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
       @media print { .no-print { display: none !important; } }
+      
+      /* Mobile optimization for long lists */
+      ::-webkit-scrollbar { width: 4px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 10px; }
     </style>
 <script type="importmap">
 {
