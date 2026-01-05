@@ -7,76 +7,108 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Pacifico&display=swap');
       
       :root {
-        --resort-navy: #1B2559;
-        --resort-blue: #0066FF;
-        --resort-bg: #F4F7FE; /* Slightly more defined background */
+        --resort-navy: #0F172A;
+        --resort-blue: #0284C7;
+        --resort-teal: #06B6D4;
+        --resort-bg: #F8FAFC;
       }
 
       body { 
         font-family: 'Plus Jakarta Sans', sans-serif; 
         background-color: var(--resort-bg); 
-        color: #1B2559; /* Darker default text */
+        color: var(--resort-navy); 
         -webkit-font-smoothing: antialiased;
         overflow-x: hidden;
       }
 
-      .blue-gradient { background: linear-gradient(135deg, #0066FF 0%, #0044CC 100%); }
+      .logo-font { font-family: 'Pacifico', cursive; }
+
+      .ocean-gradient {
+        background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%);
+      }
       
-      .card-premium { 
-        background: white;
-        border-radius: 24px;
-        border: 1px solid #E2E8F0; /* Darker border for visibility */
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      .glass-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
       }
 
-      .input-premium { 
-        background: #EDF2F7; /* More visible input background */
-        border: 2px solid transparent; 
-        border-radius: 12px; 
-        padding: 14px 18px; 
+      .shimmer {
+        position: relative;
+        overflow: hidden;
+      }
+      .shimmer::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+        transform: rotate(45deg);
+        animation: shimmer 3s infinite;
+      }
+      @keyframes shimmer {
+        0% { transform: translate(-100%, -100%) rotate(45deg); }
+        100% { transform: translate(100%, 100%) rotate(45deg); }
+      }
+
+      .input-luxury { 
+        background: #F1F5F9; 
+        border: 2px solid transparent;
+        border-radius: 18px; 
+        padding: 16px 24px; 
         width: 100%; 
         outline: none; 
-        transition: all 0.2s;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         font-weight: 600;
-        color: #1B2559;
-        appearance: none;
+        color: var(--resort-navy);
       }
-      .input-premium::placeholder { color: #718096; }
-      .input-premium:focus { 
-        background: white;
+      .input-luxury:focus { 
+        background: #FFFFFF;
         border-color: var(--resort-blue); 
-        box-shadow: 0 0 0 4px rgba(0, 102, 255, 0.1);
+        box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.1);
+        transform: translateY(-2px);
       }
 
-      .btn-luxury { 
+      .btn-premium { 
         background: var(--resort-navy); 
         color: white; 
-        border-radius: 14px; 
-        font-weight: 700; 
-        padding: 16px 32px;
-        transition: all 0.2s;
+        border-radius: 20px; 
+        font-weight: 800; 
+        padding: 20px 40px;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 10px;
-        letter-spacing: 0.02em;
+        gap: 12px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-size: 14px;
+        box-shadow: 0 15px 30px -10px rgba(15, 23, 42, 0.4);
         cursor: pointer;
-        touch-action: manipulation;
+        border: none;
       }
-      .btn-luxury:active { transform: scale(0.98); opacity: 0.9; }
+      .btn-premium:hover { 
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.5);
+        background: #1E293B;
+      }
 
-      .animate-float { animation: float 6s ease-in-out infinite; }
-      @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+      .animate-float {
+        animation: float 6s ease-in-out infinite;
+      }
+      @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-15px); }
+        100% { transform: translateY(0px); }
+      }
 
       @media print { .no-print { display: none !important; } }
-      
-      ::-webkit-scrollbar { width: 6px; }
-      ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 10px; }
     </style>
 <script type="importmap">
 {
