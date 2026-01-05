@@ -13,8 +13,8 @@ export const PRICING = {
 };
 
 export const OFFERS = {
-  MORNING: "FREE: 1 Plate Chole Bhature with every ticket!",
-  EVENING: "FREE: Grand Buffet Dinner for all guests!"
+  MORNING: "FREE Chole Bhature (2:00 PM - 3:00 PM only)",
+  EVENING: "FREE Buffet Dinner (8:00 PM - 10:00 PM)"
 };
 
 export const DEFAULT_ADMIN_SETTINGS = {
@@ -28,8 +28,8 @@ export const DEFAULT_ADMIN_SETTINGS = {
 };
 
 export const TIME_SLOTS = [
-  "Morning Slot: 10:00 AM - 03:00 PM (10am-2pm Activities | 2pm-3pm Refreshment)",
-  "Evening Slot: 04:00 PM - 10:00 PM (4pm-8pm Activities | 8pm-10pm Buffet Dinner)"
+  "Morning Slot: 10:00 AM - 03:00 PM",
+  "Evening Slot: 04:00 PM - 10:00 PM"
 ];
 
 export const MASTER_SYNC_ID = "1351141753443835904";
