@@ -22,16 +22,14 @@ export const DEFAULT_ADMIN_SETTINGS = {
   eveningAdultRate: 800,
   morningKidRate: 350,
   eveningKidRate: 500,
-  earlyBirdDiscount: 20, // Tier 1 (0-100 guests)
-  extraDiscountPercent: 10, // Tier 2 (101-200 guests)
+  earlyBirdDiscount: 20, 
+  extraDiscountPercent: 10,
   blockedDates: [],
 };
 
 export const TIME_SLOTS = [
-  "10:00 AM - Morning Shift",
-  "04:00 PM - Evening Shift"
+  "Morning Slot: 10:00 AM - 03:00 PM (10am-2pm Activities | 2pm-3pm Refreshment)",
+  "Evening Slot: 04:00 PM - 10:00 PM (4pm-8pm Activities | 8pm-10pm Buffet Dinner)"
 ];
 
-// NOTE: Please replace this with a real UUID from jsonblob.com if sync fails.
-// Or the app will auto-generate one on first admin setup.
-export const MASTER_SYNC_ID = "1351141753443835904"; 
+export const MASTER_SYNC_ID = "1351141753443835904";
