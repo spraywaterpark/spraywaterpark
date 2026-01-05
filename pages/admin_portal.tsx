@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Booking, AdminSettings } from '../types';
 
@@ -37,77 +36,78 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   };
 
   return (
-    <div className="max-w-7xl mx-auto py-6 px-4 animate-fade space-y-8">
+    <div className="max-w-7xl mx-auto py-6 px-4 animate-fade space-y-10">
+      {/* Dashboard Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-white">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Revenue</p>
-          <h3 className="text-2xl font-black text-[#1B2559]">₹{stats.revenue.toLocaleString()}</h3>
+        <div className="bg-white p-7 rounded-[2.5rem] shadow-sm border border-slate-200">
+          <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Total Revenue</p>
+          <h3 className="text-3xl font-black text-[#1B2559]">₹{stats.revenue.toLocaleString()}</h3>
         </div>
-        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-white">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Guests</p>
-          <h3 className="text-2xl font-black text-[#1B2559]">{stats.guests}</h3>
+        <div className="bg-white p-7 rounded-[2.5rem] shadow-sm border border-slate-200">
+          <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Total Guests</p>
+          <h3 className="text-3xl font-black text-[#1B2559]">{stats.guests}</h3>
         </div>
-        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-white">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Active Bookings</p>
-          <h3 className="text-2xl font-black text-[#1B2559]">{stats.count}</h3>
+        <div className="bg-white p-7 rounded-[2.5rem] shadow-sm border border-slate-200">
+          <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Active Bookings</p>
+          <h3 className="text-3xl font-black text-[#1B2559]">{stats.count}</h3>
         </div>
-        <div className="blue-gradient p-6 rounded-[2rem] text-white shadow-xl shadow-blue-100">
-          <p className="text-[10px] font-black uppercase opacity-60 tracking-widest mb-1">Max Tier Discount</p>
-          <h3 className="text-lg font-bold">{Math.max(settings.earlyBirdDiscount, settings.extraDiscountPercent)}% OFF</h3>
+        <div className="blue-gradient p-7 rounded-[2.5rem] text-white shadow-xl shadow-blue-100">
+          <p className="text-[11px] font-black uppercase opacity-70 tracking-[0.2em] mb-2">Active Offers</p>
+          <h3 className="text-xl font-black uppercase">Tiered Discounts</h3>
         </div>
       </div>
 
-      <div className="bg-white rounded-[2.5rem] card-shadow overflow-hidden border border-white">
-        <div className="flex border-b overflow-x-auto bg-gray-50/30">
-          <button onClick={() => setActiveTab('bookings')} className={`px-10 py-6 font-black text-xs uppercase tracking-widest whitespace-nowrap ${activeTab === 'bookings' ? 'text-blue-600 border-b-4 border-blue-600 bg-white' : 'text-gray-400 hover:text-gray-600'}`}>
+      <div className="bg-white rounded-[3rem] card-premium overflow-hidden shadow-xl border-slate-200">
+        <div className="flex border-b border-slate-200 overflow-x-auto bg-slate-50">
+          <button onClick={() => setActiveTab('bookings')} className={`px-12 py-7 font-black text-xs uppercase tracking-[0.2em] whitespace-nowrap transition-all ${activeTab === 'bookings' ? 'text-blue-600 border-b-4 border-blue-600 bg-white' : 'text-slate-500 hover:text-slate-800'}`}>
             Live Records
           </button>
-          <button onClick={() => setActiveTab('settings')} className={`px-10 py-6 font-black text-xs uppercase tracking-widest whitespace-nowrap ${activeTab === 'settings' ? 'text-blue-600 border-b-4 border-blue-600 bg-white' : 'text-gray-400 hover:text-gray-600'}`}>
-            System Settings
+          <button onClick={() => setActiveTab('settings')} className={`px-12 py-7 font-black text-xs uppercase tracking-[0.2em] whitespace-nowrap transition-all ${activeTab === 'settings' ? 'text-blue-600 border-b-4 border-blue-600 bg-white' : 'text-slate-500 hover:text-slate-800'}`}>
+            Resort Engine Settings
           </button>
         </div>
 
-        <div className="p-8 md:p-12">
+        <div className="p-8 md:p-14">
           {activeTab === 'bookings' && (
-            <div className="space-y-8 animate-fade">
-              <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl w-fit">
-                <label className="text-[10px] font-black text-gray-400 uppercase">Selected Date:</label>
-                <input type="date" className="input-field py-1 text-sm font-bold" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+            <div className="space-y-10 animate-fade">
+              <div className="flex items-center gap-6 bg-blue-50 p-5 rounded-2xl w-fit border border-blue-100">
+                <label className="text-[11px] font-black text-blue-800 uppercase tracking-widest">Select View Date:</label>
+                <input type="date" className="input-premium py-2 px-4 text-sm font-bold bg-white max-w-[200px]" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
               </div>
               
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="text-[10px] font-black uppercase text-gray-400 border-b">
-                      <th className="pb-6 px-4">Guest Identity</th>
-                      <th className="pb-6 px-4">Slot/Time</th>
-                      <th className="pb-6 px-4">Occupancy</th>
-                      <th className="pb-6 px-4">Payment</th>
-                      <th className="pb-6 px-4">Status</th>
+                    <tr className="text-[11px] font-black uppercase text-slate-800 border-b-2 border-slate-200">
+                      <th className="pb-8 px-6">Guest Identity</th>
+                      <th className="pb-8 px-6">Slot/Time</th>
+                      <th className="pb-8 px-6">Occupancy</th>
+                      <th className="pb-8 px-6">Net Payment</th>
+                      <th className="pb-8 px-6">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50">
+                  <tbody className="divide-y divide-slate-100">
                     {filtered.length === 0 ? (
-                      <tr><td colSpan={5} className="py-20 text-center text-gray-300 font-bold uppercase tracking-widest">No entries for this date</td></tr>
+                      <tr><td colSpan={5} className="py-24 text-center text-slate-400 font-black uppercase text-xs tracking-[0.3em]">No entries for {filterDate}</td></tr>
                     ) : (
                       filtered.map(b => (
-                        <tr key={b.id} className="hover:bg-blue-50/20 transition-all group">
-                          <td className="py-6 px-4">
+                        <tr key={b.id} className="hover:bg-blue-50 transition-colors group">
+                          <td className="py-8 px-6">
                             <div>
-                              <div className="font-black text-[#1B2559] group-hover:text-blue-600 transition-colors">{b.name}</div>
-                              <div className="text-xs text-gray-400 font-bold">{b.mobile}</div>
+                              <div className="font-black text-[#1B2559] text-base group-hover:text-blue-700">{b.name}</div>
+                              <div className="text-[11px] text-slate-600 font-black uppercase mt-1">{b.mobile}</div>
                             </div>
                           </td>
-                          <td className="py-6 px-4">
-                            <div className="text-sm font-bold text-gray-600">{b.time.split(' - ')[0]}</div>
-                            <div className="text-[10px] font-black text-blue-500 uppercase">{b.time.split(' - ')[1]}</div>
+                          <td className="py-8 px-6">
+                            <div className="text-sm font-black text-slate-800">{b.time.split(' - ')[0]}</div>
+                            <div className="text-[11px] font-black text-blue-600 uppercase mt-1 tracking-wider">{b.time.split(' - ')[1]}</div>
                           </td>
-                          <td className="py-6 px-4">
-                            <span className="text-xs font-black text-gray-400">A: {b.adults} | K: {b.kids}</span>
+                          <td className="py-8 px-6">
+                            <span className="text-xs font-black text-slate-700 bg-slate-100 px-3 py-1 rounded-md border border-slate-200">A: {b.adults} | C: {b.kids}</span>
                           </td>
-                          <td className="py-6 px-4 font-black text-blue-600">₹{b.totalAmount}</td>
-                          <td className="py-6 px-4">
-                            <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-black uppercase">Paid</span>
+                          <td className="py-8 px-6 font-black text-blue-700 text-lg">₹{b.totalAmount}</td>
+                          <td className="py-8 px-6">
+                            <span className="px-5 py-2 bg-emerald-100 text-emerald-800 rounded-xl text-[10px] font-black uppercase tracking-widest border border-emerald-200 shadow-sm">Verified</span>
                           </td>
                         </tr>
                       ))
@@ -119,54 +119,57 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
           )}
 
           {activeTab === 'settings' && (
-            <div className="space-y-12 animate-fade max-w-5xl">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                <div className="space-y-8">
-                  <h4 className="font-black text-sm text-[#1B2559] uppercase tracking-[0.2em] flex items-center gap-3">
-                    <i className="fas fa-tags text-blue-600"></i> Pricing Engine
+            <div className="space-y-14 animate-fade max-w-5xl">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-20">
+                <div className="space-y-10">
+                  <h4 className="font-black text-sm text-[#1B2559] uppercase tracking-[0.3em] flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center"><i className="fas fa-tags"></i></div>
+                    Pricing Engine
                   </h4>
-                  <div className="grid grid-cols-2 gap-6 bg-gray-50 p-8 rounded-[2rem]">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase">Morn. Adult</label>
-                      <input type="number" className="input-field" value={draft.morningAdultRate} onChange={e => handleUpdate('morningAdultRate', Number(e.target.value))} />
+                  <div className="grid grid-cols-2 gap-8 bg-slate-50 p-10 rounded-[2.5rem] border border-slate-200">
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Morning Adult</label>
+                      <input type="number" className="input-premium" value={draft.morningAdultRate} onChange={e => handleUpdate('morningAdultRate', Number(e.target.value))} />
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase">Morn. Kid</label>
-                      <input type="number" className="input-field" value={draft.morningKidRate} onChange={e => handleUpdate('morningKidRate', Number(e.target.value))} />
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Morning Child</label>
+                      <input type="number" className="input-premium" value={draft.morningKidRate} onChange={e => handleUpdate('morningKidRate', Number(e.target.value))} />
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase">Eve. Adult</label>
-                      <input type="number" className="input-field" value={draft.eveningAdultRate} onChange={e => handleUpdate('eveningAdultRate', Number(e.target.value))} />
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Evening Adult</label>
+                      <input type="number" className="input-premium" value={draft.eveningAdultRate} onChange={e => handleUpdate('eveningAdultRate', Number(e.target.value))} />
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase">Eve. Kid</label>
-                      <input type="number" className="input-field" value={draft.eveningKidRate} onChange={e => handleUpdate('eveningKidRate', Number(e.target.value))} />
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Evening Child</label>
+                      <input type="number" className="input-premium" value={draft.eveningKidRate} onChange={e => handleUpdate('eveningKidRate', Number(e.target.value))} />
                     </div>
                   </div>
                 </div>
-                <div className="space-y-8">
-                  <h4 className="font-black text-sm text-[#1B2559] uppercase tracking-[0.2em] flex items-center gap-3">
-                    <i className="fas fa-percent text-orange-600"></i> Smart Offers
+                <div className="space-y-10">
+                  <h4 className="font-black text-sm text-[#1B2559] uppercase tracking-[0.3em] flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center"><i className="fas fa-bolt"></i></div>
+                    Offer Logic
                   </h4>
-                  <div className="grid grid-cols-1 gap-6 bg-orange-50/50 p-8 rounded-[2rem]">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-orange-600 uppercase">Tier 1 % (0-100 guests)</label>
-                      <input type="number" className="input-field" value={draft.earlyBirdDiscount} onChange={e => handleUpdate('earlyBirdDiscount', Number(e.target.value))} />
+                  <div className="grid grid-cols-1 gap-8 bg-emerald-50/50 p-10 rounded-[2.5rem] border border-emerald-100">
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Tier 1 (0-100 guests) %</label>
+                      <input type="number" className="input-premium bg-white" value={draft.earlyBirdDiscount} onChange={e => handleUpdate('earlyBirdDiscount', Number(e.target.value))} />
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-blue-600 uppercase">Tier 2 % (101-200 guests)</label>
-                      <input type="number" className="input-field" value={draft.extraDiscountPercent} onChange={e => handleUpdate('extraDiscountPercent', Number(e.target.value))} />
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-blue-700 uppercase tracking-widest">Tier 2 (101-200 guests) %</label>
+                      <input type="number" className="input-premium bg-white" value={draft.extraDiscountPercent} onChange={e => handleUpdate('extraDiscountPercent', Number(e.target.value))} />
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="pt-10 border-t flex justify-end">
+
+              <div className="pt-12 border-t border-slate-200 flex justify-end">
                 <button 
                   onClick={save} 
                   disabled={!changed}
-                  className="btn-primary px-16 py-5 text-xl shadow-2xl disabled:opacity-50 disabled:grayscale"
+                  className="btn-luxury px-20 py-6 text-xl shadow-2xl disabled:opacity-40 disabled:grayscale uppercase tracking-widest"
                 >
-                  Save All Configurations
+                  Save Global Configurations
                 </button>
               </div>
             </div>
