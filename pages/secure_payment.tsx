@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Booking } from '../types';
-import { generateConfirmationMessage } from '../services/geminiService';
+import { generateConfirmationMessage } from '../services/gemini_service';
 
 const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBooking }) => {
   const navigate = useNavigate();
@@ -39,7 +39,7 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
 
   return (
     <div className="max-w-md mx-auto mt-12 px-4 animate-fade">
-      <div className="bg-white p-10 md:p-14 rounded-[3rem] card-shadow text-center border border-white">
+      <div className="bg-white p-10 md:p-14 rounded-[3rem] card-premium text-center border border-white">
         <div className="w-20 h-20 bg-green-50 text-green-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-8">
           <i className="fas fa-lock"></i>
         </div>
@@ -60,7 +60,7 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
         <button 
             onClick={processPayment} 
             disabled={isPaying} 
-            className="w-full btn-primary py-6 text-xl shadow-2xl relative overflow-hidden uppercase tracking-widest"
+            className="w-full btn-luxury py-6 text-xl shadow-2xl relative overflow-hidden uppercase tracking-widest"
         >
            {isPaying ? (
                <span className="flex items-center justify-center gap-3">
