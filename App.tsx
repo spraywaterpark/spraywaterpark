@@ -98,16 +98,19 @@ const AppContent: React.FC = () => {
               <h1 className="text-xl md:text-2xl font-black text-[#1B2559] tracking-tighter uppercase leading-none">Spray Aqua Resort</h1>
               <div className="flex items-center gap-2 mt-1">
                   <p className="text-[10px] font-black text-blue-500 tracking-[0.2em] uppercase">Jaipur's Finest</p>
-                  {isCloudConnected ? (
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 rounded-full border border-emerald-100">
-                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                      <span className="text-[8px] font-black text-emerald-600 uppercase">Live Sync</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 rounded-full border border-slate-200">
-                      <span className="w-1.5 h-1.5 bg-slate-400 rounded-full"></span>
-                      <span className="text-[8px] font-black text-slate-400 uppercase">Local Mode</span>
-                    </div>
+                  {/* Cloud status only visible for Admin */}
+                  {auth.role === 'admin' && (
+                    isCloudConnected ? (
+                      <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 rounded-full border border-emerald-100">
+                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                        <span className="text-[8px] font-black text-emerald-600 uppercase">Live Sync</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 rounded-full border border-slate-200">
+                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full"></span>
+                        <span className="text-[8px] font-black text-slate-400 uppercase">Local Mode</span>
+                      </div>
+                    )
                   )}
               </div>
             </div>
