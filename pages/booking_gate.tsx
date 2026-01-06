@@ -94,7 +94,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
             </div>
           </section>
 
-          {/* Section 2: MEAL OFFER (FIXED VISUALS) */}
+          {/* Section 2: MEAL OFFER VISUAL (RESTORED) */}
           <section className="flex flex-col items-center">
               <div className="w-full bg-slate-950/5 border border-slate-200 p-10 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-10">
                   <div className="flex items-center gap-8">
