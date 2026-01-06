@@ -26,7 +26,6 @@ const AppContent: React.FC = () => {
   });
 
   const [syncId, setSyncId] = useState<string>(() => localStorage.getItem('swp_sync_id') || MASTER_SYNC_ID);
-  const [isCloudConnected, setIsCloudConnected] = useState(false);
   const location = useLocation();
   
   const bookingsRef = useRef<Booking[]>(bookings);
@@ -39,31 +38,21 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     if (!syncId) return;
-    let isMounted = true;
     const syncData = async () => {
       const remoteData = await cloudSync.fetchData(syncId);
-      if (!isMounted) return;
-      if (remoteData) {
-        setIsCloudConnected(true);
-        if (JSON.stringify(bookingsRef.current) !== JSON.stringify(remoteData)) {
-          setBookings(remoteData);
-        }
-      } else {
-        setIsCloudConnected(false);
+      if (remoteData && JSON.stringify(bookingsRef.current) !== JSON.stringify(remoteData)) {
+        setBookings(remoteData);
       }
     };
     syncData();
     const interval = setInterval(syncData, 5000); 
-    return () => { isMounted = false; clearInterval(interval); };
+    return () => clearInterval(interval);
   }, [syncId]);
 
   const loginAsGuest = (name: string, mobile: string) => setAuth({ role: 'guest', user: { name, mobile } });
   const loginAsAdmin = (email: string) => setAuth({ role: 'admin', user: { email } });
   const logout = () => { setAuth({ role: null, user: null }); sessionStorage.clear(); };
   
-  const updateSettings = (newSettings: AdminSettings) => setSettings(newSettings);
-  const setupSyncId = (id: string) => setSyncId(id);
-
   const addBooking = async (booking: Booking) => {
     const updated = [booking, ...bookingsRef.current];
     setBookings(updated);
@@ -76,21 +65,20 @@ const AppContent: React.FC = () => {
         <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white border border-white/20">
-              <i className="fas fa-water text-lg"></i>
+              <i className="fas fa-water"></i>
             </div>
-            <h1 className="text-xl font-black text-white tracking-tight uppercase">Spray Aqua Resort</h1>
+            <h1 className="text-xl font-black text-white uppercase tracking-tight">Spray Aqua Resort</h1>
           </Link>
 
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-6">
             {auth.role === 'guest' && (
-              <nav className="hidden md:flex items-center gap-10">
-                <Link to="/book" className={`text-[10px] font-bold uppercase tracking-widest transition-all ${location.pathname === '/book' ? 'text-white border-b-2 border-white pb-2' : 'text-white/60 hover:text-white'}`}>Book Now</Link>
-                <Link to="/my-bookings" className={`text-[10px] font-bold uppercase tracking-widest transition-all ${location.pathname === '/my-bookings' ? 'text-white border-b-2 border-white pb-2' : 'text-white/60 hover:text-white'}`}>My Tickets</Link>
+              <nav className="hidden md:flex items-center gap-8">
+                <Link to="/book" className={`text-[10px] font-bold uppercase tracking-widest ${location.pathname === '/book' ? 'text-white border-b-2 border-white pb-1' : 'text-white/50 hover:text-white'}`}>Reserve</Link>
+                <Link to="/my-bookings" className={`text-[10px] font-bold uppercase tracking-widest ${location.pathname === '/my-bookings' ? 'text-white border-b-2 border-white pb-1' : 'text-white/50 hover:text-white'}`}>Tickets</Link>
               </nav>
             )}
-            
             {auth.role && (
-              <button onClick={logout} className="text-white/40 hover:text-white transition-colors">
+              <button onClick={logout} className="text-white/50 hover:text-white transition-colors">
                 <i className="fas fa-power-off text-sm"></i>
               </button>
             )}
@@ -98,21 +86,19 @@ const AppContent: React.FC = () => {
         </div>
       </header>
 
-      <main className="content-wrapper">
-        <div className="w-full flex items-center justify-center">
-          <Routes>
-            <Route path="/" element={
-              auth.role === 'admin' ? <Navigate to="/admin" /> : 
-              auth.role === 'guest' ? <Navigate to="/book" /> : 
-              <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />
-            } />
-            <Route path="/book" element={auth.role === 'guest' ? <BookingGate settings={settings} bookings={bookings} onProceed={(b: any) => b} /> : <Navigate to="/" />} />
-            <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} /> : <Navigate to="/" />} />
-            <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
-            <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={updateSettings} syncId={syncId} onSyncSetup={setupSyncId} /> : <Navigate to="/" />} />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </div>
+      <main className="app-main">
+        <Routes>
+          <Route path="/" element={
+            auth.role === 'admin' ? <Navigate to="/admin" /> : 
+            auth.role === 'guest' ? <Navigate to="/book" /> : 
+            <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />
+          } />
+          <Route path="/book" element={auth.role === 'guest' ? <BookingGate settings={settings} bookings={bookings} onProceed={() => {}} /> : <Navigate to="/" />} />
+          <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} /> : <Navigate to="/" />} />
+          <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
+          <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={() => {}} syncId={syncId} onSyncSetup={() => {}} /> : <Navigate to="/" />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
       </main>
     </div>
   );
