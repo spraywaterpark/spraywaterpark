@@ -10,7 +10,6 @@ import { DEFAULT_ADMIN_SETTINGS, MASTER_SYNC_ID } from './constants';
 import { cloudSync } from './services/cloud_sync';
 
 const AppContent: React.FC = () => {
-  // Use sessionStorage instead of localStorage for auth to ensure Login is "First Page" for new sessions
   const [auth, setAuth] = useState<AuthState>(() => {
     const saved = sessionStorage.getItem('swp_auth');
     return saved ? JSON.parse(saved) : { role: null, user: null };
@@ -40,101 +39,66 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     if (!syncId) return;
-    
     let isMounted = true;
     const syncData = async () => {
       const remoteData = await cloudSync.fetchData(syncId);
-      
       if (!isMounted) return;
-
       if (remoteData) {
         setIsCloudConnected(true);
-        const currentStr = JSON.stringify(bookingsRef.current);
-        const remoteStr = JSON.stringify(remoteData);
-        
-        if (currentStr !== remoteStr) {
+        if (JSON.stringify(bookingsRef.current) !== JSON.stringify(remoteData)) {
           setBookings(remoteData);
         }
       } else {
         setIsCloudConnected(false);
       }
     };
-
     syncData();
     const interval = setInterval(syncData, 5000); 
-    
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
+    return () => { isMounted = false; clearInterval(interval); };
   }, [syncId]);
 
   const loginAsGuest = (name: string, mobile: string) => setAuth({ role: 'guest', user: { name, mobile } });
   const loginAsAdmin = (email: string) => setAuth({ role: 'admin', user: { email } });
   const logout = () => { setAuth({ role: null, user: null }); sessionStorage.clear(); };
   
-  const addBooking = async (booking: Booking) => {
-    const updated = [booking, ...bookingsRef.current];
-    setBookings(updated);
-    
-    if (syncId) {
-      const success = await cloudSync.updateData(syncId, updated);
-      setIsCloudConnected(success);
-    }
-  };
-
   const updateSettings = (newSettings: AdminSettings) => setSettings(newSettings);
   const setupSyncId = (id: string) => setSyncId(id);
 
+  const addBooking = async (booking: Booking) => {
+    const updated = [booking, ...bookingsRef.current];
+    setBookings(updated);
+    if (syncId) await cloudSync.updateData(syncId, updated);
+  };
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#F4F7FE]">
-      <header className="sticky top-0 z-[100] bg-white/90 backdrop-blur-xl border-b border-slate-100 no-print shadow-sm h-20 md:h-24 flex items-center">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 w-full flex justify-between items-center">
-          <Link to="/" className="flex items-center gap-4">
-            <div className="w-12 h-12 blue-gradient rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-200">
-              <i className="fas fa-water text-xl"></i>
+    <div className="min-h-screen flex flex-col">
+      <header className="sticky top-0 z-[100] w-full glass-header no-print">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
+          <Link to="/" className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-white/10 rounded-lg flex items-center justify-center text-white border border-white/20">
+              <i className="fas fa-water text-sm"></i>
             </div>
-            <div>
-              <h1 className="text-xl md:text-2xl font-black text-[#1B2559] tracking-tighter uppercase leading-none">Spray Aqua Resort</h1>
-              <div className="flex items-center gap-2 mt-1">
-                  <p className="text-[10px] font-black text-blue-500 tracking-[0.2em] uppercase">Jaipur's Finest</p>
-                  {/* Cloud status only visible for Admin */}
-                  {auth.role === 'admin' && (
-                    isCloudConnected ? (
-                      <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 rounded-full border border-emerald-100">
-                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                        <span className="text-[8px] font-black text-emerald-600 uppercase">Live Sync</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 rounded-full border border-slate-200">
-                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full"></span>
-                        <span className="text-[8px] font-black text-slate-400 uppercase">Local Mode</span>
-                      </div>
-                    )
-                  )}
-              </div>
-            </div>
+            <h1 className="text-lg font-extrabold text-white tracking-tight uppercase">Spray Aqua Resort</h1>
           </Link>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-8">
             {auth.role === 'guest' && (
-              <nav className="hidden md:flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl">
-                <Link to="/book" className={`px-6 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${location.pathname === '/book' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-400'}`}>Reserve</Link>
-                <Link to="/my-bookings" className={`px-6 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${location.pathname === '/my-bookings' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-400'}`}>My Tickets</Link>
+              <nav className="hidden md:flex items-center gap-10">
+                <Link to="/book" className={`text-[10px] font-bold uppercase tracking-widest transition-all ${location.pathname === '/book' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'}`}>Book Now</Link>
+                <Link to="/my-bookings" className={`text-[10px] font-bold uppercase tracking-widest transition-all ${location.pathname === '/my-bookings' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'}`}>My Tickets</Link>
               </nav>
             )}
             
             {auth.role && (
-              <button onClick={logout} className="flex items-center gap-2 text-[10px] font-black text-red-500 hover:bg-red-50 px-4 py-2.5 rounded-xl uppercase tracking-widest transition-all border border-transparent hover:border-red-100">
-                <i className="fas fa-sign-out-alt"></i>
-                <span className="hidden md:inline">Logout</span>
+              <button onClick={logout} className="text-white/40 hover:text-white transition-colors">
+                <i className="fas fa-power-off text-sm"></i>
               </button>
             )}
           </div>
         </div>
       </header>
 
-      <main className="flex-1 py-10">
+      <main className="flex-1 w-full flex flex-col items-center justify-center p-4 md:p-10">
         <Routes>
           <Route path="/" element={
             auth.role === 'admin' ? <Navigate to="/admin" /> : 
