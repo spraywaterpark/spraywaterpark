@@ -75,17 +75,17 @@ const AppContent: React.FC = () => {
       <header className="sticky top-0 z-[100] w-full glass-header no-print">
         <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-white/10 rounded-lg flex items-center justify-center text-white border border-white/20">
-              <i className="fas fa-water text-sm"></i>
+            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white border border-white/20">
+              <i className="fas fa-water text-lg"></i>
             </div>
-            <h1 className="text-lg font-extrabold text-white tracking-tight uppercase">Spray Aqua Resort</h1>
+            <h1 className="text-xl font-black text-white tracking-tight uppercase">Spray Aqua Resort</h1>
           </Link>
 
           <div className="flex items-center gap-8">
             {auth.role === 'guest' && (
               <nav className="hidden md:flex items-center gap-10">
-                <Link to="/book" className={`text-[10px] font-bold uppercase tracking-widest transition-all ${location.pathname === '/book' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'}`}>Book Now</Link>
-                <Link to="/my-bookings" className={`text-[10px] font-bold uppercase tracking-widest transition-all ${location.pathname === '/my-bookings' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'}`}>My Tickets</Link>
+                <Link to="/book" className={`text-[10px] font-bold uppercase tracking-widest transition-all ${location.pathname === '/book' ? 'text-white border-b-2 border-white pb-2' : 'text-white/60 hover:text-white'}`}>Book Now</Link>
+                <Link to="/my-bookings" className={`text-[10px] font-bold uppercase tracking-widest transition-all ${location.pathname === '/my-bookings' ? 'text-white border-b-2 border-white pb-2' : 'text-white/60 hover:text-white'}`}>My Tickets</Link>
               </nav>
             )}
             
@@ -98,19 +98,21 @@ const AppContent: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 w-full flex flex-col items-center justify-center p-4 md:p-10">
-        <Routes>
-          <Route path="/" element={
-            auth.role === 'admin' ? <Navigate to="/admin" /> : 
-            auth.role === 'guest' ? <Navigate to="/book" /> : 
-            <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />
-          } />
-          <Route path="/book" element={auth.role === 'guest' ? <BookingGate settings={settings} bookings={bookings} onProceed={(b: any) => b} /> : <Navigate to="/" />} />
-          <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} /> : <Navigate to="/" />} />
-          <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
-          <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={updateSettings} syncId={syncId} onSyncSetup={setupSyncId} /> : <Navigate to="/" />} />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
+      <main className="content-wrapper">
+        <div className="w-full h-full flex items-center justify-center">
+          <Routes>
+            <Route path="/" element={
+              auth.role === 'admin' ? <Navigate to="/admin" /> : 
+              auth.role === 'guest' ? <Navigate to="/book" /> : 
+              <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />
+            } />
+            <Route path="/book" element={auth.role === 'guest' ? <BookingGate settings={settings} bookings={bookings} onProceed={(b: any) => b} /> : <Navigate to="/" />} />
+            <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} /> : <Navigate to="/" />} />
+            <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
+            <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={updateSettings} syncId={syncId} onSyncSetup={setupSyncId} /> : <Navigate to="/" />} />
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </div>
       </main>
     </div>
   );
