@@ -35,14 +35,14 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
     <div className="w-full flex items-center justify-center animate-reveal">
       <div className="w-full max-w-5xl glass-card overflow-hidden flex flex-col md:flex-row h-auto md:h-[620px]">
         
-        {/* LEFT SIDE: HERO IMAGE WITH UPDATED TEXT */}
+        {/* LEFT SIDE: HERO IMAGE WITH UPDATED TEXT (NOW LOWER AS REQUESTED) */}
         <div className="w-full md:w-5/12 h-64 md:h-full relative overflow-hidden bg-slate-900">
           <img 
             src={LOGIN_HERO_IMAGE} 
-            alt="Splash Day" 
+            alt="Splash Into Fun" 
             className="absolute inset-0 w-full h-full object-cover grayscale-[10%]"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-900/20 to-transparent flex flex-col justify-end p-12 text-center md:text-left">
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-900/10 to-transparent flex flex-col justify-end p-12 pb-8 text-center md:text-left">
             <h1 className="text-4xl font-black text-white uppercase tracking-tighter leading-none mb-4">
               <span className="underline decoration-blue-500 decoration-4 underline-offset-8">Splash Into Fun</span>
             </h1>
