@@ -54,20 +54,18 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
 
   return (
     <div className="w-full flex flex-col items-center animate-reveal">
-      {/* Centered Header */}
       <div className="w-full max-w-4xl text-center mb-12">
         <h2 className="text-5xl font-extrabold text-white tracking-tighter uppercase mb-2">Reservation</h2>
         <p className="text-white/60 font-bold text-[10px] uppercase tracking-[0.4em]">Spray Aqua Resort Premium Terminal</p>
       </div>
 
-      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-1 gap-10">
+      <div className="w-full max-w-4xl">
         <div className="glass-card p-10 md:p-16 space-y-16">
-          
           {/* Section 1: DATE & TIME */}
           <section className="space-y-12">
             <div className="flex flex-col items-center gap-4 text-center">
               <span className="w-10 h-10 bg-slate-900 rounded-xl text-white flex items-center justify-center text-xs font-black">01</span>
-              <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Select Your Session</h4>
+              <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Session Choice</h4>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
@@ -77,7 +75,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
               </div>
 
               <div className="space-y-4">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block text-center">Preferred Shift</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block text-center">Shift Selection</label>
                 <div className="space-y-4">
                   {TIME_SLOTS.map(s => {
                     const isActive = slot === s;
@@ -96,7 +94,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
             </div>
           </section>
 
-          {/* Section 2: OFFER REVEAL (RESTORED VISUALS) */}
+          {/* Section 2: MEAL OFFER VISUAL (FIXED) */}
           <section className="flex flex-col items-center">
               <div className="w-full bg-slate-950/5 border border-slate-200 p-10 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-10">
                   <div className="flex items-center gap-8">
@@ -104,27 +102,27 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                           <i className={isMorning ? "fas fa-utensils" : "fas fa-hamburger"}></i>
                       </div>
                       <div className="text-center md:text-left">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-1">Session Privilege</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-1">Complimentary Privilege</p>
                           <h5 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{currentOffer.split(' (')[0]}</h5>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 opacity-80">{currentOffer.match(/\(([^)]+)\)/)?.[1] || "Inclusive Offer"}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 opacity-80">{currentOffer.match(/\(([^)]+)\)/)?.[1] || "Inclusive Guest Offer"}</p>
                       </div>
                   </div>
                   {date && pricingData.discountPercent > 0 && (
-                      <div className="bg-emerald-100 text-emerald-800 px-6 py-3 rounded-full text-[10px] font-black uppercase border border-emerald-200 shadow-sm animate-pulse">
+                      <div className="bg-emerald-100 text-emerald-800 px-6 py-3 rounded-full text-[10px] font-black uppercase border border-emerald-200 animate-pulse">
                           {pricingData.tierText}
                       </div>
                   )}
               </div>
           </section>
 
-          {/* Section 3: TICKET QUANTITY */}
+          {/* Section 3: QUANTITY */}
           <section className="space-y-12">
             <div className="flex flex-col items-center gap-4 text-center">
               <span className="w-10 h-10 bg-slate-900 rounded-xl text-white flex items-center justify-center text-xs font-black">02</span>
-              <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Guest Information</h4>
+              <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Pass Count</h4>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              <div className="p-10 bg-white/60 rounded-[2rem] border border-slate-200 flex justify-between items-center shadow-sm hover:shadow-md transition-shadow">
+              <div className="p-10 bg-white/60 rounded-[2rem] border border-slate-200 flex justify-between items-center shadow-sm">
                 <div className="text-left">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Adult Pass</label>
                   <span className="text-slate-900 text-2xl font-black">₹{adultRate}</span>
@@ -135,7 +133,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                   <button onClick={() => setAdults(adults+1)} className="w-10 h-10 border-2 border-slate-200 rounded-xl hover:bg-slate-900 hover:text-white transition-all flex items-center justify-center font-bold">+</button>
                 </div>
               </div>
-              <div className="p-10 bg-white/60 rounded-[2rem] border border-slate-200 flex justify-between items-center shadow-sm hover:shadow-md transition-shadow">
+              <div className="p-10 bg-white/60 rounded-[2rem] border border-slate-200 flex justify-between items-center shadow-sm">
                 <div className="text-left">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Child Pass</label>
                   <span className="text-slate-900 text-2xl font-black">₹{kidRate}</span>
@@ -149,49 +147,32 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
             </div>
           </section>
 
-          {/* Section 4: SUMMARY & CHECKOUT */}
+          {/* Section 4: CHECKOUT */}
           <section className="pt-16 border-t border-slate-100 flex flex-col items-center">
               <div className="w-full max-w-md bg-slate-900 p-12 rounded-[3rem] text-white space-y-10 text-center shadow-3xl">
-                <h4 className="text-[10px] font-bold uppercase tracking-[0.5em] opacity-40">Reservation Checkout</h4>
-                
-                <div className="space-y-6">
-                  <div className="flex justify-between items-center opacity-70">
-                      <span className="text-[10px] font-bold uppercase tracking-widest">Gross Subtotal</span>
-                      <span className="text-xl font-bold tracking-tighter">₹{pricingData.subtotal}</span>
-                  </div>
-                  {pricingData.discount > 0 && (
-                      <div className="flex justify-between items-center text-blue-400">
-                          <span className="text-[10px] font-bold uppercase tracking-widest">Promotion Applied</span>
-                          <span className="text-xl font-bold tracking-tighter">- ₹{pricingData.discount}</span>
-                      </div>
-                  )}
-                  <div className="pt-10 border-t border-white/10">
-                      <p className="text-[11px] font-bold uppercase opacity-30 mb-3 tracking-[0.5em]">Payable Total</p>
+                  <div className="pt-2">
+                      <p className="text-[11px] font-bold uppercase opacity-30 mb-3 tracking-[0.5em]">Payable Amount</p>
                       <p className="text-7xl font-black tracking-tighter leading-none">₹{pricingData.total}</p>
                   </div>
-                </div>
-
-                <button onClick={handleCheckout} className="w-full btn-resort !bg-white !text-slate-900 hover:!bg-slate-100 shadow-2xl mt-10 h-20 text-lg">
-                  Confirm & Pay
-                </button>
+                  <button onClick={handleCheckout} className="w-full btn-resort !bg-white !text-slate-900 hover:!bg-slate-100 shadow-2xl mt-4 h-20 text-lg">
+                    Confirm & Proceed
+                  </button>
               </div>
           </section>
         </div>
       </div>
 
-      {/* T&C MODAL - CENTERED */}
+      {/* T&C MODAL */}
       {showTerms && (
         <div className="fixed inset-0 z-[500] bg-slate-950/70 backdrop-blur-xl flex items-center justify-center p-6 animate-reveal">
           <div className="bg-white rounded-[3rem] max-w-2xl w-full p-12 md:p-16 shadow-3xl relative border border-slate-200">
             <button onClick={() => setShowTerms(false)} className="absolute top-10 right-10 text-slate-400 hover:text-slate-900 transition-colors">
               <i className="fas fa-times text-2xl"></i>
             </button>
-
-            <div className="text-center mb-12">
+            <div className="text-center mb-10">
               <h3 className="text-4xl font-black text-slate-900 uppercase tracking-tight">Park Policy</h3>
               <p className="text-slate-500 text-[11px] font-bold uppercase tracking-[0.4em] mt-3">Essential Safety Guidelines</p>
             </div>
-
             <div className="space-y-6 mb-16 max-h-[35vh] overflow-y-auto pr-4 custom-scrollbar">
               {TERMS_AND_CONDITIONS.map((t, i) => (
                 <div key={i} className="flex gap-6 p-6 bg-slate-50 rounded-2xl border border-slate-200">
@@ -200,15 +181,13 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                 </div>
               ))}
             </div>
-
             <div className="space-y-10">
               <label className="flex items-center gap-6 cursor-pointer p-6 rounded-2xl border-2 border-slate-200 hover:bg-slate-50 transition-colors group">
                 <input type="checkbox" className="w-8 h-8 rounded-lg border-2 border-slate-300 accent-slate-900 cursor-pointer" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} />
                 <span className="text-xs font-black text-slate-950 uppercase tracking-widest group-hover:text-blue-600">I acknowledge & accept resort policy</span>
               </label>
-              
-              <button onClick={finalProceed} disabled={!acceptedTerms} className="w-full btn-resort h-20 text-lg disabled:opacity-20 disabled:grayscale">
-                Proceed to Secure Payment
+              <button onClick={finalProceed} disabled={!acceptedTerms} className="w-full btn-resort h-20 text-lg disabled:opacity-20">
+                Confirm Reservation
               </button>
             </div>
           </div>
