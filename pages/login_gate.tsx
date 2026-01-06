@@ -27,85 +27,83 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
       onAdminLogin(data.email.trim());
       navigate('/admin');
     } else {
-      alert("Unauthorized: Access Denied.");
+      alert("Invalid Credentials. Please try again.");
     }
   };
 
   return (
-    <div className="w-full max-w-5xl animate-reveal">
-      <div className="glass-card flex flex-col md:flex-row min-h-[620px]">
-        
-        {/* LEFT PART: Hero Image with TEXT POSITIONED LOWER */}
-        <div className="w-full md:w-5/12 relative min-h-[300px] md:min-h-full bg-slate-900">
-          <img 
-            src={LOGIN_HERO_IMAGE} 
-            alt="Resort View" 
-            className="absolute inset-0 w-full h-full object-cover opacity-90"
-          />
-          {/* Overlay text moved LOWER using justify-end and pb-14 */}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/10 to-transparent flex flex-col justify-end p-10 pb-14 text-center md:text-left">
-            <h1 className="text-4xl font-black text-white uppercase tracking-tighter leading-tight mb-3">
-              <span className="underline decoration-blue-500 decoration-4 underline-offset-8">Splash Into Fun</span>
+    <div className="glass-card">
+      {/* LEFT: VISUAL SIDE WITH OVERLAY TEXT */}
+      <div className="w-full md:w-5/12 h-64 md:h-auto relative bg-slate-900 overflow-hidden shrink-0">
+        <img 
+          src={LOGIN_HERO_IMAGE} 
+          alt="Aqua Resort" 
+          className="w-full h-full object-cover opacity-90 transition-transform duration-700 hover:scale-105"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent flex flex-col justify-end p-10 pb-14">
+            <h1 className="text-4xl font-black text-white uppercase tracking-tighter leading-tight">
+                Splash <br /> Into Fun
             </h1>
-            <p className="text-white/70 text-[11px] font-bold uppercase tracking-[0.4em] ml-1">
-              at Jaipur's Premium WaterPark
-            </p>
+            <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.4em] mt-2">Spray Aqua Resort Jaipur</p>
+        </div>
+      </div>
+
+      {/* RIGHT: FORM SIDE */}
+      <div className="w-full md:w-7/12 p-8 md:p-20 flex flex-col justify-center bg-white grow">
+        <div className="mb-14">
+          <div className="flex items-center gap-3 mb-4">
+             <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg">
+                <i className="fas fa-water text-xl"></i>
+             </div>
+             <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Spray Aqua Resort</h3>
           </div>
+          <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-2">
+            {view === 'landing' ? 'Guest Entry' : 'Admin Login'}
+          </h2>
+          <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">
+            {view === 'landing' ? 'Welcome to Jaipur\'s Best Water Park' : 'Restricted Management Access'}
+          </p>
         </div>
 
-        {/* RIGHT PART: Form Content */}
-        <div className="w-full md:w-7/12 p-10 md:p-20 flex flex-col items-center justify-center bg-white/50">
-          <div className="w-full max-w-sm">
-            <div className="mb-14 text-center md:text-left">
-              <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tight mb-2">
-                {view === 'landing' ? 'Guest Entry' : 'Admin Login'}
-              </h2>
-              <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.4em]">
-                {view === 'landing' ? 'Welcome to the Aqua Resort' : 'Terminal Authentication Required'}
-              </p>
-            </div>
-
-            <form onSubmit={view === 'landing' ? handleGuest : handleAdmin} className="space-y-7">
-              {view === 'landing' ? (
-                <>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Your Full Name</label>
-                    <input type="text" placeholder="e.g. Rahul Sharma" className="input-premium" value={data.name} onChange={e => setData({...data, name: e.target.value})} required />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mobile Contact</label>
-                    <input type="tel" placeholder="10-digit number" className="input-premium" value={data.mobile} onChange={e => setData({...data, mobile: e.target.value})} required />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Admin Identity</label>
-                    <input type="email" placeholder="admin@resort.com" className="input-premium" value={data.email} onChange={e => setData({...data, email: e.target.value})} required />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Secret Key</label>
-                    <input type="password" placeholder="••••••••" className="input-premium" value={data.password} onChange={e => setData({...data, password: e.target.value})} required />
-                  </div>
-                </>
-              )}
-
-              <button type="submit" className="w-full btn-resort mt-6 h-20 shadow-2xl">
-                {view === 'landing' ? 'Start Booking' : 'Authorize Now'}
-              </button>
-
-              <div className="pt-10 text-center">
-                 <button 
-                  type="button" 
-                  onClick={() => setView(view === 'landing' ? 'admin' : 'landing')} 
-                  className="text-[10px] font-black text-slate-400 hover:text-slate-900 uppercase tracking-[0.3em] transition-all"
-                 >
-                   {view === 'landing' ? 'Management Login' : 'Back to Guest Portal'}
-                 </button>
+        <form onSubmit={view === 'landing' ? handleGuest : handleAdmin} className="space-y-7">
+          {view === 'landing' ? (
+            <>
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                <input type="text" placeholder="Rahul Sharma" className="input-premium" value={data.name} onChange={e => setData({...data, name: e.target.value})} required />
               </div>
-            </form>
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mobile No.</label>
+                <input type="tel" placeholder="10-digit number" className="input-premium" value={data.mobile} onChange={e => setData({...data, mobile: e.target.value})} required />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
+                <input type="email" placeholder="admin@spraypark.com" className="input-premium" value={data.email} onChange={e => setData({...data, email: e.target.value})} required />
+              </div>
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Password</label>
+                <input type="password" placeholder="••••••••" className="input-premium" value={data.password} onChange={e => setData({...data, password: e.target.value})} required />
+              </div>
+            </>
+          )}
+
+          <button type="submit" className="btn-resort h-20 shadow-2xl mt-4">
+            {view === 'landing' ? 'Get Tickets' : 'Login Admin'}
+          </button>
+
+          <div className="pt-10 text-center">
+            <button 
+              type="button" 
+              onClick={() => setView(view === 'landing' ? 'admin' : 'landing')} 
+              className="text-[10px] font-black text-slate-300 hover:text-slate-900 uppercase tracking-widest transition-colors"
+            >
+              {view === 'landing' ? 'Admin Access?' : 'Back to Booking'}
+            </button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );
