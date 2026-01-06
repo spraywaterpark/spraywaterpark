@@ -137,7 +137,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
             <p className="text-[12px] font-black text-slate-400 uppercase tracking-[0.5em]">Total Amount</p>
             <p className="text-6xl font-black text-slate-900 tracking-tighter leading-none mt-2">₹{pricingData.total}</p>
           </div>
-          <button onClick={handleCheckout} className="btn-resort w-full md:w-auto px-24 h-24 shadow-2xl text-xl">Continue to Payment</button>
+          <button onClick={handleCheckout} className="btn-resort w-full md:auto px-24 h-24 shadow-2xl text-xl">Continue to Payment</button>
         </div>
       </div>
 
