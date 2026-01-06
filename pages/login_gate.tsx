@@ -27,35 +27,39 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
       onAdminLogin(data.email.trim());
       navigate('/admin');
     } else {
-      alert("Unauthorized access attempt.");
+      alert("Verification Failed.");
     }
   };
 
   return (
-    <div className="w-full flex items-center justify-center animate-slide-up">
-      <div className="w-full max-w-5xl glass-card rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row h-auto md:h-[600px] border border-white/40">
+    <div className="w-full flex items-center justify-center animate-reveal">
+      <div className="w-full max-w-5xl glass-card overflow-hidden flex flex-col md:flex-row h-auto md:h-[620px]">
         
-        {/* LEFT SIDE: THE IMAGE */}
+        {/* LEFT SIDE: HERO IMAGE WITH UPDATED TEXT */}
         <div className="w-full md:w-5/12 h-64 md:h-full relative overflow-hidden bg-slate-900">
           <img 
             src={LOGIN_HERO_IMAGE} 
-            alt="Resort Guest" 
-            className="absolute inset-0 w-full h-full object-cover grayscale-[20%]"
+            alt="Guest Hero" 
+            className="absolute inset-0 w-full h-full object-cover grayscale-[15%] transition-transform duration-[2s] hover:scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent flex flex-col justify-end p-12 text-center md:text-left">
-            <h1 className="text-3xl font-black text-white tracking-tight uppercase leading-none mb-2">Spray Aqua Resort</h1>
-            <p className="text-white/70 text-[10px] font-bold uppercase tracking-[0.3em]">Premium Waterfront Destination</p>
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent flex flex-col justify-end p-12 text-center md:text-left">
+            <h1 className="text-4xl font-black text-white uppercase tracking-tighter leading-none mb-3">
+              <span className="underline decoration-blue-500 decoration-4 underline-offset-8">Splash Into Fun</span>
+            </h1>
+            <p className="text-white/80 text-[11px] font-bold uppercase tracking-[0.3em] ml-1">
+              at Jaipur's Premium WaterPark
+            </p>
           </div>
         </div>
 
-        {/* RIGHT SIDE: THE FORM */}
-        <div className="w-full md:w-7/12 p-10 md:p-16 flex flex-col items-center justify-center">
+        {/* RIGHT SIDE: CENTERED FORM */}
+        <div className="w-full md:w-7/12 p-12 md:p-20 flex flex-col items-center justify-center bg-white/40">
           <div className="mb-12 text-center">
             <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter mb-2">
-              {view === 'landing' ? 'Guest Portal' : 'Staff Portal'}
+              {view === 'landing' ? 'Guest Entry' : 'Admin Login'}
             </h2>
-            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">
-              {view === 'landing' ? 'Enter your credentials to book tickets' : 'Management access required'}
+            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.3em]">
+              {view === 'landing' ? 'Reservation Terminal' : 'Management Secure Access'}
             </p>
           </div>
 
@@ -63,38 +67,38 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
             {view === 'landing' ? (
               <>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Guest Name</label>
-                  <input type="text" placeholder="Rahul Sharma" className="input-premium" value={data.name} onChange={e => setData({...data, name: e.target.value})} required />
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                  <input type="text" placeholder="Enter name" className="input-premium" value={data.name} onChange={e => setData({...data, name: e.target.value})} required />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Mobile Contact</label>
-                  <input type="tel" placeholder="10-digit number" className="input-premium" value={data.mobile} onChange={e => setData({...data, mobile: e.target.value})} required />
+                  <input type="tel" placeholder="10-digit mobile" className="input-premium" value={data.mobile} onChange={e => setData({...data, mobile: e.target.value})} required />
                 </div>
               </>
             ) : (
               <>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Staff Email</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Staff ID / Email</label>
                   <input type="email" placeholder="admin@sprayresort.com" className="input-premium" value={data.email} onChange={e => setData({...data, email: e.target.value})} required />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Password</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Security Key</label>
                   <input type="password" placeholder="••••••••" className="input-premium" value={data.password} onChange={e => setData({...data, password: e.target.value})} required />
                 </div>
               </>
             )}
 
-            <button type="submit" className="w-full btn-resort mt-4 h-16 shadow-xl">
-              {view === 'landing' ? 'Book Tickets Now' : 'Sign In'}
+            <button type="submit" className="w-full btn-resort mt-6 h-18 shadow-2xl">
+              {view === 'landing' ? 'Check Available Slots' : 'Enter Dashboard'}
             </button>
 
-            <div className="pt-8 border-t border-slate-200/50 flex flex-col items-center gap-4">
+            <div className="pt-8 flex flex-col items-center gap-4">
                <button 
                 type="button" 
                 onClick={() => setView(view === 'landing' ? 'admin' : 'landing')} 
-                className="text-[10px] font-bold text-slate-400 hover:text-slate-900 uppercase tracking-widest transition-all"
+                className="text-[10px] font-bold text-slate-400 hover:text-slate-900 uppercase tracking-[0.2em] transition-all"
                >
-                 {view === 'landing' ? 'Management Access' : 'Back to Guest Entry'}
+                 {view === 'landing' ? 'Staff Login' : 'Guest Registration'}
                </button>
             </div>
           </form>
