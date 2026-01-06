@@ -12,7 +12,7 @@
       :root {
         --resort-navy: #0f172a;
         --resort-blue: #0284c7;
-        --resort-glass: rgba(255, 255, 255, 0.88);
+        --resort-glass: rgba(255, 255, 255, 0.9);
       }
 
       body { 
@@ -26,7 +26,7 @@
         overflow-x: hidden;
       }
 
-      /* Fixed Luxury Resort Background */
+      /* Global Luxury Background */
       body::before {
         content: "";
         position: fixed;
@@ -41,7 +41,7 @@
         z-index: -2;
       }
 
-      /* Centering Logic */
+      /* Perfect Centering */
       #root {
         min-height: 100vh;
         display: flex;
@@ -58,14 +58,21 @@
         padding: 40px 20px;
       }
 
-      /* Glassmorphism Panels */
+      /* Luxury Glass Panels */
       .glass-card {
         background: var(--resort-glass);
         backdrop-filter: blur(25px) saturate(180%);
         -webkit-backdrop-filter: blur(25px) saturate(180%);
         border: 1px solid rgba(255, 255, 255, 0.3);
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-        border-radius: 2rem;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+        border-radius: 2.5rem;
+      }
+
+      .glass-header {
+        background: rgba(15, 23, 42, 0.2);
+        backdrop-filter: blur(15px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        width: 100%;
       }
 
       .input-premium {
@@ -78,6 +85,10 @@
         width: 100%;
         font-weight: 500;
       }
+      .input-premium:focus {
+        border-color: var(--resort-blue);
+        box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.15);
+      }
 
       .btn-resort {
         background: var(--resort-navy);
@@ -85,24 +96,24 @@
         border-radius: 14px;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.12em;
+        letter-spacing: 0.15em;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 20px 36px;
+        padding: 22px 40px;
       }
       .btn-resort:hover {
         background: #1e293b;
         transform: translateY(-3px);
-        box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.5);
       }
 
       @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(20px); }
+        from { opacity: 0; transform: translateY(30px); }
         to { opacity: 1; transform: translateY(0); }
       }
-      .animate-reveal { animation: fadeInUp 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+      .animate-reveal { animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
     </style>
 <script type="importmap">
 {
