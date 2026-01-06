@@ -71,7 +71,7 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col overflow-hidden">
       <header className="sticky top-0 z-[100] w-full glass-header no-print">
         <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-3">
@@ -99,7 +99,7 @@ const AppContent: React.FC = () => {
       </header>
 
       <main className="content-wrapper">
-        <div className="w-full h-full flex items-center justify-center">
+        <div className="w-full flex items-center justify-center">
           <Routes>
             <Route path="/" element={
               auth.role === 'admin' ? <Navigate to="/admin" /> : 
