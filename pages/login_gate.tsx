@@ -27,7 +27,7 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
       onAdminLogin(data.email.trim());
       navigate('/admin');
     } else {
-      alert("Verification Failed.");
+      alert("Invalid Staff Credentials.");
     }
   };
 
@@ -35,18 +35,18 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
     <div className="w-full flex items-center justify-center animate-reveal">
       <div className="w-full max-w-5xl glass-card overflow-hidden flex flex-col md:flex-row h-auto md:h-[620px]">
         
-        {/* LEFT SIDE: HERO IMAGE WITH UPDATED TEXT */}
+        {/* LEFT SIDE: HERO IMAGE WITH CUSTOM TEXT */}
         <div className="w-full md:w-5/12 h-64 md:h-full relative overflow-hidden bg-slate-900">
           <img 
             src={LOGIN_HERO_IMAGE} 
-            alt="Guest Hero" 
-            className="absolute inset-0 w-full h-full object-cover grayscale-[15%] transition-transform duration-[2s] hover:scale-105"
+            alt="Splash Day" 
+            className="absolute inset-0 w-full h-full object-cover grayscale-[10%]"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent flex flex-col justify-end p-12 text-center md:text-left">
-            <h1 className="text-4xl font-black text-white uppercase tracking-tighter leading-none mb-3">
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-transparent to-transparent flex flex-col justify-end p-12 text-center md:text-left">
+            <h1 className="text-4xl font-black text-white uppercase tracking-tighter leading-none mb-4">
               <span className="underline decoration-blue-500 decoration-4 underline-offset-8">Splash Into Fun</span>
             </h1>
-            <p className="text-white/80 text-[11px] font-bold uppercase tracking-[0.3em] ml-1">
+            <p className="text-white/80 text-[12px] font-bold uppercase tracking-[0.3em] ml-1">
               at Jaipur's Premium WaterPark
             </p>
           </div>
@@ -67,8 +67,8 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
             {view === 'landing' ? (
               <>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
-                  <input type="text" placeholder="Enter name" className="input-premium" value={data.name} onChange={e => setData({...data, name: e.target.value})} required />
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Guest Name</label>
+                  <input type="text" placeholder="Rahul Sharma" className="input-premium" value={data.name} onChange={e => setData({...data, name: e.target.value})} required />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Mobile Contact</label>
@@ -78,11 +78,11 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
             ) : (
               <>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Staff ID / Email</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Admin Email</label>
                   <input type="email" placeholder="admin@sprayresort.com" className="input-premium" value={data.email} onChange={e => setData({...data, email: e.target.value})} required />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Security Key</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Password</label>
                   <input type="password" placeholder="••••••••" className="input-premium" value={data.password} onChange={e => setData({...data, password: e.target.value})} required />
                 </div>
               </>
