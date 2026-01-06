@@ -27,7 +27,7 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
       onAdminLogin(data.email.trim());
       navigate('/admin');
     } else {
-      alert("Invalid Staff Credentials.");
+      alert("Verification Failed.");
     }
   };
 
@@ -42,7 +42,7 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
             alt="Splash Day" 
             className="absolute inset-0 w-full h-full object-cover grayscale-[10%]"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-transparent to-transparent flex flex-col justify-end p-12 text-center md:text-left">
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-900/20 to-transparent flex flex-col justify-end p-12 text-center md:text-left">
             <h1 className="text-4xl font-black text-white uppercase tracking-tighter leading-none mb-4">
               <span className="underline decoration-blue-500 decoration-4 underline-offset-8">Splash Into Fun</span>
             </h1>
@@ -53,13 +53,13 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
         </div>
 
         {/* RIGHT SIDE: CENTERED FORM */}
-        <div className="w-full md:w-7/12 p-12 md:p-20 flex flex-col items-center justify-center bg-white/40">
+        <div className="w-full md:w-7/12 p-12 md:p-20 flex flex-col items-center justify-center bg-white/30">
           <div className="mb-12 text-center">
             <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter mb-2">
-              {view === 'landing' ? 'Guest Entry' : 'Admin Login'}
+              {view === 'landing' ? 'Guest Portal' : 'Staff Access'}
             </h2>
             <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.3em]">
-              {view === 'landing' ? 'Reservation Terminal' : 'Management Secure Access'}
+              {view === 'landing' ? 'Experience the Ultimate Waves' : 'Secure Management Terminal'}
             </p>
           </div>
 
@@ -67,12 +67,12 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
             {view === 'landing' ? (
               <>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Guest Name</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Your Name</label>
                   <input type="text" placeholder="Rahul Sharma" className="input-premium" value={data.name} onChange={e => setData({...data, name: e.target.value})} required />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Mobile Contact</label>
-                  <input type="tel" placeholder="10-digit mobile" className="input-premium" value={data.mobile} onChange={e => setData({...data, mobile: e.target.value})} required />
+                  <input type="tel" placeholder="10-digit number" className="input-premium" value={data.mobile} onChange={e => setData({...data, mobile: e.target.value})} required />
                 </div>
               </>
             ) : (
@@ -82,14 +82,14 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
                   <input type="email" placeholder="admin@sprayresort.com" className="input-premium" value={data.email} onChange={e => setData({...data, email: e.target.value})} required />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Password</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Security Key</label>
                   <input type="password" placeholder="••••••••" className="input-premium" value={data.password} onChange={e => setData({...data, password: e.target.value})} required />
                 </div>
               </>
             )}
 
             <button type="submit" className="w-full btn-resort mt-6 h-18 shadow-2xl">
-              {view === 'landing' ? 'Check Available Slots' : 'Enter Dashboard'}
+              {view === 'landing' ? 'Enter Booking Area' : 'Authorize Login'}
             </button>
 
             <div className="pt-8 flex flex-col items-center gap-4">
