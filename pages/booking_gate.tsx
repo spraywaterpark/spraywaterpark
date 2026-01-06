@@ -99,7 +99,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
               <div className="w-full bg-slate-950/5 border border-slate-200 p-10 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-10">
                   <div className="flex items-center gap-8">
                       <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-3xl shadow-xl border-4 border-white text-white ${isMorning ? 'bg-amber-500' : 'bg-indigo-600'} transition-colors duration-500`}>
-                          <i className={isMorning ? "fas fa-utensils" : "fas fa-hamburger"}></i>
+                          <i className={isMorning ? "fas fa-utensils" : "fas fa-concierge-bell"}></i>
                       </div>
                       <div className="text-center md:text-left">
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-1">Complimentary Privilege</p>
