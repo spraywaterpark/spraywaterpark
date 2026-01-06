@@ -1,108 +1,114 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import LoginGate from './pages/login_gate';
-import BookingGate from './pages/booking_gate';
-import AdminPortal from './pages/admin_portal';
-import SecurePayment from './pages/secure_payment';
-import TicketHistory from './pages/ticket_history';
-import { AuthState, Booking, AdminSettings } from './types';
-import { DEFAULT_ADMIN_SETTINGS, MASTER_SYNC_ID } from './constants';
-import { cloudSync } from './services/cloud_sync';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-const AppContent: React.FC = () => {
-  const [auth, setAuth] = useState<AuthState>(() => {
-    const saved = sessionStorage.getItem('swp_auth');
-    return saved ? JSON.parse(saved) : { role: null, user: null };
-  });
+const LOGIN_HERO_IMAGE = "https://images.unsplash.com/photo-1540206351-d6465b3ac5c1?auto=format&fit=crop&q=80&w=1200";
 
-  const [bookings, setBookings] = useState<Booking[]>(() => {
-    const saved = localStorage.getItem('swp_bookings');
-    return saved ? JSON.parse(saved) : [];
-  });
+interface LoginPageProps {
+  onGuestLogin: (n: string, m: string) => void;
+  onAdminLogin: (e: string) => void;
+}
 
-  const [settings, setSettings] = useState<AdminSettings>(() => {
-    const saved = localStorage.getItem('swp_settings');
-    return saved ? JSON.parse(saved) : DEFAULT_ADMIN_SETTINGS;
-  });
+const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => {
+  const navigate = useNavigate();
+  const [view, setView] = useState<'landing' | 'admin'>('landing');
+  const [data, setData] = useState({ name: '', mobile: '', email: '', password: '' });
 
-  const [syncId, setSyncId] = useState<string>(() => localStorage.getItem('swp_sync_id') || MASTER_SYNC_ID);
-  const location = useLocation();
-  
-  const bookingsRef = useRef<Booking[]>(bookings);
-  useEffect(() => { bookingsRef.current = bookings; }, [bookings]);
+  const handleGuest = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (data.name.trim() && data.mobile.trim()) {
+      onGuestLogin(data.name.trim(), data.mobile.trim());
+      navigate('/book');
+    }
+  };
 
-  useEffect(() => { sessionStorage.setItem('swp_auth', JSON.stringify(auth)); }, [auth]);
-  useEffect(() => { localStorage.setItem('swp_bookings', JSON.stringify(bookings)); }, [bookings]);
-  useEffect(() => { localStorage.setItem('swp_settings', JSON.stringify(settings)); }, [settings]);
-  useEffect(() => { localStorage.setItem('swp_sync_id', syncId); }, [syncId]);
-
-  useEffect(() => {
-    if (!syncId) return;
-    const syncData = async () => {
-      const remoteData = await cloudSync.fetchData(syncId);
-      if (remoteData && JSON.stringify(bookingsRef.current) !== JSON.stringify(remoteData)) {
-        setBookings(remoteData);
-      }
-    };
-    syncData();
-    const interval = setInterval(syncData, 5000); 
-    return () => clearInterval(interval);
-  }, [syncId]);
-
-  const loginAsGuest = (name: string, mobile: string) => setAuth({ role: 'guest', user: { name, mobile } });
-  const loginAsAdmin = (email: string) => setAuth({ role: 'admin', user: { email } });
-  const logout = () => { setAuth({ role: null, user: null }); sessionStorage.clear(); };
-  
-  const addBooking = async (booking: Booking) => {
-    const updated = [booking, ...bookingsRef.current];
-    setBookings(updated);
-    if (syncId) await cloudSync.updateData(syncId, updated);
+  const handleAdmin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (data.email.trim() === 'admin@spraywaterpark.com' && data.password.trim() === 'admin123') {
+      onAdminLogin(data.email.trim());
+      navigate('/admin');
+    } else {
+      alert("Unauthorized: Access Denied.");
+    }
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-[100] w-full glass-header no-print">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white border border-white/20">
-              <i className="fas fa-water"></i>
-            </div>
-            <h1 className="text-xl font-black text-white uppercase tracking-tight">Spray Aqua Resort</h1>
-          </Link>
-
-          <div className="flex items-center gap-6">
-            {auth.role === 'guest' && (
-              <nav className="hidden md:flex items-center gap-8">
-                <Link to="/book" className={`text-[10px] font-bold uppercase tracking-widest ${location.pathname === '/book' ? 'text-white border-b-2 border-white pb-1' : 'text-white/50 hover:text-white'}`}>Reserve</Link>
-                <Link to="/my-bookings" className={`text-[10px] font-bold uppercase tracking-widest ${location.pathname === '/my-bookings' ? 'text-white border-b-2 border-white pb-1' : 'text-white/50 hover:text-white'}`}>Tickets</Link>
-              </nav>
-            )}
-            {auth.role && (
-              <button onClick={logout} className="text-white/50 hover:text-white transition-colors">
-                <i className="fas fa-power-off text-sm"></i>
-              </button>
-            )}
+    <div className="w-full max-w-5xl animate-reveal">
+      <div className="glass-card flex flex-col md:flex-row min-h-[620px]">
+        
+        {/* LEFT PART: Hero Image with TEXT POSITIONED LOWER */}
+        <div className="w-full md:w-5/12 relative min-h-[300px] md:min-h-full bg-slate-900">
+          <img 
+            src={LOGIN_HERO_IMAGE} 
+            alt="Resort View" 
+            className="absolute inset-0 w-full h-full object-cover opacity-90"
+          />
+          {/* Overlay text moved LOWER using justify-end and pb-14 */}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/10 to-transparent flex flex-col justify-end p-10 pb-14 text-center md:text-left">
+            <h1 className="text-4xl font-black text-white uppercase tracking-tighter leading-tight mb-3">
+              <span className="underline decoration-blue-500 decoration-4 underline-offset-8">Splash Into Fun</span>
+            </h1>
+            <p className="text-white/70 text-[11px] font-bold uppercase tracking-[0.4em] ml-1">
+              at Jaipur's Premium WaterPark
+            </p>
           </div>
         </div>
-      </header>
 
-      <main className="app-main">
-        <Routes>
-          <Route path="/" element={
-            auth.role === 'admin' ? <Navigate to="/admin" /> : 
-            auth.role === 'guest' ? <Navigate to="/book" /> : 
-            <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />
-          } />
-          <Route path="/book" element={auth.role === 'guest' ? <BookingGate settings={settings} bookings={bookings} onProceed={() => {}} /> : <Navigate to="/" />} />
-          <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} /> : <Navigate to="/" />} />
-          <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
-          <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={() => {}} syncId={syncId} onSyncSetup={() => {}} /> : <Navigate to="/" />} />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </main>
+        {/* RIGHT PART: Form Content */}
+        <div className="w-full md:w-7/12 p-10 md:p-20 flex flex-col items-center justify-center bg-white/50">
+          <div className="w-full max-w-sm">
+            <div className="mb-14 text-center md:text-left">
+              <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tight mb-2">
+                {view === 'landing' ? 'Guest Entry' : 'Admin Login'}
+              </h2>
+              <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.4em]">
+                {view === 'landing' ? 'Welcome to the Aqua Resort' : 'Terminal Authentication Required'}
+              </p>
+            </div>
+
+            <form onSubmit={view === 'landing' ? handleGuest : handleAdmin} className="space-y-7">
+              {view === 'landing' ? (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Your Full Name</label>
+                    <input type="text" placeholder="e.g. Rahul Sharma" className="input-premium" value={data.name} onChange={e => setData({...data, name: e.target.value})} required />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mobile Contact</label>
+                    <input type="tel" placeholder="10-digit number" className="input-premium" value={data.mobile} onChange={e => setData({...data, mobile: e.target.value})} required />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Admin Identity</label>
+                    <input type="email" placeholder="admin@resort.com" className="input-premium" value={data.email} onChange={e => setData({...data, email: e.target.value})} required />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Secret Key</label>
+                    <input type="password" placeholder="••••••••" className="input-premium" value={data.password} onChange={e => setData({...data, password: e.target.value})} required />
+                  </div>
+                </>
+              )}
+
+              <button type="submit" className="w-full btn-resort mt-6 h-20 shadow-2xl">
+                {view === 'landing' ? 'Start Booking' : 'Authorize Now'}
+              </button>
+
+              <div className="pt-10 text-center">
+                 <button 
+                  type="button" 
+                  onClick={() => setView(view === 'landing' ? 'admin' : 'landing')} 
+                  className="text-[10px] font-black text-slate-400 hover:text-slate-900 uppercase tracking-[0.3em] transition-all"
+                 >
+                   {view === 'landing' ? 'Management Login' : 'Back to Guest Portal'}
+                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
 
-const App: React.FC = () => (<HashRouter><AppContent /></HashRouter>);
-export default App;
+export default LoginGate;
