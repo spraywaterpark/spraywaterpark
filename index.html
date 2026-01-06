@@ -12,21 +12,19 @@
       :root {
         --resort-navy: #0f172a;
         --resort-blue: #0284c7;
-        --resort-glass: rgba(255, 255, 255, 0.9);
+        --resort-glass: rgba(255, 255, 255, 0.98);
       }
 
       body { 
         font-family: 'Plus Jakarta Sans', sans-serif; 
         color: #1e293b; 
-        -webkit-font-smoothing: antialiased;
-        min-height: 100vh;
         margin: 0;
-        display: flex;
-        flex-direction: column;
+        padding: 0;
+        min-height: 100vh;
         overflow-x: hidden;
       }
 
-      /* Global Luxury Background */
+      /* Global Luxury Background Fixed */
       body::before {
         content: "";
         position: fixed;
@@ -34,85 +32,86 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background-image: linear-gradient(rgba(15, 23, 42, 0.5), rgba(15, 23, 42, 0.5)), url('https://images.unsplash.com/photo-1540206351-d6465b3ac5c1?auto=format&fit=crop&q=80&w=2000');
+        background: linear-gradient(rgba(15, 23, 42, 0.5), rgba(15, 23, 42, 0.7)), 
+                    url('https://images.unsplash.com/photo-1540206351-d6465b3ac5c1?auto=format&fit=crop&q=80&w=2000');
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
-        z-index: -2;
+        z-index: -1;
       }
 
-      /* Perfect Vertical & Horizontal Centering */
       #root {
         min-height: 100vh;
         display: flex;
         flex-direction: column;
       }
 
-      .content-wrapper {
+      /* PERFECT CENTER WRAPPER */
+      .app-main {
         flex: 1;
         display: flex;
-        align-items: center;
-        justify-content: center;
+        align-items: center; /* Vertical Center */
+        justify-content: center; /* Horizontal Center */
+        padding: 20px;
         width: 100%;
-        padding: 40px 20px;
       }
 
-      /* Luxury Glass Panels */
       .glass-card {
         background: var(--resort-glass);
-        backdrop-filter: blur(25px) saturate(180%);
-        -webkit-backdrop-filter: blur(25px) saturate(180%);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.4);
         border-radius: 2.5rem;
+        overflow: hidden;
       }
 
       .glass-header {
-        background: rgba(15, 23, 42, 0.2);
+        background: rgba(15, 23, 42, 0.3);
         backdrop-filter: blur(15px);
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        width: 100%;
       }
 
       .input-premium {
-        background: rgba(255, 255, 255, 0.95);
-        border: 1px solid #cbd5e1;
-        border-radius: 14px;
+        background: #f8fafc;
+        border: 2px solid #e2e8f0;
+        border-radius: 16px;
         padding: 16px 20px;
-        transition: all 0.25s ease;
+        transition: all 0.2s;
         outline: none;
+        font-weight: 600;
         width: 100%;
-        font-weight: 500;
       }
       .input-premium:focus {
         border-color: var(--resort-blue);
-        box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.15);
+        background: white;
+        box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.1);
       }
 
       .btn-resort {
         background: var(--resort-navy);
         color: white;
-        border-radius: 14px;
-        font-weight: 700;
+        border-radius: 16px;
+        font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.15em;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        padding: 20px 40px;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 22px 40px;
       }
       .btn-resort:hover {
-        background: #1e293b;
         transform: translateY(-3px);
-        box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        background: #1e293b;
       }
 
-      @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(30px); }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
       }
-      .animate-reveal { animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+      .animate-reveal { animation: fadeIn 0.7s ease-out forwards; }
     </style>
 <script type="importmap">
 {
