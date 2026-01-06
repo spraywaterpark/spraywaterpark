@@ -35,7 +35,7 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
     <div className="w-full flex items-center justify-center animate-reveal">
       <div className="w-full max-w-5xl glass-card overflow-hidden flex flex-col md:flex-row h-auto md:h-[620px]">
         
-        {/* LEFT SIDE: HERO IMAGE WITH CUSTOM TEXT */}
+        {/* LEFT SIDE: HERO IMAGE WITH UPDATED TEXT */}
         <div className="w-full md:w-5/12 h-64 md:h-full relative overflow-hidden bg-slate-900">
           <img 
             src={LOGIN_HERO_IMAGE} 
