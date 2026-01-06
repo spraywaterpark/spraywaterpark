@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-/** 
- * EDIT THIS URL TO CHANGE THE LOGIN IMAGE 
- * Tip: Use a high-quality Unsplash link or your own hosted image URL.
- */
 const LOGIN_HERO_IMAGE = "https://www.vickerypediatrics.com/wp-content/uploads/2018/07/child-swimming-safely.jpg";
 
 interface LoginPageProps {
@@ -31,131 +27,77 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
       onAdminLogin(data.email.trim());
       navigate('/admin');
     } else {
-      alert("Unauthorized Access. Check your credentials.");
+      alert("Unauthorized access attempt.");
     }
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center p-4">
-      {/* 
-          STABLE CONTAINER:
-          - Image: md:w-[30%] (Exactly 30% width for Laptop)
-          - Form: md:w-[70%] (Exactly 70% width for Laptop)
-      */}
-      <div className="w-full max-w-5xl bg-white rounded-[2.5rem] shadow-[0_60px_120px_-20px_rgba(2,132,199,0.3)] overflow-hidden flex flex-col md:flex-row h-auto md:h-[620px] border border-white">
+    <div className="w-full flex items-center justify-center animate-slide-up">
+      <div className="w-full max-w-5xl glass-card rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row h-auto md:h-[600px] border border-white/40">
         
-        {/* LEFT SIDE: THE IMAGE SIDEBAR (30%) */}
-        <div className="relative w-full md:w-[30%] h-64 md:h-full overflow-hidden bg-blue-100">
+        {/* LEFT SIDE: THE IMAGE */}
+        <div className="w-full md:w-5/12 h-64 md:h-full relative overflow-hidden bg-slate-900">
           <img 
             src={LOGIN_HERO_IMAGE} 
-            alt="Spray Aqua Resort Masti" 
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-[10s] hover:scale-110"
+            alt="Resort Guest" 
+            className="absolute inset-0 w-full h-full object-cover grayscale-[20%]"
           />
-          {/* Brand Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-blue-900/70 via-transparent to-transparent flex flex-col justify-end p-8">
-            <h1 className="logo-font text-4xl text-white drop-shadow-2xl">Splash!</h1>
-            <div className="flex items-center gap-2 mt-2">
-                <span className="w-2 h-2 bg-yellow-400 rounded-full animate-ping"></span>
-                <p className="text-[9px] font-black text-white/90 uppercase tracking-[0.4em]">Unlimited Masti</p>
-            </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent flex flex-col justify-end p-12 text-center md:text-left">
+            <h1 className="text-3xl font-black text-white tracking-tight uppercase leading-none mb-2">Spray Aqua Resort</h1>
+            <p className="text-white/70 text-[10px] font-bold uppercase tracking-[0.3em]">Premium Waterfront Destination</p>
           </div>
         </div>
 
-        {/* RIGHT SIDE: THE LOGIN/BOOKING FORM (70%) */}
-        <div className="w-full md:w-[70%] p-8 md:p-16 bg-white flex flex-col justify-center relative">
-          
-          {/* Header Branding */}
-          <div className="mb-10 text-center md:text-left">
-            <div className="inline-flex items-center gap-3 bg-blue-50 px-5 py-2.5 rounded-2xl mb-6 border border-blue-100">
-               <i className="fas fa-certificate text-blue-500 text-xs"></i>
-               <span className="text-[10px] font-black text-blue-900 uppercase tracking-widest">Premium Aqua Resort Jaipur</span>
-            </div>
-            <h2 className="text-5xl md:text-7xl font-black text-[#1B2559] uppercase tracking-tighter leading-none mb-4">
-              {view === 'landing' ? <>Spray <span className="text-blue-500 underline decoration-blue-100 underline-offset-8">Aqua</span></> : 'Admin Area'}
+        {/* RIGHT SIDE: THE FORM */}
+        <div className="w-full md:w-7/12 p-10 md:p-16 flex flex-col items-center justify-center">
+          <div className="mb-12 text-center">
+            <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter mb-2">
+              {view === 'landing' ? 'Guest Portal' : 'Staff Portal'}
             </h2>
-            <p className="text-slate-400 text-[11px] font-bold uppercase tracking-[0.3em] ml-1">
-              {view === 'landing' ? 'Welcome to the ultimate summer destination.' : 'Secure management login terminal.'}
+            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">
+              {view === 'landing' ? 'Enter your credentials to book tickets' : 'Management access required'}
             </p>
           </div>
 
-          {view === 'landing' ? (
-            <form onSubmit={handleGuest} className="space-y-6 max-w-md w-full mx-auto md:mx-0">
-              <div className="space-y-2 group">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 transition-colors group-focus-within:text-blue-500">Visitor Name</label>
-                <div className="relative">
-                   <i className="fas fa-id-badge absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors"></i>
-                   <input 
-                    type="text" 
-                    placeholder="Enter Your Name" 
-                    className="input-luxury !pl-14 !py-4 border-2 border-slate-50 focus:!border-blue-400 focus:!bg-white !rounded-2xl" 
-                    value={data.name} 
-                    onChange={e => setData({...data, name: e.target.value})} 
-                    required 
-                  />
+          <form onSubmit={view === 'landing' ? handleGuest : handleAdmin} className="w-full max-w-sm space-y-6">
+            {view === 'landing' ? (
+              <>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Guest Name</label>
+                  <input type="text" placeholder="Rahul Sharma" className="input-premium" value={data.name} onChange={e => setData({...data, name: e.target.value})} required />
                 </div>
-              </div>
-
-              <div className="space-y-2 group">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 transition-colors group-focus-within:text-blue-500">Mobile Number</label>
-                <div className="relative">
-                   <i className="fas fa-phone-alt absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors"></i>
-                   <input 
-                    type="tel" 
-                    placeholder="+91 Mobile Number" 
-                    className="input-luxury !pl-14 !py-4 border-2 border-slate-50 focus:!border-blue-400 focus:!bg-white !rounded-2xl" 
-                    value={data.mobile} 
-                    onChange={e => setData({...data, mobile: e.target.value})} 
-                    required 
-                  />
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Mobile Contact</label>
+                  <input type="tel" placeholder="10-digit number" className="input-premium" value={data.mobile} onChange={e => setData({...data, mobile: e.target.value})} required />
                 </div>
-              </div>
-              
-              <div className="pt-6">
-                <button className="w-full btn-premium py-6 flex items-center justify-center gap-4 group rounded-2xl">
-                  <span className="font-black tracking-widest">Check Availability</span>
-                  <i className="fas fa-arrow-right text-[10px] group-hover:translate-x-2 transition-transform"></i>
-                </button>
-              </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Staff Email</label>
+                  <input type="email" placeholder="admin@sprayresort.com" className="input-premium" value={data.email} onChange={e => setData({...data, email: e.target.value})} required />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Password</label>
+                  <input type="password" placeholder="••••••••" className="input-premium" value={data.password} onChange={e => setData({...data, password: e.target.value})} required />
+                </div>
+              </>
+            )}
 
-              <div className="pt-10 border-t border-slate-50 flex justify-center">
-                <button type="button" onClick={() => setView('admin')} className="text-[10px] font-black text-slate-300 hover:text-blue-600 uppercase tracking-[0.4em] transition-all">
-                  Staff Access
-                </button>
-              </div>
-            </form>
-          ) : (
-            <form onSubmit={handleAdmin} className="space-y-6 max-w-md w-full mx-auto md:mx-0">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Admin ID</label>
-                <input 
-                  type="email" 
-                  placeholder="admin@sprayaqua.com" 
-                  className="input-luxury !py-4 border-2 border-slate-50 !rounded-2xl" 
-                  value={data.email} 
-                  onChange={e => setData({...data, email: e.target.value})} 
-                  required 
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Security Key</label>
-                <input 
-                  type="password" 
-                  placeholder="••••••••" 
-                  className="input-luxury !py-4 border-2 border-slate-50 !rounded-2xl" 
-                  value={data.password} 
-                  onChange={e => setData({...data, password: e.target.value})} 
-                  required 
-                />
-              </div>
-              <button className="w-full btn-premium py-6 rounded-2xl">Verify & Enter</button>
-              <button type="button" onClick={() => setView('landing')} className="w-full text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase tracking-widest mt-10">
-                <i className="fas fa-chevron-left mr-2"></i> Back to Booking
-              </button>
-            </form>
-          )}
+            <button type="submit" className="w-full btn-resort mt-4 h-16 shadow-xl">
+              {view === 'landing' ? 'Book Tickets Now' : 'Sign In'}
+            </button>
 
-          {/* Decorative Background Icon */}
-          <i className="fas fa-water absolute -right-6 bottom-10 text-slate-50 text-[12rem] pointer-events-none -z-10 opacity-70"></i>
+            <div className="pt-8 border-t border-slate-200/50 flex flex-col items-center gap-4">
+               <button 
+                type="button" 
+                onClick={() => setView(view === 'landing' ? 'admin' : 'landing')} 
+                className="text-[10px] font-bold text-slate-400 hover:text-slate-900 uppercase tracking-widest transition-all"
+               >
+                 {view === 'landing' ? 'Management Access' : 'Back to Guest Entry'}
+               </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
