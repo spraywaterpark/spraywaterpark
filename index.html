@@ -10,103 +10,100 @@
       @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
       
       :root {
-        --resort-navy: #1B2559;
-        --resort-blue: #0061FF;
-        --bg-soft: #F4F7FE;
+        --resort-dark: #0F172A;
+        --resort-accent: #1E40AF;
+        --bg-sober: #F8FAFC;
+        --border-soft: #E2E8F0;
       }
 
-      * { box-sizing: border-box; }
+      * { 
+        box-sizing: border-box; 
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
 
       body { 
         font-family: 'Plus Jakarta Sans', sans-serif; 
-        color: #1B2559; 
+        color: #1E293B; 
         margin: 0;
         padding: 0;
         min-height: 100vh;
-        background-color: var(--bg-soft);
+        background-color: var(--bg-sober);
         overflow-x: hidden;
-        text-align: center; /* Force global text centering */
-      }
-
-      .blue-gradient {
-        background: linear-gradient(135deg, #1B2559 0%, #0061FF 100%);
       }
 
       .input-premium {
-        background: #F8FAFC;
-        border: 2px solid #E2E8F0;
-        border-radius: 20px;
-        padding: 16px 24px;
-        transition: all 0.3s;
+        background: #FFFFFF;
+        border: 1px solid var(--border-soft);
+        border-radius: 12px;
+        padding: 14px 20px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         outline: none;
-        font-weight: 700;
+        font-weight: 500;
         width: 100%;
-        color: #1B2559;
-        text-align: center !important; /* Force all inputs to be centered */
-      }
-      .input-premium::placeholder {
+        color: var(--resort-dark);
         text-align: center;
       }
       .input-premium:focus {
-        border-color: var(--resort-blue);
-        background: white;
-        box-shadow: 0 10px 20px -5px rgba(0, 97, 255, 0.1);
+        border-color: var(--resort-dark);
+        box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.04);
       }
 
-      .btn-resort {
-        background: #1B2559;
+      .btn-modern {
+        background: var(--resort-dark);
         color: white;
-        border-radius: 20px;
-        font-weight: 800;
+        border-radius: 12px;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.15em;
-        transition: all 0.4s;
-        padding: 18px 32px;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        padding: 16px 32px;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         border: none;
-        text-align: center;
         width: 100%;
+        font-size: 0.8rem;
       }
-      .btn-resort:hover {
-        background: var(--resort-blue);
-        transform: translateY(-4px);
-        box-shadow: 0 20px 40px -10px rgba(0, 97, 255, 0.3);
+      .btn-modern:hover {
+        background: #1E293B;
+        transform: translateY(-2px);
+        box-shadow: 0 12px 24px -6px rgba(15, 23, 42, 0.2);
       }
-
-      @keyframes fade {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      .animate-fade { animation: fade 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+      .btn-modern:active { transform: translateY(0); }
 
       .glass-card {
-        background: white;
-        border-radius: 40px;
-        box-shadow: 0 40px 80px -20px rgba(27, 37, 89, 0.1);
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        border: 1px solid white;
-        width: 100%;
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.03);
       }
 
-      .glass-header {
-        background: rgba(255, 255, 255, 0.8);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+      .animate-smart { 
+        animation: fadeInSlide 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
+      }
+      @keyframes fadeInSlide {
+        from { opacity: 0; transform: translateY(15px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      @keyframes gentleScale {
+        from { transform: scale(1); }
+        to { transform: scale(1.05); }
       }
 
-      @media (min-width: 768px) {
-        .glass-card {
-          flex-direction: row;
-        }
+      .resort-shadow {
+        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
       }
 
       .no-print { @media print { display: none !important; } }
+
+      /* Custom scrollbar */
+      ::-webkit-scrollbar { width: 5px; }
+      ::-webkit-scrollbar-track { background: var(--bg-sober); }
+      ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
     </style>
     <script type="importmap">
     {
