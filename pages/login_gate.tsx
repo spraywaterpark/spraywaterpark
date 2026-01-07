@@ -18,24 +18,22 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
     const nameValue = data.name.trim();
     const mobileValue = data.mobile.trim();
 
-    // Name validation: only alphabets allowed (spaces allowed)
+    // Name Validation: Only alphabets allowed
     const namePattern = /^[A-Za-z\s]+$/;
-    if (!namePattern.test(nameValue)) {
-      alert("Invalid name. Please use alphabets only.");
+    if (!nameValue || !namePattern.test(nameValue)) {
+      alert("invalid name");
       return;
     }
 
-    // Mobile validation: only numeric, exactly 10 digits, starts with 6,7,8,9
+    // Mobile Validation: 10 digits, starting with 6,7,8,9
     const mobilePattern = /^[6-9]\d{9}$/;
     if (!mobilePattern.test(mobileValue)) {
       alert("invalid mobile no");
       return;
     }
 
-    if (nameValue && mobileValue) {
-      onGuestLogin(nameValue, mobileValue);
-      navigate('/book');
-    }
+    onGuestLogin(nameValue, mobileValue);
+    navigate('/book');
   };
 
   const handleAdmin = (e: React.FormEvent) => {
@@ -83,10 +81,16 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Guest Name</label>
                   <input 
                     type="text" 
-                    placeholder="Rahul Sharma" 
+                    placeholder="Alphabets Only" 
                     className="input-premium" 
                     value={data.name} 
-                    onChange={e => setData({...data, name: e.target.value})} 
+                    onChange={e => {
+                      const val = e.target.value;
+                      // Restrict real-time input to alphabets and spaces only
+                      if (val === '' || /^[A-Za-z\s]+$/.test(val)) {
+                        setData({...data, name: val});
+                      }
+                    }} 
                     required 
                   />
                 </div>
@@ -94,10 +98,16 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Mobile Contact</label>
                   <input 
                     type="tel" 
-                    placeholder="10-digit number" 
+                    placeholder="10 Digits (6-9)" 
                     className="input-premium" 
                     value={data.mobile} 
-                    onChange={e => setData({...data, mobile: e.target.value})} 
+                    onChange={e => {
+                      const val = e.target.value;
+                      // Restrict real-time input to numeric digits only
+                      if (val === '' || /^\d+$/.test(val)) {
+                        setData({...data, mobile: val});
+                      }
+                    }} 
                     required 
                     maxLength={10} 
                   />
