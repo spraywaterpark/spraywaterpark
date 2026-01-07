@@ -15,16 +15,26 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
 
   const handleGuest = (e: React.FormEvent) => {
     e.preventDefault();
+    const nameValue = data.name.trim();
     const mobileValue = data.mobile.trim();
-    const mobilePattern = /^[6-9]\d{9}$/;
-    
-    if (!mobilePattern.test(mobileValue)) {
-      alert("Invalid phone number");
+
+    // Name validation: only alphabets allowed, no numbers or special characters
+    const namePattern = /^[A-Za-z\s]+$/;
+    if (!namePattern.test(nameValue)) {
+      alert("Invalid name. Please use alphabets only.");
       return;
     }
 
-    if (data.name.trim() && mobileValue) {
-      onGuestLogin(data.name.trim(), mobileValue);
+    // Mobile validation: exactly 10 digits, must start with 6, 7, 8, or 9
+    const mobilePattern = /^[6-9]\d{9}$/;
+    
+    if (!mobilePattern.test(mobileValue)) {
+      alert("invalid mobile no");
+      return;
+    }
+
+    if (nameValue && mobileValue) {
+      onGuestLogin(nameValue, mobileValue);
       navigate('/book');
     }
   };
@@ -67,7 +77,7 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
             </p>
           </div>
 
-          <form onSubmit={view === 'landing' ? handleGuest : handleAdmin} className="w-full max-w-sm space-y-6">
+          <form onSubmit={view === 'landing' ? handleGuest : handleAdmin} className="w-full max-sm space-y-6">
             {view === 'landing' ? (
               <>
                 <div className="space-y-2">
