@@ -15,25 +15,18 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
 
   const handleGuest = (e: React.FormEvent) => {
     e.preventDefault();
-    const nameValue = data.name.trim();
     const mobileValue = data.mobile.trim();
-
-    // logic: name me keval alphabet ho tabhi aage jaaye
-    const nameRegex = /^[A-Za-z\s]+$/;
-    if (!nameRegex.test(nameValue)) {
-      alert("invalid name");
+    const mobilePattern = /^[6-9]\d{9}$/;
+    
+    if (!mobilePattern.test(mobileValue)) {
+      alert("Invalid phone number");
       return;
     }
 
-    // logic: mobil number me numbers ho tabhi aage jaaye (10 digits, starts with 6-9)
-    const mobileRegex = /^[6-9]\d{9}$/;
-    if (!mobileRegex.test(mobileValue)) {
-      alert("invalid mobile no");
-      return;
+    if (data.name.trim() && mobileValue) {
+      onGuestLogin(data.name.trim(), mobileValue);
+      navigate('/book');
     }
-
-    onGuestLogin(nameValue, mobileValue);
-    navigate('/book');
   };
 
   const handleAdmin = (e: React.FormEvent) => {
@@ -49,6 +42,8 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
   return (
     <div className="w-full flex items-center justify-center animate-slide-up">
       <div className="w-full max-w-5xl glass-card rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row h-auto md:h-[600px] border border-white/40">
+        
+        {/* LEFT SIDE: THE IMAGE */}
         <div className="w-full md:w-5/12 h-64 md:h-full relative overflow-hidden bg-slate-900">
           <img 
             src={LOGIN_HERO_IMAGE} 
@@ -61,6 +56,7 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
           </div>
         </div>
 
+        {/* RIGHT SIDE: THE FORM */}
         <div className="w-full md:w-7/12 p-10 md:p-16 flex flex-col items-center justify-center">
           <div className="mb-12 text-center">
             <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter mb-2">
@@ -76,51 +72,22 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
               <>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Guest Name</label>
-                  <input 
-                    type="text" 
-                    placeholder="Enter Full Name" 
-                    className="input-premium" 
-                    value={data.name} 
-                    onChange={e => setData({...data, name: e.target.value})} 
-                    required 
-                  />
+                  <input type="text" placeholder="Rahul Sharma" className="input-premium" value={data.name} onChange={e => setData({...data, name: e.target.value})} required />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Mobile Contact</label>
-                  <input 
-                    type="text" 
-                    placeholder="10-digit number" 
-                    className="input-premium" 
-                    value={data.mobile} 
-                    onChange={e => setData({...data, mobile: e.target.value})} 
-                    required 
-                    maxLength={10}
-                  />
+                  <input type="tel" placeholder="10-digit number" className="input-premium" value={data.mobile} onChange={e => setData({...data, mobile: e.target.value})} required maxLength={10} />
                 </div>
               </>
             ) : (
               <>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Staff Email</label>
-                  <input 
-                    type="email" 
-                    placeholder="admin@sprayresort.com" 
-                    className="input-premium" 
-                    value={data.email} 
-                    onChange={e => setData({...data, email: e.target.value})} 
-                    required 
-                  />
+                  <input type="email" placeholder="admin@sprayresort.com" className="input-premium" value={data.email} onChange={e => setData({...data, email: e.target.value})} required />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Password</label>
-                  <input 
-                    type="password" 
-                    placeholder="••••••••" 
-                    className="input-premium" 
-                    value={data.password} 
-                    onChange={e => setData({...data, password: e.target.value})} 
-                    required 
-                  />
+                  <input type="password" placeholder="••••••••" className="input-premium" value={data.password} onChange={e => setData({...data, password: e.target.value})} required />
                 </div>
               </>
             )}
