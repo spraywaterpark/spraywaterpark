@@ -12,7 +12,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
   const [showTerms, setShowTerms] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  // EXACT 6:30 PM LOGIC
+  // EXACT 1:30 PM LOGIC
   const isMorning = slot.includes('Morning');
   const adultRate = isMorning ? PRICING.MORNING_ADULT : PRICING.EVENING_ADULT;
   const kidRate = isMorning ? PRICING.MORNING_KID : PRICING.EVENING_KID;
@@ -87,7 +87,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
           </div>
         </div>
 
-        {/* MEAL SPECIAL UI - 6:30 PM VERSION */}
+        {/* MEAL SPECIAL UI */}
         <div className="bg-slate-50 border-2 border-slate-100 p-10 rounded-[3rem] flex flex-col md:flex-row items-center justify-between gap-10">
             <div className="flex items-center gap-8">
                 <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-3xl text-white shadow-2xl ${isMorning ? 'bg-amber-500' : 'bg-indigo-600'} transition-all duration-500`}>
