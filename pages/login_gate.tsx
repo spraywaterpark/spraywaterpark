@@ -71,7 +71,7 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
             </p>
           </div>
 
-          <form onSubmit={view === 'landing' ? handleGuest : handleAdmin} className="w-full max-sm space-y-6">
+          <form onSubmit={view === 'landing' ? handleGuest : handleAdmin} className="w-full max-w-sm space-y-6">
             {view === 'landing' ? (
               <>
                 <div className="space-y-2">
