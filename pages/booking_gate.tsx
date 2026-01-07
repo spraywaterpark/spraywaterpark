@@ -71,14 +71,9 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              <div className="space-y-3 flex flex-col items-center">
+              <div className="space-y-3">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block text-center">Preferred Date</label>
                 <input type="date" className="input-premium text-center" onChange={e => setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} value={date} />
-                {date && pricingData.discountPercent > 0 && (
-                  <p className="text-emerald-600 font-black text-[11px] uppercase tracking-widest mt-4 animate-pulse">
-                    {pricingData.discountPercent}% WOW discount applied
-                  </p>
-                )}
               </div>
 
               <div className="space-y-3">
@@ -132,7 +127,6 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
               <div className="p-8 bg-white/50 rounded-2xl border border-slate-200 flex justify-between items-center">
                 <div className="text-left">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Adult Entry</label>
-                  <p className="text-[9px] font-bold text-slate-500 uppercase mb-2">3.5 feet and above</p>
                   <span className="text-slate-900 text-lg font-black">₹{adultRate}</span>
                 </div>
                 <div className="flex items-center gap-5">
@@ -144,7 +138,6 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
               <div className="p-8 bg-white/50 rounded-2xl border border-slate-200 flex justify-between items-center">
                 <div className="text-left">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Child Entry</label>
-                  <p className="text-[9px] font-bold text-slate-500 uppercase mb-2">between 2.5 feet to 3.5 feet</p>
                   <span className="text-slate-900 text-lg font-black">₹{kidRate}</span>
                 </div>
                 <div className="flex items-center gap-5">
