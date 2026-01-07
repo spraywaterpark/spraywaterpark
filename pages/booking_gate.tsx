@@ -1,112 +1,171 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AdminSettings, Booking } from '../types';
+import { TIME_SLOTS, OFFERS, TERMS_AND_CONDITIONS, PRICING } from '../constants';
 
-const LOGIN_HERO_IMAGE = "https://images.unsplash.com/photo-1540206351-d6465b3ac5c1?auto=format&fit=crop&q=80&w=1200";
-
-interface LoginPageProps {
-  onGuestLogin: (n: string, m: string) => void;
-  onAdminLogin: (e: string) => void;
-}
-
-const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => {
+const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onProceed: any }> = ({ settings, bookings, onProceed }) => {
   const navigate = useNavigate();
-  const [view, setView] = useState<'landing' | 'admin'>('landing');
-  const [data, setData] = useState({ name: '', mobile: '', email: '', password: '' });
+  const [date, setDate] = useState('');
+  const [slot, setSlot] = useState(TIME_SLOTS[0]);
+  const [adults, setAdults] = useState(1);
+  const [kids, setKids] = useState(0);
+  const [showTerms, setShowTerms] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  const handleGuest = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (data.name.trim() && data.mobile.trim()) {
-      onGuestLogin(data.name.trim(), data.mobile.trim());
-      navigate('/book');
+  // EXACT 1:30 PM LOGIC
+  const isMorning = slot.includes('Morning');
+  const adultRate = isMorning ? PRICING.MORNING_ADULT : PRICING.EVENING_ADULT;
+  const kidRate = isMorning ? PRICING.MORNING_KID : PRICING.EVENING_KID;
+  const currentOffer = isMorning ? OFFERS.MORNING : OFFERS.EVENING;
+
+  const pricingData = useMemo(() => {
+    const subtotal = (adults * adultRate) + (kids * kidRate);
+    const alreadyBooked = bookings
+      .filter(b => b.date === date && b.time === slot && b.status === 'confirmed')
+      .reduce((sum, b) => sum + b.adults + b.kids, 0);
+
+    let discountPercent = 0;
+    let tierText = "";
+
+    if (date) {
+      if (alreadyBooked < 100) {
+        discountPercent = settings.earlyBirdDiscount;
+        tierText = `${discountPercent}% Early Bird Applied`;
+      } else if (alreadyBooked < 200) {
+        discountPercent = settings.extraDiscountPercent;
+        tierText = `${discountPercent}% Tier 2 Applied`;
+      }
     }
+
+    const discountAmount = Math.round(subtotal * (discountPercent / 100));
+    return { subtotal, discount: discountAmount, total: subtotal - discountAmount, discountPercent, tierText };
+  }, [date, slot, adults, kids, adultRate, kidRate, bookings, settings]);
+
+  const handleCheckout = () => {
+    if (!date) return alert("Please select your visit date.");
+    setShowTerms(true);
   };
 
-  const handleAdmin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (data.email.trim() === 'admin@spraywaterpark.com' && data.password.trim() === 'admin123') {
-      onAdminLogin(data.email.trim());
-      navigate('/admin');
-    } else {
-      alert("Invalid Credentials. Please try again.");
-    }
+  const finalProceed = () => {
+    if (!acceptedTerms) return;
+    const draft = { date, time: slot, adults, kids, totalAmount: pricingData.total, status: 'pending' };
+    sessionStorage.setItem('swp_draft_booking', JSON.stringify(draft));
+    navigate('/payment');
   };
 
   return (
-    <div className="glass-card">
-      {/* LEFT: VISUAL SIDE WITH OVERLAY TEXT */}
-      <div className="w-full md:w-5/12 h-64 md:h-auto relative bg-slate-900 overflow-hidden shrink-0">
-        <img 
-          src={LOGIN_HERO_IMAGE} 
-          alt="Aqua Resort" 
-          className="w-full h-full object-cover opacity-90 transition-transform duration-700 hover:scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent flex flex-col justify-end p-10 pb-14">
-            <h1 className="text-4xl font-black text-white uppercase tracking-tighter leading-tight">
-                Splash <br /> Into Fun
-            </h1>
-            <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.4em] mt-2">Spray Aqua Resort Jaipur</p>
+    <div className="w-full max-w-5xl flex flex-col items-center animate-fade">
+      <div className="text-center mb-10">
+        <h2 className="text-5xl font-black text-white uppercase tracking-tighter">Your Splash Day</h2>
+        <p className="text-white/60 font-bold text-[10px] uppercase tracking-[0.4em] mt-3">Spray Aqua Resort Jaipur • Reservation</p>
+      </div>
+
+      <div className="w-full glass-card p-10 md:p-16 space-y-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+          {/* STEP 1: DATE */}
+          <div className="space-y-4">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">1. Choose Date</label>
+            <input type="date" className="input-premium" onChange={e => setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} value={date} />
+            {date && pricingData.discountPercent > 0 && (
+                <div className="bg-emerald-50 text-emerald-700 p-4 rounded-2xl border border-emerald-100 flex items-center gap-3">
+                    <i className="fas fa-gift"></i>
+                    <span className="text-[10px] font-black uppercase tracking-widest">{pricingData.tierText}</span>
+                </div>
+            )}
+          </div>
+
+          {/* STEP 2: SESSION */}
+          <div className="space-y-4">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">2. Select Session</label>
+            <div className="grid grid-cols-1 gap-4">
+              {TIME_SLOTS.map(s => (
+                <button key={s} onClick={() => setSlot(s)} className={`p-5 rounded-2xl border-2 text-left transition-all text-xs font-black uppercase tracking-tight ${slot === s ? 'border-slate-900 bg-slate-900 text-white shadow-xl' : 'border-slate-100 bg-white hover:border-slate-300 text-slate-600'}`}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* MEAL SPECIAL UI */}
+        <div className="bg-slate-50 border-2 border-slate-100 p-10 rounded-[3rem] flex flex-col md:flex-row items-center justify-between gap-10">
+            <div className="flex items-center gap-8">
+                <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-3xl text-white shadow-2xl ${isMorning ? 'bg-amber-500' : 'bg-indigo-600'} transition-all duration-500`}>
+                    <i className={isMorning ? "fas fa-utensils" : "fas fa-concierge-bell"}></i>
+                </div>
+                <div className="text-center md:text-left">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Complimentary Service</p>
+                    <h5 className="text-xl font-black text-slate-900 uppercase tracking-tight">{currentOffer}</h5>
+                    <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">Included with your entry pass</p>
+                </div>
+            </div>
+            <div className="bg-white px-8 py-4 rounded-2xl shadow-sm border border-slate-100 text-center">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Fixed Rates</p>
+                <p className="text-lg font-black text-slate-900">₹{adultRate} Adult | ₹{kidRate} Kid</p>
+            </div>
+        </div>
+
+        {/* PASSENGERS */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="p-8 bg-white border border-slate-100 rounded-[2.5rem] flex justify-between items-center shadow-md">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Adult Entry</p>
+              <p className="text-3xl font-black text-slate-900">₹{adultRate}</p>
+            </div>
+            <div className="flex items-center gap-6">
+              <button onClick={() => setAdults(Math.max(1, adults-1))} className="w-12 h-12 rounded-xl border-2 border-slate-200 flex items-center justify-center font-bold text-xl hover:bg-slate-900 hover:text-white transition-all">-</button>
+              <span className="font-black text-2xl w-8 text-center">{adults}</span>
+              <button onClick={() => setAdults(adults+1)} className="w-12 h-12 rounded-xl border-2 border-slate-200 flex items-center justify-center font-bold text-xl hover:bg-slate-900 hover:text-white transition-all">+</button>
+            </div>
+          </div>
+          <div className="p-8 bg-white border border-slate-100 rounded-[2.5rem] flex justify-between items-center shadow-md">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Child Entry</p>
+              <p className="text-3xl font-black text-slate-900">₹{kidRate}</p>
+            </div>
+            <div className="flex items-center gap-6">
+              <button onClick={() => setKids(Math.max(0, kids-1))} className="w-12 h-12 rounded-xl border-2 border-slate-200 flex items-center justify-center font-bold text-xl hover:bg-slate-900 hover:text-white transition-all">-</button>
+              <span className="font-black text-2xl w-8 text-center">{kids}</span>
+              <button onClick={() => setKids(kids+1)} className="w-12 h-12 rounded-xl border-2 border-slate-200 flex items-center justify-center font-bold text-xl hover:bg-slate-900 hover:text-white transition-all">+</button>
+            </div>
+          </div>
+        </div>
+
+        {/* CHECKOUT */}
+        <div className="pt-12 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-10">
+          <div className="text-center md:text-left">
+            <p className="text-[12px] font-black text-slate-400 uppercase tracking-[0.5em]">Total Amount</p>
+            <p className="text-6xl font-black text-slate-900 tracking-tighter leading-none mt-2">₹{pricingData.total}</p>
+          </div>
+          <button onClick={handleCheckout} className="btn-resort w-full md:auto px-24 h-24 shadow-2xl text-xl">Continue to Payment</button>
         </div>
       </div>
 
-      {/* RIGHT: FORM SIDE */}
-      <div className="w-full md:w-7/12 p-8 md:p-20 flex flex-col justify-center bg-white grow">
-        <div className="mb-14">
-          <div className="flex items-center gap-3 mb-4">
-             <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg">
-                <i className="fas fa-water text-xl"></i>
-             </div>
-             <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Spray Aqua Resort</h3>
+      {showTerms && (
+        <div className="fixed inset-0 z-[500] bg-slate-950/85 backdrop-blur-2xl flex items-center justify-center p-6 animate-fade">
+          <div className="bg-white rounded-[4rem] max-w-xl w-full p-12 md:p-16 shadow-3xl relative border border-white/20">
+            <h3 className="text-4xl font-black text-slate-900 uppercase tracking-tighter text-center mb-10">Safety & Rules</h3>
+            <div className="space-y-5 mb-12 max-h-[350px] overflow-y-auto pr-4 custom-scrollbar">
+              {TERMS_AND_CONDITIONS.map((t, i) => (
+                <div key={i} className="flex gap-6 p-5 bg-slate-50 rounded-3xl border border-slate-100">
+                  <span className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">{i+1}</span>
+                  <p className="text-[12px] font-bold text-slate-700 uppercase leading-relaxed tracking-tight">{t}</p>
+                </div>
+              ))}
+            </div>
+            <label className="flex items-center gap-6 cursor-pointer p-6 bg-blue-50/50 rounded-3xl mb-10 border-2 border-blue-100 transition-all hover:bg-blue-50">
+              <input type="checkbox" className="w-8 h-8 rounded-xl border-2 border-slate-300 accent-blue-600 cursor-pointer" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} />
+              <span className="text-[11px] font-black text-slate-900 uppercase tracking-widest">I agree to all resort policies</span>
+            </label>
+            <div className="grid grid-cols-2 gap-6">
+              <button onClick={() => setShowTerms(false)} className="py-5 font-black text-slate-400 uppercase text-[11px] tracking-[0.2em] hover:text-slate-900 transition-colors">Go Back</button>
+              <button onClick={finalProceed} disabled={!acceptedTerms} className="btn-resort h-20 !py-0 disabled:opacity-20 text-sm">Agree & Pay</button>
+            </div>
           </div>
-          <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-2">
-            {view === 'landing' ? 'Guest Entry' : 'Admin Login'}
-          </h2>
-          <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">
-            {view === 'landing' ? 'Welcome to Jaipur\'s Best Water Park' : 'Restricted Management Access'}
-          </p>
         </div>
-
-        <form onSubmit={view === 'landing' ? handleGuest : handleAdmin} className="space-y-7">
-          {view === 'landing' ? (
-            <>
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
-                <input type="text" placeholder="Rahul Sharma" className="input-premium" value={data.name} onChange={e => setData({...data, name: e.target.value})} required />
-              </div>
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mobile No.</label>
-                <input type="tel" placeholder="10-digit number" className="input-premium" value={data.mobile} onChange={e => setData({...data, mobile: e.target.value})} required />
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
-                <input type="email" placeholder="admin@spraypark.com" className="input-premium" value={data.email} onChange={e => setData({...data, email: e.target.value})} required />
-              </div>
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Password</label>
-                <input type="password" placeholder="••••••••" className="input-premium" value={data.password} onChange={e => setData({...data, password: e.target.value})} required />
-              </div>
-            </>
-          )}
-
-          <button type="submit" className="btn-resort h-20 shadow-2xl mt-4">
-            {view === 'landing' ? 'Get Tickets' : 'Login Admin'}
-          </button>
-
-          <div className="pt-10 text-center">
-            <button 
-              type="button" 
-              onClick={() => setView(view === 'landing' ? 'admin' : 'landing')} 
-              className="text-[10px] font-black text-slate-300 hover:text-slate-900 uppercase tracking-widest transition-colors"
-            >
-              {view === 'landing' ? 'Admin Access?' : 'Back to Booking'}
-            </button>
-          </div>
-        </form>
-      </div>
+      )}
     </div>
   );
 };
 
-export default LoginGate;
+export default BookingGate;
