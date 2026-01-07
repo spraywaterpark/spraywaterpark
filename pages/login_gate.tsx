@@ -18,14 +18,14 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
     const nameValue = data.name.trim();
     const mobileValue = data.mobile.trim();
 
-    // 1. Name Validation: Only alphabets and spaces
+    // logic: name me keval alphabet ho tabhi aage jaaye
     const nameRegex = /^[A-Za-z\s]+$/;
     if (!nameRegex.test(nameValue)) {
       alert("invalid name");
       return;
     }
 
-    // 2. Mobile Validation: Exactly 10 digits, starts with 6,7,8,9
+    // logic: mobil number me numbers ho tabhi aage jaaye (10 digits, starts with 6-9)
     const mobileRegex = /^[6-9]\d{9}$/;
     if (!mobileRegex.test(mobileValue)) {
       alert("invalid mobile no");
@@ -81,30 +81,23 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Guest Name</label>
                   <input 
                     type="text" 
-                    placeholder="Alphabets Only" 
+                    placeholder="Enter Full Name" 
                     className="input-premium" 
                     value={data.name} 
-                    onChange={e => {
-                      const val = e.target.value.replace(/[^A-Za-z\s]/g, '');
-                      setData({...data, name: val});
-                    }} 
+                    onChange={e => setData({...data, name: e.target.value})} 
                     required 
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Mobile Contact</label>
                   <input 
-                    type="tel" 
-                    placeholder="10 Digits (Starts with 6-9)" 
+                    type="text" 
+                    placeholder="10-digit number" 
                     className="input-premium" 
                     value={data.mobile} 
-                    onChange={e => {
-                      const val = e.target.value.replace(/\D/g, '');
-                      if (val.length <= 10) {
-                        setData({...data, mobile: val});
-                      }
-                    }} 
+                    onChange={e => setData({...data, mobile: e.target.value})} 
                     required 
+                    maxLength={10}
                   />
                 </div>
               </>
