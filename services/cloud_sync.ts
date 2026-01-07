@@ -39,11 +39,13 @@ export const cloudSync = {
   fetchData: async (roomId: string): Promise<Booking[] | null> => {
     if (!roomId || roomId.length < 5) return null;
     try {
+      // Use a AbortController to handle timeouts gracefully
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
       const response = await fetch(`${CLOUD_API_BASE}/${roomId}`, {
         method: 'GET',
+        // Removing explicit headers to avoid extra CORS preflight OPTIONS requests
         signal: controller.signal
       });
       
@@ -56,6 +58,7 @@ export const cloudSync = {
       
       return null;
     } catch (e) {
+      // Quietly return null on network failure to avoid "Failed to fetch" spam in the console
       return null;
     }
   }
