@@ -18,16 +18,16 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
     const nameValue = data.name.trim();
     const mobileValue = data.mobile.trim();
 
-    // Name Validation: Only alphabets allowed
-    const namePattern = /^[A-Za-z\s]+$/;
-    if (!nameValue || !namePattern.test(nameValue)) {
+    // 1. Name Validation: Only alphabets and spaces
+    const nameRegex = /^[A-Za-z\s]+$/;
+    if (!nameRegex.test(nameValue)) {
       alert("invalid name");
       return;
     }
 
-    // Mobile Validation: 10 digits, starting with 6,7,8,9
-    const mobilePattern = /^[6-9]\d{9}$/;
-    if (!mobilePattern.test(mobileValue)) {
+    // 2. Mobile Validation: Exactly 10 digits, starts with 6,7,8,9
+    const mobileRegex = /^[6-9]\d{9}$/;
+    if (!mobileRegex.test(mobileValue)) {
       alert("invalid mobile no");
       return;
     }
@@ -85,11 +85,8 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
                     className="input-premium" 
                     value={data.name} 
                     onChange={e => {
-                      const val = e.target.value;
-                      // Restrict real-time input to alphabets and spaces only
-                      if (val === '' || /^[A-Za-z\s]+$/.test(val)) {
-                        setData({...data, name: val});
-                      }
+                      const val = e.target.value.replace(/[^A-Za-z\s]/g, '');
+                      setData({...data, name: val});
                     }} 
                     required 
                   />
@@ -98,18 +95,16 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Mobile Contact</label>
                   <input 
                     type="tel" 
-                    placeholder="10 Digits (6-9)" 
+                    placeholder="10 Digits (Starts with 6-9)" 
                     className="input-premium" 
                     value={data.mobile} 
                     onChange={e => {
-                      const val = e.target.value;
-                      // Restrict real-time input to numeric digits only
-                      if (val === '' || /^\d+$/.test(val)) {
+                      const val = e.target.value.replace(/\D/g, '');
+                      if (val.length <= 10) {
                         setData({...data, mobile: val});
                       }
                     }} 
                     required 
-                    maxLength={10} 
                   />
                 </div>
               </>
