@@ -71,9 +71,14 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              <div className="space-y-3">
+              <div className="space-y-3 flex flex-col items-center">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block text-center">Preferred Date</label>
                 <input type="date" className="input-premium text-center" onChange={e => setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} value={date} />
+                {date && pricingData.discountPercent > 0 && (
+                  <p className="text-emerald-600 font-black text-[11px] uppercase tracking-widest mt-4 animate-pulse">
+                    {pricingData.discountPercent}% WOW discount applied
+                  </p>
+                )}
               </div>
 
               <div className="space-y-3">
