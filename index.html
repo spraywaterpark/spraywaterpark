@@ -11,7 +11,7 @@
       
       :root {
         --resort-dark: #0F172A;
-        --resort-accent: #1E40AF;
+        --resort-blue: #1E40AF;
         --bg-sober: #F8FAFC;
         --border-soft: #E2E8F0;
       }
@@ -34,76 +34,73 @@
 
       .input-premium {
         background: #FFFFFF;
-        border: 1px solid var(--border-soft);
+        border: 1.5px solid var(--border-soft);
         border-radius: 12px;
-        padding: 14px 20px;
+        padding: 16px 20px;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         outline: none;
-        font-weight: 500;
+        font-weight: 600;
         width: 100%;
         color: var(--resort-dark);
         text-align: center;
       }
       .input-premium:focus {
         border-color: var(--resort-dark);
-        box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.04);
+        box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.05);
       }
 
       .btn-modern {
         background: var(--resort-dark);
         color: white;
-        border-radius: 12px;
-        font-weight: 700;
+        border-radius: 14px;
+        font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.15em;
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        padding: 16px 32px;
+        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        padding: 18px 32px;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         border: none;
         width: 100%;
-        font-size: 0.8rem;
+        font-size: 0.85rem;
       }
       .btn-modern:hover {
         background: #1E293B;
         transform: translateY(-2px);
-        box-shadow: 0 12px 24px -6px rgba(15, 23, 42, 0.2);
+        box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.25);
       }
       .btn-modern:active { transform: translateY(0); }
 
       .glass-card {
         background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.5);
-        box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.03);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
       }
 
       .animate-smart { 
         animation: fadeInSlide 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
       }
       @keyframes fadeInSlide {
-        from { opacity: 0; transform: translateY(15px); }
+        from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
       }
       
       @keyframes gentleScale {
         from { transform: scale(1); }
-        to { transform: scale(1.05); }
-      }
-
-      .resort-shadow {
-        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+        to { transform: scale(1.08); }
       }
 
       .no-print { @media print { display: none !important; } }
 
       /* Custom scrollbar */
-      ::-webkit-scrollbar { width: 5px; }
+      ::-webkit-scrollbar { width: 6px; }
       ::-webkit-scrollbar-track { background: var(--bg-sober); }
       ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
+      ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
     </style>
     <script type="importmap">
     {
