@@ -12,7 +12,6 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
   const [showTerms, setShowTerms] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  // EXACT 1:30 PM LOGIC
   const isMorning = slot.includes('Morning');
   const adultRate = isMorning ? PRICING.MORNING_ADULT : PRICING.EVENING_ADULT;
   const kidRate = isMorning ? PRICING.MORNING_KID : PRICING.EVENING_KID;
@@ -54,32 +53,32 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
   };
 
   return (
-    <div className="w-full max-w-5xl flex flex-col items-center animate-fade">
-      <div className="text-center mb-10">
-        <h2 className="text-5xl font-black text-white uppercase tracking-tighter">Your Splash Day</h2>
-        <p className="text-white/60 font-bold text-[10px] uppercase tracking-[0.4em] mt-3">Spray Aqua Resort Jaipur • Reservation</p>
+    <div className="w-full max-w-5xl flex flex-col items-center animate-fade px-4 py-6">
+      <div className="text-center mb-14 flex flex-col items-center w-full">
+        <h2 className="text-5xl md:text-6xl font-black text-[#1B2559] uppercase tracking-tighter leading-none text-center">Your Splash Day</h2>
+        <p className="text-slate-400 font-bold text-[11px] uppercase tracking-[0.5em] mt-5 text-center">Spray Aqua Resort Jaipur • Reservations</p>
       </div>
 
-      <div className="w-full glass-card p-10 md:p-16 space-y-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-          {/* STEP 1: DATE */}
-          <div className="space-y-4">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">1. Choose Date</label>
-            <input type="date" className="input-premium" onChange={e => setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} value={date} />
+      <div className="w-full glass-card p-10 md:p-20 space-y-16 flex flex-col items-center border border-white">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 w-full">
+          {/* STEP 1: DATE (Centered) */}
+          <div className="space-y-6 flex flex-col items-center text-center">
+            <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] text-center w-full">1. Choose Visit Date</label>
+            <input type="date" className="input-premium h-20 text-xl" onChange={e => setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} value={date} />
             {date && pricingData.discountPercent > 0 && (
-                <div className="bg-emerald-50 text-emerald-700 p-4 rounded-2xl border border-emerald-100 flex items-center gap-3">
-                    <i className="fas fa-gift"></i>
-                    <span className="text-[10px] font-black uppercase tracking-widest">{pricingData.tierText}</span>
+                <div className="bg-emerald-50 text-emerald-700 px-8 py-4 rounded-2xl border border-emerald-100 flex items-center gap-4 shadow-sm animate-fade">
+                    <i className="fas fa-gift text-xl"></i>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">{pricingData.tierText}</span>
                 </div>
             )}
           </div>
 
-          {/* STEP 2: SESSION */}
-          <div className="space-y-4">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">2. Select Session</label>
-            <div className="grid grid-cols-1 gap-4">
+          {/* STEP 2: SESSION (Centered) */}
+          <div className="space-y-6 flex flex-col items-center text-center">
+            <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] text-center w-full">2. Select Entry Session</label>
+            <div className="grid grid-cols-1 gap-4 w-full max-w-md">
               {TIME_SLOTS.map(s => (
-                <button key={s} onClick={() => setSlot(s)} className={`p-5 rounded-2xl border-2 text-left transition-all text-xs font-black uppercase tracking-tight ${slot === s ? 'border-slate-900 bg-slate-900 text-white shadow-xl' : 'border-slate-100 bg-white hover:border-slate-300 text-slate-600'}`}>
+                <button key={s} onClick={() => setSlot(s)} className={`p-6 rounded-2xl border-2 text-center transition-all text-xs font-black uppercase tracking-[0.1em] w-full ${slot === s ? 'border-[#1B2559] bg-[#1B2559] text-white shadow-2xl' : 'border-slate-100 bg-slate-50 hover:border-slate-200 text-slate-500'}`}>
                   {s}
                 </button>
               ))}
@@ -87,79 +86,73 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
           </div>
         </div>
 
-        {/* MEAL SPECIAL UI */}
-        <div className="bg-slate-50 border-2 border-slate-100 p-10 rounded-[3rem] flex flex-col md:flex-row items-center justify-between gap-10">
-            <div className="flex items-center gap-8">
-                <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-3xl text-white shadow-2xl ${isMorning ? 'bg-amber-500' : 'bg-indigo-600'} transition-all duration-500`}>
+        {/* MEAL SPECIAL UI (Centered) */}
+        <div className="w-full bg-slate-50 border border-slate-100 p-10 md:p-14 rounded-[3.5rem] flex flex-col items-center text-center gap-10">
+            <div className="flex flex-col items-center gap-6">
+                <div className={`w-24 h-24 rounded-[2rem] flex items-center justify-center text-4xl text-white shadow-3xl ${isMorning ? 'bg-amber-500' : 'bg-indigo-600'} transition-all`}>
                     <i className={isMorning ? "fas fa-utensils" : "fas fa-concierge-bell"}></i>
                 </div>
-                <div className="text-center md:text-left">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Complimentary Service</p>
-                    <h5 className="text-xl font-black text-slate-900 uppercase tracking-tight">{currentOffer}</h5>
-                    <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">Included with your entry pass</p>
+                <div className="text-center">
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em] mb-2 text-center">Complimentary Hospitality</p>
+                    <h5 className="text-3xl font-black text-[#1B2559] uppercase tracking-tight text-center">{currentOffer}</h5>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase mt-2 tracking-widest text-center">Included with your entry pass</p>
                 </div>
             </div>
-            <div className="bg-white px-8 py-4 rounded-2xl shadow-sm border border-slate-100 text-center">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Fixed Rates</p>
-                <p className="text-lg font-black text-slate-900">₹{adultRate} Adult | ₹{kidRate} Kid</p>
-            </div>
         </div>
 
-        {/* PASSENGERS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="p-8 bg-white border border-slate-100 rounded-[2.5rem] flex justify-between items-center shadow-md">
-            <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Adult Entry</p>
-              <p className="text-3xl font-black text-slate-900">₹{adultRate}</p>
-            </div>
-            <div className="flex items-center gap-6">
-              <button onClick={() => setAdults(Math.max(1, adults-1))} className="w-12 h-12 rounded-xl border-2 border-slate-200 flex items-center justify-center font-bold text-xl hover:bg-slate-900 hover:text-white transition-all">-</button>
-              <span className="font-black text-2xl w-8 text-center">{adults}</span>
-              <button onClick={() => setAdults(adults+1)} className="w-12 h-12 rounded-xl border-2 border-slate-200 flex items-center justify-center font-bold text-xl hover:bg-slate-900 hover:text-white transition-all">+</button>
+        {/* PASSENGERS (Centered Grid) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 w-full">
+          <div className="p-10 bg-white border border-slate-100 rounded-[3rem] flex flex-col items-center shadow-xl space-y-6 text-center">
+            <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] text-center w-full">Adult Entry (12+ Years)</p>
+            <p className="text-4xl font-black text-[#1B2559] text-center">₹{adultRate}</p>
+            <div className="flex items-center gap-8 justify-center">
+              <button onClick={() => setAdults(Math.max(1, adults-1))} className="w-14 h-14 rounded-2xl border-2 border-slate-200 bg-white flex items-center justify-center font-black text-2xl hover:bg-[#1B2559] hover:text-white transition-all shadow-sm">-</button>
+              <span className="font-black text-4xl w-10 text-center">{adults}</span>
+              <button onClick={() => setAdults(adults+1)} className="w-14 h-14 rounded-2xl border-2 border-slate-200 bg-white flex items-center justify-center font-black text-2xl hover:bg-[#1B2559] hover:text-white transition-all shadow-sm">+</button>
             </div>
           </div>
-          <div className="p-8 bg-white border border-slate-100 rounded-[2.5rem] flex justify-between items-center shadow-md">
-            <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Child Entry</p>
-              <p className="text-3xl font-black text-slate-900">₹{kidRate}</p>
-            </div>
-            <div className="flex items-center gap-6">
-              <button onClick={() => setKids(Math.max(0, kids-1))} className="w-12 h-12 rounded-xl border-2 border-slate-200 flex items-center justify-center font-bold text-xl hover:bg-slate-900 hover:text-white transition-all">-</button>
-              <span className="font-black text-2xl w-8 text-center">{kids}</span>
-              <button onClick={() => setKids(kids+1)} className="w-12 h-12 rounded-xl border-2 border-slate-200 flex items-center justify-center font-bold text-xl hover:bg-slate-900 hover:text-white transition-all">+</button>
+          <div className="p-10 bg-white border border-slate-100 rounded-[3rem] flex flex-col items-center shadow-xl space-y-6 text-center">
+            <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] text-center w-full">Child Entry (3-12 Years)</p>
+            <p className="text-4xl font-black text-[#1B2559] text-center">₹{kidRate}</p>
+            <div className="flex items-center gap-8 justify-center">
+              <button onClick={() => setKids(Math.max(0, kids-1))} className="w-14 h-14 rounded-2xl border-2 border-slate-200 bg-white flex items-center justify-center font-black text-2xl hover:bg-[#1B2559] hover:text-white transition-all shadow-sm">-</button>
+              <span className="font-black text-4xl w-10 text-center">{kids}</span>
+              <button onClick={() => setKids(kids+1)} className="w-14 h-14 rounded-2xl border-2 border-slate-200 bg-white flex items-center justify-center font-black text-2xl hover:bg-[#1B2559] hover:text-white transition-all shadow-sm">+</button>
             </div>
           </div>
         </div>
 
-        {/* CHECKOUT */}
-        <div className="pt-12 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-10">
-          <div className="text-center md:text-left">
-            <p className="text-[12px] font-black text-slate-400 uppercase tracking-[0.5em]">Total Amount</p>
-            <p className="text-6xl font-black text-slate-900 tracking-tighter leading-none mt-2">₹{pricingData.total}</p>
+        {/* CHECKOUT SECTION (Centered) */}
+        <div className="w-full pt-16 border-t border-slate-100 flex flex-col items-center gap-12 text-center">
+          <div className="text-center flex flex-col items-center">
+            <p className="text-[13px] font-black text-slate-400 uppercase tracking-[0.6em] mb-4 text-center">Final Payable Amount</p>
+            <p className="text-8xl font-black text-[#1B2559] tracking-tighter leading-none text-center">₹{pricingData.total}</p>
           </div>
-          <button onClick={handleCheckout} className="btn-resort w-full md:auto px-24 h-24 shadow-2xl text-xl">Continue to Payment</button>
+          <button onClick={handleCheckout} className="btn-resort w-full max-w-lg h-24 shadow-[0_30px_60px_-15px_rgba(27,37,89,0.3)] text-xl rounded-[2.5rem] flex items-center justify-center">
+            Reserve Your Tickets <i className="fas fa-arrow-right ml-4"></i>
+          </button>
         </div>
       </div>
 
       {showTerms && (
-        <div className="fixed inset-0 z-[500] bg-slate-950/85 backdrop-blur-2xl flex items-center justify-center p-6 animate-fade">
-          <div className="bg-white rounded-[4rem] max-w-xl w-full p-12 md:p-16 shadow-3xl relative border border-white/20">
-            <h3 className="text-4xl font-black text-slate-900 uppercase tracking-tighter text-center mb-10">Safety & Rules</h3>
-            <div className="space-y-5 mb-12 max-h-[350px] overflow-y-auto pr-4 custom-scrollbar">
+        <div className="fixed inset-0 z-[500] bg-[#1B2559]/90 backdrop-blur-2xl flex items-center justify-center p-6 animate-fade">
+          <div className="bg-white rounded-[4.5rem] max-w-2xl w-full p-14 md:p-16 shadow-3xl relative flex flex-col items-center text-center">
+            <h3 className="text-4xl font-black text-[#1B2559] uppercase tracking-tighter mb-10 leading-none text-center">Resort Policies</h3>
+            <div className="w-full space-y-4 mb-12 text-left flex flex-col items-center">
               {TERMS_AND_CONDITIONS.map((t, i) => (
-                <div key={i} className="flex gap-6 p-5 bg-slate-50 rounded-3xl border border-slate-100">
-                  <span className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">{i+1}</span>
+                <div key={i} className="flex gap-6 p-6 bg-slate-50 rounded-[2.5rem] items-center border border-slate-100 w-full max-w-xl">
+                  <span className="w-9 h-9 rounded-2xl bg-[#1B2559] text-white flex items-center justify-center text-[11px] font-black shrink-0">{i+1}</span>
                   <p className="text-[12px] font-bold text-slate-700 uppercase leading-relaxed tracking-tight">{t}</p>
                 </div>
               ))}
             </div>
-            <label className="flex items-center gap-6 cursor-pointer p-6 bg-blue-50/50 rounded-3xl mb-10 border-2 border-blue-100 transition-all hover:bg-blue-50">
-              <input type="checkbox" className="w-8 h-8 rounded-xl border-2 border-slate-300 accent-blue-600 cursor-pointer" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} />
-              <span className="text-[11px] font-black text-slate-900 uppercase tracking-widest">I agree to all resort policies</span>
+            <label className="w-full max-w-xl flex items-center justify-center gap-6 cursor-pointer p-8 bg-blue-50/50 rounded-[3rem] mb-12 border-2 border-blue-100 hover:bg-blue-50 transition-all">
+              <input type="checkbox" className="w-8 h-8 rounded-xl border-2 border-slate-300 accent-[#1B2559] cursor-pointer" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} />
+              <span className="text-[14px] font-black text-slate-900 uppercase tracking-widest text-center">I agree to Resort Terms</span>
             </label>
-            <div className="grid grid-cols-2 gap-6">
-              <button onClick={() => setShowTerms(false)} className="py-5 font-black text-slate-400 uppercase text-[11px] tracking-[0.2em] hover:text-slate-900 transition-colors">Go Back</button>
-              <button onClick={finalProceed} disabled={!acceptedTerms} className="btn-resort h-20 !py-0 disabled:opacity-20 text-sm">Agree & Pay</button>
+            <div className="w-full max-w-xl grid grid-cols-2 gap-8">
+              <button onClick={() => setShowTerms(false)} className="py-6 font-black text-slate-400 uppercase text-[12px] tracking-[0.4em] hover:text-[#1B2559] text-center">Go Back</button>
+              <button onClick={finalProceed} disabled={!acceptedTerms} className="btn-resort h-22 disabled:opacity-20 text-sm flex items-center justify-center">Agree & Pay</button>
             </div>
           </div>
         </div>
