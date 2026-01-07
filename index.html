@@ -8,99 +8,19 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-      
-      :root {
-        --resort-navy: #0f172a;
-        --resort-blue: #0284c7;
-        --resort-slate: #334155;
-      }
-
-      body { 
-        font-family: 'Plus Jakarta Sans', sans-serif; 
-        color: #1e293b; 
-        -webkit-font-smoothing: antialiased;
-        min-height: 100vh;
-        margin: 0;
-        display: flex;
-        flex-direction: column;
-      }
-
+      :root { --resort-navy: #0f172a; --resort-blue: #0284c7; }
+      body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; min-height: 100vh; display: flex; flex-direction: column; }
       body::before {
-        content: "";
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
+        content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background-image: linear-gradient(rgba(15, 23, 42, 0.5), rgba(15, 23, 42, 0.5)), url('https://images.unsplash.com/photo-1540206351-d6465b3ac5c1?auto=format&fit=crop&q=80&w=2000');
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
-        z-index: -1;
+        background-size: cover; background-position: center; z-index: -1;
       }
-
-      .glass-card {
-        background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(20px) saturate(160%);
-        -webkit-backdrop-filter: blur(20px) saturate(160%);
-        border: 1px solid rgba(255, 255, 255, 0.4);
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-      }
-
-      .glass-header {
-        background: rgba(15, 23, 42, 0.2);
-        backdrop-filter: blur(12px);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      }
-
-      .input-premium {
-        background: rgba(255, 255, 255, 0.95);
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 14px 20px;
-        transition: all 0.2s ease;
-        outline: none;
-        width: 100%;
-        font-weight: 500;
-      }
-      .input-premium:focus {
-        border-color: var(--resort-blue);
-        box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.15);
-      }
-
-      .btn-resort {
-        background: var(--resort-navy);
-        color: white;
-        border-radius: 12px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        padding: 18px 32px;
-      }
-      .btn-resort:hover {
-        background: #1e293b;
-        transform: translateY(-2px);
-        box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.4);
-      }
-
-      @keyframes slideUp {
-        from { opacity: 0; transform: translateY(30px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      .animate-slide-up {
-        animation: slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-      }
-
-      .no-print {
-        @media print {
-          display: none !important;
-        }
-      }
+      .glass-card { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.4); }
+      .glass-header { background: rgba(15, 23, 42, 0.2); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+      .input-premium { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 20px; width: 100%; outline: none; }
+      .btn-resort { background: var(--resort-navy); color: white; border-radius: 12px; font-weight: 700; padding: 18px 32px; display: flex; align-items: center; justify-content: center; gap: 12px; }
+      @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+      .animate-slide-up { animation: slideUp 0.6s ease forwards; }
     </style>
 <script type="importmap">
 {
