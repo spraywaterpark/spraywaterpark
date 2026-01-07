@@ -18,16 +18,15 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
     const nameValue = data.name.trim();
     const mobileValue = data.mobile.trim();
 
-    // Name validation: only alphabets allowed, no numbers or special characters
+    // Name validation: only alphabets allowed (spaces allowed)
     const namePattern = /^[A-Za-z\s]+$/;
     if (!namePattern.test(nameValue)) {
       alert("Invalid name. Please use alphabets only.");
       return;
     }
 
-    // Mobile validation: exactly 10 digits, must start with 6, 7, 8, or 9
+    // Mobile validation: only numeric, exactly 10 digits, starts with 6,7,8,9
     const mobilePattern = /^[6-9]\d{9}$/;
-    
     if (!mobilePattern.test(mobileValue)) {
       alert("invalid mobile no");
       return;
@@ -77,27 +76,56 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
             </p>
           </div>
 
-          <form onSubmit={view === 'landing' ? handleGuest : handleAdmin} className="w-full max-sm space-y-6">
+          <form onSubmit={view === 'landing' ? handleGuest : handleAdmin} className="w-full max-w-sm space-y-6">
             {view === 'landing' ? (
               <>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Guest Name</label>
-                  <input type="text" placeholder="Rahul Sharma" className="input-premium" value={data.name} onChange={e => setData({...data, name: e.target.value})} required />
+                  <input 
+                    type="text" 
+                    placeholder="Rahul Sharma" 
+                    className="input-premium" 
+                    value={data.name} 
+                    onChange={e => setData({...data, name: e.target.value})} 
+                    required 
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Mobile Contact</label>
-                  <input type="tel" placeholder="10-digit number" className="input-premium" value={data.mobile} onChange={e => setData({...data, mobile: e.target.value})} required maxLength={10} />
+                  <input 
+                    type="tel" 
+                    placeholder="10-digit number" 
+                    className="input-premium" 
+                    value={data.mobile} 
+                    onChange={e => setData({...data, mobile: e.target.value})} 
+                    required 
+                    maxLength={10} 
+                  />
                 </div>
               </>
             ) : (
               <>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Staff Email</label>
-                  <input type="email" placeholder="admin@sprayresort.com" className="input-premium" value={data.email} onChange={e => setData({...data, email: e.target.value})} required />
+                  <input 
+                    type="email" 
+                    placeholder="admin@sprayresort.com" 
+                    className="input-premium" 
+                    value={data.email} 
+                    onChange={e => setData({...data, email: e.target.value})} 
+                    required 
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Password</label>
-                  <input type="password" placeholder="••••••••" className="input-premium" value={data.password} onChange={e => setData({...data, password: e.target.value})} required />
+                  <input 
+                    type="password" 
+                    placeholder="••••••••" 
+                    className="input-premium" 
+                    value={data.password} 
+                    onChange={e => setData({...data, password: e.target.value})} 
+                    required 
+                  />
                 </div>
               </>
             )}
