@@ -45,12 +45,28 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
     setShowTerms(true);
   };
 
-  const finalProceed = () => {
-    if (!acceptedTerms) return;
-    const draft = { date, time: slot, adults, kids, totalAmount: pricingData.total, status: 'pending' };
-    sessionStorage.setItem('swp_draft_booking', JSON.stringify(draft));
-    navigate('/payment');
+  const finalProceed = async () => {
+  if (!acceptedTerms) return;
+
+  const bookingData = {
+    name: "Walk-in Guest",
+    mobile: "0000000000",
+    tickets: adults + kids,
+    amount: pricingData.total
   };
+
+  await fetch("/api/booking", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(bookingData)
+  });
+
+  const draft = { date, time: slot, adults, kids, totalAmount: pricingData.total, status: 'pending' };
+  sessionStorage.setItem('swp_draft_booking', JSON.stringify(draft));
+
+  navigate('/payment');
+};
+
 
   return (
     <div className="w-full flex flex-col items-center animate-slide-up">
