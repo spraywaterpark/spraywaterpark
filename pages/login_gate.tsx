@@ -15,16 +15,8 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
 
   const handleGuest = (e: React.FormEvent) => {
     e.preventDefault();
-    const mobileValue = data.mobile.trim();
-    const mobilePattern = /^[6-9]\d{9}$/;
-    
-    if (!mobilePattern.test(mobileValue)) {
-      alert("Invalid phone number");
-      return;
-    }
-
-    if (data.name.trim() && mobileValue) {
-      onGuestLogin(data.name.trim(), mobileValue);
+    if (data.name.trim() && data.mobile.trim()) {
+      onGuestLogin(data.name.trim(), data.mobile.trim());
       navigate('/book');
     }
   };
@@ -76,7 +68,7 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Mobile Contact</label>
-                  <input type="tel" placeholder="10-digit number" className="input-premium" value={data.mobile} onChange={e => setData({...data, mobile: e.target.value})} required maxLength={10} />
+                  <input type="tel" placeholder="10-digit number" className="input-premium" value={data.mobile} onChange={e => setData({...data, mobile: e.target.value})} required />
                 </div>
               </>
             ) : (
