@@ -36,39 +36,42 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
   };
 
   return (
-    <div className="w-full max-w-lg animate-reveal px-4">
-      <div className="glass-card p-12 md:p-16 text-center">
-        <div className="w-24 h-24 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center text-4xl mx-auto mb-10 shadow-inner">
+    <div className="w-full max-w-2xl animate-fade px-4 py-10 flex flex-col items-center">
+      <div className="glass-card p-14 md:p-20 text-center flex flex-col items-center w-full shadow-3xl">
+        <div className="w-28 h-28 bg-emerald-50 text-emerald-600 rounded-[2.5rem] flex items-center justify-center text-5xl mx-auto mb-12 shadow-inner border border-emerald-100">
           <i className="fas fa-shield-alt"></i>
         </div>
-        <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight">Checkout Securely</h2>
-        <p className="text-slate-500 font-bold text-[10px] uppercase tracking-[0.3em] mt-3 mb-12">256-Bit SSL Encrypted Terminal</p>
+        <h2 className="text-4xl md:text-5xl font-black text-slate-900 uppercase tracking-tighter mb-4 text-center">Final Checkout</h2>
+        <p className="text-slate-400 font-bold text-[11px] uppercase tracking-[0.5em] mb-14 text-center">256-Bit SSL Encrypted Ledger</p>
 
-        <div className="bg-slate-50 p-10 rounded-[2rem] text-left space-y-8 mb-12 border border-slate-200">
-           <div className="flex justify-between items-center">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Guest Holder</span>
-              <span className="text-sm font-bold text-slate-900">{draft?.name}</span>
+        <div className="bg-slate-50 p-12 rounded-[3.5rem] w-full max-w-md space-y-10 mb-14 border border-slate-100 text-center flex flex-col items-center">
+           <div className="flex flex-col items-center gap-3">
+              <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Authorized Pass Holder</span>
+              <span className="text-2xl font-black text-[#1B2559] uppercase tracking-tight text-center">{draft?.name}</span>
            </div>
-           <div className="flex justify-between items-center pt-8 border-t border-slate-200">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payable Total</span>
-              <span className="text-4xl font-black text-blue-600 tracking-tighter">₹{draft?.totalAmount}</span>
+           <div className="w-full border-t border-slate-200 pt-10 flex flex-col items-center gap-4">
+              <span className="text-[13px] font-black text-slate-400 uppercase tracking-[0.6em] text-center">Total Settlement</span>
+              <span className="text-7xl md:text-8xl font-black text-[#0061FF] tracking-tighter leading-none text-center">₹{draft?.totalAmount}</span>
            </div>
         </div>
 
         <button 
             onClick={processPayment} 
             disabled={isPaying} 
-            className="w-full btn-resort h-20 text-lg shadow-3xl disabled:opacity-50"
+            className="w-full btn-resort h-24 text-xl shadow-3xl disabled:opacity-50 max-w-md flex items-center justify-center"
         >
            {isPaying ? (
-               <span className="flex items-center justify-center gap-4">
-                   <i className="fas fa-circle-notch fa-spin"></i> Validating...
+               <span className="flex items-center justify-center gap-5">
+                   <i className="fas fa-circle-notch fa-spin"></i> Processing...
                </span>
            ) : (
-               <>Confirm Payment</>
+               <>Confirm & Pay ₹{draft?.totalAmount}</>
            )}
         </button>
-        <p className="text-[10px] text-slate-400 font-bold uppercase mt-10 italic opacity-50">ResortPay &copy; Verified Secure Gateway</p>
+        <div className="mt-12 flex items-center justify-center gap-4 text-slate-300">
+           <i className="fas fa-lock text-xs"></i>
+           <p className="text-[10px] font-black uppercase tracking-[0.4em] text-center">Spray Resorts Digital Gateway</p>
+        </div>
       </div>
     </div>
   );
