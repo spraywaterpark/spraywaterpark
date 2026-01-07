@@ -49,8 +49,6 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
   return (
     <div className="w-full flex items-center justify-center animate-slide-up">
       <div className="w-full max-w-5xl glass-card rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row h-auto md:h-[600px] border border-white/40">
-        
-        {/* LEFT SIDE: THE IMAGE */}
         <div className="w-full md:w-5/12 h-64 md:h-full relative overflow-hidden bg-slate-900">
           <img 
             src={LOGIN_HERO_IMAGE} 
@@ -63,7 +61,6 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
           </div>
         </div>
 
-        {/* RIGHT SIDE: THE FORM */}
         <div className="w-full md:w-7/12 p-10 md:p-16 flex flex-col items-center justify-center">
           <div className="mb-12 text-center">
             <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter mb-2">
@@ -74,7 +71,7 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
             </p>
           </div>
 
-          <form onSubmit={view === 'landing' ? handleGuest : handleAdmin} className="w-full max-w-sm space-y-6">
+          <form onSubmit={view === 'landing' ? handleGuest : handleAdmin} className="w-full max-sm space-y-6">
             {view === 'landing' ? (
               <>
                 <div className="space-y-2">
