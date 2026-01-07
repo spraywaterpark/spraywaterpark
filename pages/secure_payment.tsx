@@ -10,7 +10,6 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
 
   useEffect(() => {
     const saved = sessionStorage.getItem('swp_draft_booking');
-    // Using sessionStorage for auth as updated in App.tsx
     const auth = JSON.parse(sessionStorage.getItem('swp_auth') || '{}');
     if (saved) setDraft({ ...JSON.parse(saved), ...auth.user });
     else navigate('/');
@@ -18,7 +17,6 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
 
   const processPayment = async () => {
     setIsPaying(true);
-    // Simulating gateway response
     await new Promise(res => setTimeout(res, 2500));
     
     const bookingId = 'SWP-' + Math.floor(100000 + Math.random()*900000);
@@ -29,7 +27,6 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
         createdAt: new Date().toISOString() 
     };
     
-    // Auto-generate AI message for the next screen
     const aiMessage = await generateConfirmationMessage(final);
     sessionStorage.setItem('last_ai_message', aiMessage);
     
@@ -61,7 +58,7 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
         <button 
             onClick={processPayment} 
             disabled={isPaying} 
-            className="w-full btn-luxury py-6 text-xl shadow-2xl relative overflow-hidden uppercase tracking-widest"
+            className="w-full btn-resort !bg-blue-600 !text-white py-6 text-xl shadow-2xl relative overflow-hidden uppercase tracking-widest"
         >
            {isPaying ? (
                <span className="flex items-center justify-center gap-3">
