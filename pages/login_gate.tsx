@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const HERO_URL = "https://images.unsplash.com/photo-1540206351-d6465b3ac5c1?auto=format&fit=crop&q=80&w=1600";
+const HERO_URL = "https://images.unsplash.com/photo-1560090334-9721df22066d?auto=format&fit=crop&q=80&w=1200";
 
 interface LoginPageProps {
   onGuestLogin: (n: string, m: string) => void;
@@ -33,10 +33,14 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden">
-      {/* Background with subtle animation */}
+      {/* Background with subtle animation and optimized size */}
       <div className="absolute inset-0 z-0 scale-105 animate-[gentleScale_40s_infinite_alternate]">
-        <img src={HERO_URL} alt="Spray Aqua" className="w-full h-full object-cover brightness-[0.7] contrast-[1.1]" />
-        <div className="absolute inset-0 bg-slate-900/40"></div>
+        <img 
+          src={HERO_URL} 
+          alt="Spray Aqua Resort Experience" 
+          className="w-full h-full object-cover brightness-[0.75] contrast-[1.1]" 
+        />
+        <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-[0.5px]"></div>
       </div>
 
       {/* Login Terminal Card */}
@@ -60,22 +64,50 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
               <>
                 <div className="w-full space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block text-center">Guest Name</label>
-                  <input type="text" placeholder="Rahul Sharma" className="input-premium bg-white/50 border-white/20 focus:bg-white" value={data.name} onChange={e => setData({...data, name: e.target.value})} required />
+                  <input 
+                    type="text" 
+                    placeholder="Rahul Sharma" 
+                    className="input-premium bg-white/50 border-white/20 focus:bg-white" 
+                    value={data.name} 
+                    onChange={e => setData({...data, name: e.target.value})} 
+                    required 
+                  />
                 </div>
                 <div className="w-full space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block text-center">Mobile Connection</label>
-                  <input type="tel" placeholder="10-Digit Mobile" className="input-premium bg-white/50 border-white/20 focus:bg-white" value={data.mobile} onChange={e => setData({...data, mobile: e.target.value})} required />
+                  <input 
+                    type="tel" 
+                    placeholder="10-Digit Mobile" 
+                    className="input-premium bg-white/50 border-white/20 focus:bg-white" 
+                    value={data.mobile} 
+                    onChange={e => setData({...data, mobile: e.target.value})} 
+                    required 
+                  />
                 </div>
               </>
             ) : (
               <>
                 <div className="w-full space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block text-center">Authorized Email</label>
-                  <input type="email" placeholder="admin@spraypark.com" className="input-premium bg-white/50 border-white/20 focus:bg-white" value={data.email} onChange={e => setData({...data, email: e.target.value})} required />
+                  <input 
+                    type="email" 
+                    placeholder="admin@spraypark.com" 
+                    className="input-premium bg-white/50 border-white/20 focus:bg-white" 
+                    value={data.email} 
+                    onChange={e => setData({...data, email: e.target.value})} 
+                    required 
+                  />
                 </div>
                 <div className="w-full space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block text-center">Security Key</label>
-                  <input type="password" placeholder="••••••••" className="input-premium bg-white/50 border-white/20 focus:bg-white" value={data.password} onChange={e => setData({...data, password: e.target.value})} required />
+                  <input 
+                    type="password" 
+                    placeholder="••••••••" 
+                    className="input-premium bg-white/50 border-white/20 focus:bg-white" 
+                    value={data.password} 
+                    onChange={e => setData({...data, password: e.target.value})} 
+                    required 
+                  />
                 </div>
               </>
             )}
