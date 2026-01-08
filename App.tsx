@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import LoginGate from './pages/login_gate';
@@ -29,7 +28,7 @@ const AppContent: React.FC = () => {
   const [syncId, setSyncId] = useState<string>(() => localStorage.getItem('swp_sync_id') || MASTER_SYNC_ID);
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const location = useLocation();
-  
+
   const bookingsRef = useRef<Booking[]>(bookings);
   useEffect(() => { bookingsRef.current = bookings; }, [bookings]);
 
@@ -41,6 +40,7 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (!syncId) return;
     let isMounted = true;
+
     const syncData = async () => {
       const remoteData = await cloudSync.fetchData(syncId);
       if (!isMounted) return;
@@ -53,20 +53,22 @@ const AppContent: React.FC = () => {
         setIsCloudConnected(false);
       }
     };
+
     syncData();
-    const interval = setInterval(syncData, 5000); 
+    const interval = setInterval(syncData, 5000);
     return () => { isMounted = false; clearInterval(interval); };
   }, [syncId]);
 
   const loginAsGuest = (name: string, mobile: string) => setAuth({ role: 'guest', user: { name, mobile } });
   const loginAsAdmin = (email: string) => setAuth({ role: 'admin', user: { email } });
-  const logout = () => { 
-    if(confirm("Are you sure you want to sign out?")) {
-      setAuth({ role: null, user: null }); 
-      sessionStorage.clear(); 
+
+  const logout = () => {
+    if (confirm("Are you sure you want to sign out?")) {
+      setAuth({ role: null, user: null });
+      sessionStorage.clear();
     }
   };
-  
+
   const updateSettings = (newSettings: AdminSettings) => setSettings(newSettings);
   const setupSyncId = (id: string) => setSyncId(id);
 
@@ -77,30 +79,52 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-[100] w-full glass-header no-print">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
+    <div className="min-h-screen flex flex-col bg-slate-950">
+
+      {/* HEADER */}
+      <header className="sticky top-0 z-[100] w-full backdrop-blur-xl bg-black/40 border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 h-16 sm:h-20 flex justify-between items-center">
+
           <Link to="/" className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-white/10 rounded-lg flex items-center justify-center text-white border border-white/20">
-              <i className="fas fa-water text-sm"></i>
+            <div className="w-8 h-8 sm:w-9 sm:h-9 bg-white/10 rounded-lg flex items-center justify-center text-white border border-white/20">
+              <i className="fas fa-water text-xs sm:text-sm"></i>
             </div>
-            <h1 className="text-lg font-extrabold text-white tracking-tight uppercase">Spray Aqua Resort</h1>
+            <h1 className="text-sm sm:text-lg font-extrabold text-white tracking-tight uppercase">
+              Spray Aqua Resort
+            </h1>
           </Link>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 sm:gap-6">
+
             {auth.role === 'guest' && (
-              <nav className="hidden md:flex items-center gap-10">
-                <Link to="/book" className={`text-[10px] font-bold uppercase tracking-widest transition-all ${location.pathname === '/book' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'}`}>Book Now</Link>
-                <Link to="/my-bookings" className={`text-[10px] font-bold uppercase tracking-widest transition-all ${location.pathname === '/my-bookings' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'}`}>My Tickets</Link>
+              <nav className="hidden md:flex items-center gap-8">
+                {[
+                  { to: '/book', label: 'Book Now' },
+                  { to: '/my-bookings', label: 'My Tickets' }
+                ].map(item => (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={`text-[10px] font-bold uppercase tracking-widest transition-all
+                      ${location.pathname === item.to
+                        ? 'text-white border-b-2 border-white pb-1'
+                        : 'text-white/60 hover:text-white'
+                      }`}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
               </nav>
             )}
-            
+
             {auth.role && (
-              <button 
-                onClick={logout} 
-                className="flex items-center gap-3 bg-white/10 hover:bg-red-500/20 px-5 py-2.5 rounded-full border border-white/20 transition-all duration-300 group"
+              <button
+                onClick={logout}
+                className="flex items-center gap-3 bg-white/10 hover:bg-red-500/20 px-4 sm:px-5 py-2 rounded-full border border-white/20 transition-all duration-300 group"
               >
-                <span className="text-[9px] font-black text-white/70 uppercase tracking-widest group-hover:text-white transition-colors">Sign Out</span>
+                <span className="text-[9px] font-black text-white/70 uppercase tracking-widest group-hover:text-white transition-colors hidden sm:block">
+                  Sign Out
+                </span>
                 <div className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center text-white group-hover:bg-white group-hover:text-red-600 transition-all">
                   <i className="fas fa-power-off text-[10px]"></i>
                 </div>
@@ -110,23 +134,31 @@ const AppContent: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 w-full flex flex-col items-center justify-center p-4 md:p-10">
-        <Routes>
-          <Route path="/" element={
-            auth.role === 'admin' ? <Navigate to="/admin" /> : 
-            auth.role === 'guest' ? <Navigate to="/book" /> : 
-            <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />
-          } />
-          <Route path="/book" element={auth.role === 'guest' ? <BookingGate settings={settings} bookings={bookings} onProceed={(b: any) => b} /> : <Navigate to="/" />} />
-          <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} /> : <Navigate to="/" />} />
-          <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
-          <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={updateSettings} syncId={syncId} onSyncSetup={setupSyncId} /> : <Navigate to="/" />} />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
+      {/* MAIN CONTENT */}
+      <main className="flex-1 w-full flex flex-col items-center justify-start px-3 sm:px-6 lg:px-10 py-6 sm:py-10">
+        <div className="w-full max-w-7xl">
+          <Routes>
+            <Route path="/" element={
+              auth.role === 'admin' ? <Navigate to="/admin" /> :
+                auth.role === 'guest' ? <Navigate to="/book" /> :
+                  <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />
+            } />
+            <Route path="/book" element={auth.role === 'guest' ? <BookingGate settings={settings} bookings={bookings} onProceed={(b: any) => b} /> : <Navigate to="/" />} />
+            <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} /> : <Navigate to="/" />} />
+            <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
+            <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={updateSettings} syncId={syncId} onSyncSetup={setupSyncId} /> : <Navigate to="/" />} />
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </div>
       </main>
     </div>
   );
 };
 
-const App: React.FC = () => (<HashRouter><AppContent /></HashRouter>);
+const App: React.FC = () => (
+  <HashRouter>
+    <AppContent />
+  </HashRouter>
+);
+
 export default App;
