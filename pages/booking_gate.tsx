@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AdminSettings, Booking } from '../types';
 import { TIME_SLOTS, TERMS_AND_CONDITIONS } from '../constants';
 
-const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[] }> = ({ settings, bookings }) => {
-
+const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onProceed: any }> = ({ settings, bookings }) => {
   const navigate = useNavigate();
 
   const [date, setDate] = useState('');
@@ -14,160 +13,163 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[] }> = 
   const [showTerms, setShowTerms] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  const isMorning = slot.toLowerCase().includes('morning');
-
+  const isMorning = slot.includes('Morning');
   const adultRate = isMorning ? settings.morningAdultRate : settings.eveningAdultRate;
-  const kidRate   = isMorning ? settings.morningKidRate   : settings.eveningKidRate;
+  const kidRate = isMorning ? settings.morningKidRate : settings.eveningKidRate;
+
+  const offerText = isMorning
+    ? "🎁 Free with every ticket: One Plate Chole Bhature"
+    : "🎁 Free with every ticket: Buffet Dinner";
 
   const pricingData = useMemo(() => {
-    const subtotal = adults * adultRate + kids * kidRate;
+    const subtotal = (adults * adultRate) + (kids * kidRate);
 
-    const alreadyBooked = bookings.filter(b =>
-      b.date === date &&
-      b.time === slot &&
-      b.status === 'confirmed'
-    ).reduce((sum, b) => sum + b.adults + b.kids, 0);
+    const todayBookings = bookings.filter(
+      b => b.date === date && b.time === slot && b.status === 'confirmed'
+    );
+
+    const count = todayBookings.reduce((s, b) => s + b.adults + b.kids, 0);
 
     let discountPercent = 0;
-
-    if (alreadyBooked < 100) discountPercent = 20;
-    else if (alreadyBooked < 200) discountPercent = 10;
+    if (count < 100) discountPercent = 20;
+    else if (count < 200) discountPercent = 10;
 
     const discount = Math.round(subtotal * discountPercent / 100);
-    const total = subtotal - discount;
 
-    return { subtotal, discount, total, discountPercent };
-  }, [date, slot, adults, kids, adultRate, kidRate, bookings]);
+    return {
+      subtotal,
+      discount,
+      total: subtotal - discount,
+      discountPercent
+    };
+  }, [date, slot, adults, kids, bookings, adultRate, kidRate]);
 
-  const proceed = () => {
-    if (!date) return alert("Please select visit date");
+  const handleCheckout = () => {
+    if (!date) return alert("Please select your visit date");
     setShowTerms(true);
   };
 
-  const confirm = () => {
+  const finalProceed = () => {
     if (!acceptedTerms) return;
 
-    sessionStorage.setItem("swp_draft_booking", JSON.stringify({
-      date, time: slot, adults, kids, totalAmount: pricingData.total, status: "pending"
-    }));
+    const draft = {
+      date,
+      time: slot,
+      adults,
+      kids,
+      totalAmount: pricingData.total,
+      status: 'pending'
+    };
 
-    navigate("/payment");
+    sessionStorage.setItem('swp_draft_booking', JSON.stringify(draft));
+    navigate('/payment');
   };
 
   return (
     <div className="w-full flex flex-col items-center pb-16">
 
-      <div className="w-full max-w-4xl text-center mb-10">
+      <div className="max-w-4xl w-full text-center mb-10">
         <h2 className="text-4xl md:text-5xl font-extrabold text-white uppercase">Reservation</h2>
-        <p className="text-white/60 text-xs uppercase tracking-[0.3em] mt-2">
-          Spray Aqua Resort Booking Terminal
+        <p className="text-white/60 text-[10px] uppercase tracking-[0.4em] mt-2">
+          Spray Aqua Resort Premium Terminal
         </p>
       </div>
 
-      <div className="glass-card w-full max-w-4xl p-8 md:p-12 rounded-3xl space-y-12">
+      <div className="max-w-4xl w-full glass-card rounded-[2rem] p-8 md:p-14 space-y-12">
 
-        {/* DATE + SLOT */}
-        <div className="grid md:grid-cols-2 gap-10">
-
-          <div className="space-y-3 text-center">
-            <label className="text-xs font-bold uppercase text-slate-400">Select Date</label>
-            <input
-              type="date"
-              value={date}
+        {/* Date & Slot */}
+        <div className="grid md:grid-cols-2 gap-8">
+          <div>
+            <label className="block text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Visit Date</label>
+            <input type="date" value={date}
               onChange={e => setDate(e.target.value)}
               min={new Date().toISOString().split('T')[0]}
-              className="input-premium text-center"
-            />
+              className="input-premium text-center" />
           </div>
 
           <div className="space-y-3">
-            <label className="block text-xs font-bold uppercase text-slate-400 text-center">Time Slot</label>
-            <div className="space-y-3">
-              {TIME_SLOTS.map(s => {
-                const active = s === slot;
-                return (
-                  <button key={s}
-                    onClick={() => setSlot(s)}
-                    className={`w-full p-5 rounded-xl border transition flex justify-between items-center
-                      ${active ? "bg-slate-900 text-white shadow-xl" : "bg-white hover:border-slate-600"}`}>
-                    <div>
-                      <p className="text-xs font-black uppercase">{s}</p>
-                      <p className="text-[10px] opacity-60 mt-1">
-                        {isMorning ? "Free Chole Bhature Included" : "Free Buffet Dinner Included"}
-                      </p>
-                    </div>
-                    {active && <i className="fas fa-check-circle"></i>}
-                  </button>
-                );
-              })}
-            </div>
+            <label className="block text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Select Session</label>
+            {TIME_SLOTS.map(s => (
+              <button key={s}
+                onClick={() => setSlot(s)}
+                className={`w-full p-4 rounded-xl border transition-all ${slot === s ? 'bg-slate-900 text-white' : 'bg-white hover:border-slate-600'}`}>
+                {s}
+              </button>
+            ))}
           </div>
-
         </div>
 
-        {/* QUANTITY */}
-        <div className="grid md:grid-cols-2 gap-8">
-
-          {[
-            ["Adults", adults, setAdults, adultRate],
-            ["Kids", kids, setKids, kidRate]
-          ].map(([label, val, set, rate]: any) => (
-            <div key={label} className="p-6 bg-white/70 rounded-xl border flex justify-between items-center">
-              <div>
-                <p className="text-xs uppercase font-bold text-slate-400">{label}</p>
-                <p className="text-xl font-black text-slate-900">₹{rate}</p>
-              </div>
-              <div className="flex items-center gap-5">
-                <button onClick={() => set(Math.max(label === "Adults" ? 1 : 0, val - 1))} className="btn-counter">-</button>
-                <span className="text-xl font-black">{val}</span>
-                <button onClick={() => set(val + 1)} className="btn-counter">+</button>
-              </div>
-            </div>
-          ))}
-
+        {/* Offer Banner */}
+        <div className="bg-amber-100 border border-amber-300 text-amber-800 text-sm font-bold text-center py-3 rounded-xl shadow">
+          {offerText}
         </div>
 
-        {/* DISCOUNT */}
-        {pricingData.discountPercent > 0 && (
-          <div className="bg-emerald-100 text-emerald-800 p-4 rounded-xl text-center font-black">
-            🎉 Early Bird Discount Applied — {pricingData.discountPercent}% OFF
+        {/* Quantity */}
+        <div className="grid md:grid-cols-2 gap-6">
+          {[{ label: 'Adults', value: adults, set: setAdults, rate: adultRate },
+            { label: 'Kids', value: kids, set: setKids, rate: kidRate }].map((x, i) => (
+              <div key={i} className="bg-white p-6 rounded-xl flex justify-between items-center border">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase">{x.label}</p>
+                  <p className="text-lg font-black">₹{x.rate}</p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <button onClick={() => x.set(Math.max(0, x.value - 1))} className="btn-circle">-</button>
+                  <span className="font-black text-lg">{x.value}</span>
+                  <button onClick={() => x.set(x.value + 1)} className="btn-circle">+</button>
+                </div>
+              </div>
+            ))}
+        </div>
+
+        {/* Summary */}
+        <div className="bg-slate-900 text-white p-10 rounded-3xl text-center space-y-6">
+
+          <div className="flex justify-between text-sm opacity-70">
+            <span>Total Amount</span>
+            <span>₹{pricingData.subtotal}</span>
           </div>
-        )}
 
-        {/* SUMMARY */}
-        <div className="bg-slate-900 p-10 rounded-3xl text-white text-center space-y-6">
-          <p className="text-xs uppercase opacity-50">Payable Amount</p>
-          <p className="text-6xl font-black">₹{pricingData.total}</p>
+          {pricingData.discount > 0 && (
+            <div className="flex justify-between text-emerald-400 font-bold">
+              <span>Early Bird Discount ({pricingData.discountPercent}%)</span>
+              <span>- ₹{pricingData.discount}</span>
+            </div>
+          )}
 
-          <button onClick={proceed} className="btn-resort bg-white text-slate-900 mt-6 w-full">
+          <div className="pt-6 border-t border-white/20">
+            <p className="uppercase text-xs opacity-40">Payable Amount</p>
+            <p className="text-5xl font-black">₹{pricingData.total}</p>
+          </div>
+
+          <button onClick={handleCheckout}
+            className="btn-resort w-full bg-white text-slate-900 mt-6">
             Review & Checkout
           </button>
         </div>
-
       </div>
 
-      {/* TERMS */}
+      {/* Terms Modal */}
       {showTerms && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-6 z-[500]">
-          <div className="bg-white p-10 rounded-3xl max-w-xl w-full space-y-6">
-
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-6 z-50">
+          <div className="bg-white max-w-xl w-full p-10 rounded-3xl space-y-6">
             <h3 className="text-2xl font-black text-center">Park Policy</h3>
-
             <div className="max-h-60 overflow-y-auto space-y-3">
               {TERMS_AND_CONDITIONS.map((t, i) => (
-                <p key={i} className="text-sm text-slate-600">{i + 1}. {t}</p>
+                <p key={i} className="text-sm text-slate-700">{t}</p>
               ))}
             </div>
 
             <label className="flex gap-3 items-center">
               <input type="checkbox" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} />
-              <span className="font-bold text-sm">I accept the terms</span>
+              <span className="font-bold text-sm">I accept all terms</span>
             </label>
 
-            <button onClick={confirm} disabled={!acceptedTerms} className="btn-resort w-full h-14 disabled:opacity-30">
+            <button disabled={!acceptedTerms}
+              onClick={finalProceed}
+              className="btn-resort w-full">
               Confirm Reservation
             </button>
-
           </div>
         </div>
       )}
