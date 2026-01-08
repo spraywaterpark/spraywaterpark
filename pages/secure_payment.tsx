@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Booking } from '../types';
 import { generateConfirmationMessage } from '../services/gemini_service';
+import { cloudSync } from '../services/cloud_sync';
 
 const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBooking }) => {
   const navigate = useNavigate();
@@ -27,17 +29,23 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
         createdAt: new Date().toISOString() 
     };
     
+    // 1. Generate AI Confirmation
     const aiMessage = await generateConfirmationMessage(final);
     sessionStorage.setItem('last_ai_message', aiMessage);
     
+    // 2. Add to local state
     addBooking(final);
+
+    // 3. Sync to Google Sheets
+    await cloudSync.saveBooking(final);
+    
     sessionStorage.removeItem('swp_draft_booking');
     navigate('/my-bookings');
   };
 
   return (
     <div className="max-w-md mx-auto mt-12 px-4 animate-fade">
-      <div className="bg-white p-10 md:p-14 rounded-[3rem] card-premium text-center border border-white">
+      <div className="bg-white p-10 md:p-14 rounded-[3rem] shadow-2xl text-center border border-white">
         <div className="w-20 h-20 bg-green-50 text-green-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-8">
           <i className="fas fa-lock"></i>
         </div>
