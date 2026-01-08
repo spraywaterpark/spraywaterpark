@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -16,56 +15,71 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
   const [errors, setErrors] = useState({ name: '', mobile: '' });
 
   const validateName = (name: string) => {
+    if (name.trim() === "") return "";
     const nameRegex = /^[a-zA-Z\s]*$/;
     if (!nameRegex.test(name)) {
-      return "Name should only contain alphabets (केवल अक्षरों का प्रयोग करें)";
+      return "Use alphabets only. No numbers or signs allowed. (केवल अक्षरों का उपयोग करें। नंबर या चिह्नों की अनुमति नहीं है।)";
+    }
+    if (name.trim().length < 2) {
+      return "Name is too short. (नाम बहुत छोटा है।)";
     }
     return "";
   };
 
   const validateMobile = (mobile: string) => {
-    if (mobile.length > 0 && !/^[6-9]/.test(mobile)) {
-      return "Mobile must start with 6, 7, 8, or 9 (नंबर 6,7,8 या 9 से शुरू होना चाहिए)";
+    if (mobile === "") return "";
+    if (!/^[6-9]/.test(mobile)) {
+      return "Must start with 6, 7, 8, or 9. (नंबर 6, 7, 8 या 9 से शुरू होना चाहिए।)";
     }
-    if (mobile.length > 0 && !/^\d*$/.test(mobile)) {
-      return "Only numbers allowed (केवल नंबर दर्ज करें)";
+    if (!/^\d*$/.test(mobile)) {
+      return "Numbers only. (केवल नंबर मान्य हैं।)";
+    }
+    if (mobile.length > 0 && mobile.length < 10) {
+      return "Enter full 10 digits. (पूरे 10 अंक दर्ज करें।)";
     }
     return "";
   };
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    const error = validateName(val);
-    setErrors(prev => ({ ...prev, name: error }));
-    // If it's a valid character set, update state
-    if (!error || val === "") {
-      setData({ ...data, name: val });
+    // Specifically prevent typing numbers or special characters immediately
+    const cleanVal = val.replace(/[^a-zA-Z\s]/g, '');
+    setData({ ...data, name: cleanVal });
+    
+    if (val !== cleanVal) {
+      setErrors(prev => ({ ...prev, name: "Numbers & signs are not allowed in names. (नाम में नंबर और चिह्न मान्य नहीं हैं।)" }));
+    } else {
+      setErrors(prev => ({ ...prev, name: validateName(cleanVal) }));
     }
   };
 
   const handleMobileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    if (val.length > 10) return; // Max 10 digits
+    if (val.length > 10) return; // Hard limit 10 digits
 
-    const error = validateMobile(val);
-    setErrors(prev => ({ ...prev, mobile: error }));
-    
-    // Only allow digits to be typed
-    if (/^\d*$/.test(val)) {
-      setData({ ...data, mobile: val });
+    // Prevent typing non-numeric characters
+    const cleanVal = val.replace(/\D/g, '');
+    setData({ ...data, mobile: cleanVal });
+
+    if (val !== cleanVal) {
+      setErrors(prev => ({ ...prev, mobile: "Only numbers are allowed. (केवल नंबर दर्ज करें।)" }));
+    } else {
+      setErrors(prev => ({ ...prev, mobile: validateMobile(cleanVal) }));
     }
   };
 
   const handleGuest = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Final deep validation on submit
-    const nameError = data.name.trim().length < 2 ? "Please enter a valid name" : validateName(data.name);
-    const mobileError = data.mobile.length !== 10 ? "Mobile number must be exactly 10 digits" : validateMobile(data.mobile);
+    const nameErr = validateName(data.name);
+    const mobileErr = data.mobile.length !== 10 ? "Please enter a valid 10-digit number." : validateMobile(data.mobile);
 
-    if (nameError || mobileError) {
-      setErrors({ name: nameError, mobile: mobileError });
-      alert("Input value correct karo! (कृपया जानकारी सही तरीके से भरें)");
+    if (nameErr || mobileErr || data.name.trim() === "" || data.mobile.trim() === "") {
+      setErrors({ 
+        name: nameErr || (data.name.trim() === "" ? "Name is required." : ""), 
+        mobile: mobileErr || (data.mobile.trim() === "" ? "Mobile is required." : "") 
+      });
+      alert("Registration Error: Please provide valid details in the highlighted fields. (पंजीकरण त्रुटि: कृपया हाइलाइट किए गए फ़ील्ड में सही जानकारी भरें।)");
       return;
     }
 
@@ -117,7 +131,7 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
             <div className="flex items-center justify-center gap-4">
                 <span className="h-[1px] w-8 bg-slate-200"></span>
                 <p className="text-slate-500 text-[11px] font-black uppercase tracking-[0.25em]">
-                  {view === 'landing' ? 'Enter credentials to book tickets' : 'Management access required'}
+                  {view === 'landing' ? 'Check-in to book your tickets' : 'Management access required'}
                 </p>
                 <span className="h-[1px] w-8 bg-slate-200"></span>
             </div>
@@ -127,28 +141,38 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
             {view === 'landing' ? (
               <>
                 <div className="space-y-3">
-                  <label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest ml-1">Full Guest Name</label>
+                  <label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest ml-1">Guest Full Name</label>
                   <input 
                     type="text" 
-                    placeholder="Enter Alphabets Only" 
-                    className={`input-premium ${errors.name ? 'border-red-400 focus:border-red-500' : ''}`} 
+                    placeholder="Alphabets Only (e.g. Rahul)" 
+                    className={`input-premium ${errors.name ? 'border-red-400 bg-red-50/30' : ''}`} 
                     value={data.name} 
                     onChange={handleNameChange} 
                     required 
                   />
-                  {errors.name && <p className="text-[10px] text-red-500 font-bold uppercase mt-1 ml-1">{errors.name}</p>}
+                  {errors.name && (
+                    <div className="flex items-start gap-2 text-red-500 mt-1.5 ml-1">
+                      <i className="fas fa-exclamation-circle text-[10px] mt-0.5"></i>
+                      <p className="text-[10px] font-bold uppercase leading-tight">{errors.name}</p>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-3">
-                  <label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest ml-1">Mobile Contact (10 Digits)</label>
+                  <label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest ml-1">10-Digit Mobile No.</label>
                   <input 
                     type="tel" 
                     placeholder="Starts with 6,7,8,9" 
-                    className={`input-premium ${errors.mobile ? 'border-red-400 focus:border-red-500' : ''}`} 
+                    className={`input-premium ${errors.mobile ? 'border-red-400 bg-red-50/30' : ''}`} 
                     value={data.mobile} 
                     onChange={handleMobileChange} 
                     required 
                   />
-                  {errors.mobile && <p className="text-[10px] text-red-500 font-bold uppercase mt-1 ml-1">{errors.mobile}</p>}
+                  {errors.mobile && (
+                    <div className="flex items-start gap-2 text-red-500 mt-1.5 ml-1">
+                      <i className="fas fa-exclamation-circle text-[10px] mt-0.5"></i>
+                      <p className="text-[10px] font-bold uppercase leading-tight">{errors.mobile}</p>
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
@@ -181,7 +205,7 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
             <button type="submit" className="w-full btn-resort mt-6 h-20 shadow-2xl">
               {view === 'landing' ? (
                 <>
-                  Book Your Splash Day <i className="fas fa-arrow-right ml-2 text-xs opacity-50"></i>
+                  Proceed to Booking <i className="fas fa-arrow-right ml-2 text-xs opacity-50"></i>
                 </>
               ) : (
                 'Sign Into Terminal'
