@@ -1,9 +1,11 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { Booking } from "../types";
 import { TERMS_AND_CONDITIONS, OFFERS } from "../constants";
 
 // Helper to initialize AI instance. 
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Updated to use process.env.API_KEY directly as a named parameter per guidelines.
+const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export async function generateConfirmationMessage(booking: Booking) {
   const ai = getAI();
@@ -23,6 +25,7 @@ export async function generateConfirmationMessage(booking: Booking) {
       Briefly mention these rules: ${TERMS_AND_CONDITIONS.join(', ')}. 
       Keep the tone helpful and professional. Use emojis.`,
     });
+    // Correctly accessing the .text property (not as a function) as per GenerateContentResponse guidelines.
     return response.text;
   } catch (e) {
     console.error("AI Generation Error:", e);
