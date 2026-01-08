@@ -40,7 +40,6 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (!syncId) return;
     let isMounted = true;
-
     const syncData = async () => {
       const remoteData = await cloudSync.fetchData(syncId);
       if (!isMounted) return;
@@ -53,7 +52,6 @@ const AppContent: React.FC = () => {
         setIsCloudConnected(false);
       }
     };
-
     syncData();
     const interval = setInterval(syncData, 5000);
     return () => { isMounted = false; clearInterval(interval); };
@@ -79,50 +77,32 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950">
-
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      
       {/* HEADER */}
-      <header className="sticky top-0 z-[100] w-full backdrop-blur-xl bg-black/40 border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 h-16 sm:h-20 flex justify-between items-center">
-
+      <header className="sticky top-0 z-[100] w-full glass-header no-print">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 h-20 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-3">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 bg-white/10 rounded-lg flex items-center justify-center text-white border border-white/20">
-              <i className="fas fa-water text-xs sm:text-sm"></i>
+            <div className="w-9 h-9 bg-white/10 rounded-lg flex items-center justify-center text-white border border-white/20">
+              <i className="fas fa-water text-sm"></i>
             </div>
-            <h1 className="text-sm sm:text-lg font-extrabold text-white tracking-tight uppercase">
+            <h1 className="text-lg font-extrabold text-white tracking-tight uppercase">
               Spray Aqua Resort
             </h1>
           </Link>
 
-          <div className="flex items-center gap-4 sm:gap-6">
-
+          <div className="flex items-center gap-6">
             {auth.role === 'guest' && (
-              <nav className="hidden md:flex items-center gap-8">
-                {[
-                  { to: '/book', label: 'Book Now' },
-                  { to: '/my-bookings', label: 'My Tickets' }
-                ].map(item => (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className={`text-[10px] font-bold uppercase tracking-widest transition-all
-                      ${location.pathname === item.to
-                        ? 'text-white border-b-2 border-white pb-1'
-                        : 'text-white/60 hover:text-white'
-                      }`}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+              <nav className="hidden md:flex items-center gap-10">
+                <Link to="/book" className={`text-[10px] font-bold uppercase tracking-widest transition-all ${location.pathname === '/book' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'}`}>Book Now</Link>
+                <Link to="/my-bookings" className={`text-[10px] font-bold uppercase tracking-widest transition-all ${location.pathname === '/my-bookings' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'}`}>My Tickets</Link>
               </nav>
             )}
 
             {auth.role && (
-              <button
-                onClick={logout}
-                className="flex items-center gap-3 bg-white/10 hover:bg-red-500/20 px-4 sm:px-5 py-2 rounded-full border border-white/20 transition-all duration-300 group"
-              >
-                <span className="text-[9px] font-black text-white/70 uppercase tracking-widest group-hover:text-white transition-colors hidden sm:block">
+              <button onClick={logout}
+                className="flex items-center gap-3 bg-white/10 hover:bg-red-500/20 px-5 py-2.5 rounded-full border border-white/20 transition-all duration-300 group">
+                <span className="text-[9px] font-black text-white/70 uppercase tracking-widest group-hover:text-white">
                   Sign Out
                 </span>
                 <div className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center text-white group-hover:bg-white group-hover:text-red-600 transition-all">
@@ -134,8 +114,8 @@ const AppContent: React.FC = () => {
         </div>
       </header>
 
-      {/* MAIN CONTENT */}
-      <main className="flex-1 w-full flex flex-col items-center justify-start px-3 sm:px-6 lg:px-10 py-6 sm:py-10">
+      {/* MAIN LAYOUT */}
+      <main className="flex-1 w-full flex justify-center px-3 md:px-6 py-6 md:py-10">
         <div className="w-full max-w-7xl">
           <Routes>
             <Route path="/" element={
