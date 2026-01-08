@@ -11,92 +11,126 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 animate-fade space-y-10">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 no-print px-2">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-8 py-8 animate-fade space-y-10">
+
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6">
         <div>
-          <h2 className="text-4xl md:text-5xl font-black text-[#1B2559] uppercase tracking-tighter">My Tickets</h2>
-          <p className="text-slate-600 font-bold text-[11px] uppercase tracking-[0.3em] mt-2">Spray Aqua Resort Digital Wallet</p>
+          <h2 className="text-3xl sm:text-5xl font-black text-[#1B2559] uppercase tracking-tight">
+            My Tickets
+          </h2>
+          <p className="text-slate-600 font-bold text-[10px] uppercase tracking-[0.3em] mt-2">
+            Spray Aqua Resort Digital Wallet
+          </p>
         </div>
-        <div className="flex gap-4">
-            <button onClick={() => window.print()} className="bg-white px-8 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest text-blue-700 shadow-md border border-slate-200 hover:bg-slate-50 active:scale-95 transition-all">
-                <i className="fas fa-print mr-2"></i> Print Paper Copy
-            </button>
-        </div>
+
+        <button
+          onClick={() => window.print()}
+          className="bg-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl text-[10px] font-black uppercase tracking-widest text-blue-700 shadow border border-slate-200 hover:bg-slate-50 transition"
+        >
+          <i className="fas fa-print mr-2"></i> Print Copy
+        </button>
       </div>
 
       {userList.length === 0 ? (
-        <div className="bg-white p-24 rounded-[3.5rem] text-center border-4 border-dashed border-slate-200 flex flex-col items-center shadow-inner">
-           <i className="fas fa-ticket-alt text-8xl text-slate-100 mb-8"></i>
-           <p className="text-slate-500 font-black uppercase text-sm tracking-[0.3em]">No Active Reservations</p>
-           <button onClick={() => window.location.hash = '#/book'} className="mt-8 bg-blue-600 text-white px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-blue-200 hover:scale-105 transition-transform">Book Your First Splash <i className="fas fa-arrow-right ml-2"></i></button>
+        <div className="bg-white p-16 sm:p-24 rounded-[3rem] text-center border-4 border-dashed border-slate-200 shadow-inner">
+          <i className="fas fa-ticket-alt text-6xl sm:text-8xl text-slate-100 mb-6"></i>
+          <p className="text-slate-500 font-black uppercase text-xs tracking-[0.3em]">
+            No Active Reservations
+          </p>
+          <button
+            onClick={() => window.location.hash = '#/book'}
+            className="mt-8 bg-blue-600 text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-[0.2em] shadow hover:scale-105 transition"
+          >
+            Book Your First Splash <i className="fas fa-arrow-right ml-2"></i>
+          </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-10">
+        <div className="space-y-12">
           {userList.map((b, idx) => (
-            <div key={b.id} className="group">
-              {/* WhatsApp Action Card */}
+            <div key={b.id}>
+
               {idx === 0 && (
-                  <div className="bg-emerald-50 p-7 md:p-10 rounded-[2.5rem] border-2 border-emerald-200 mb-10 flex flex-col sm:flex-row items-center justify-between gap-8 no-print shadow-xl shadow-emerald-100 animate-fade">
-                      <div className="flex items-center gap-6 text-center sm:text-left">
-                          <div className="w-16 h-16 bg-emerald-600 text-white rounded-2xl flex items-center justify-center text-3xl shadow-lg border-2 border-emerald-400">
-                              <i className="fab fa-whatsapp"></i>
-                          </div>
-                          <div>
-                              <p className="text-emerald-900 font-black text-[13px] uppercase tracking-widest">Success! Booking Verified</p>
-                              <p className="text-emerald-700 text-sm font-bold mt-1">Send these ticket details to your WhatsApp for easy entry.</p>
-                          </div>
-                      </div>
-                      <button 
-                        onClick={() => sendWhatsApp(lastAiMessage, b.mobile)}
-                        className="w-full sm:w-auto bg-emerald-600 text-white px-12 py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200 active:scale-95"
-                      >
-                          Get on WhatsApp
-                      </button>
+                <div className="bg-emerald-50 p-6 sm:p-10 rounded-3xl border border-emerald-200 mb-10 flex flex-col sm:flex-row items-center justify-between gap-6 shadow">
+                  <div className="flex items-center gap-4 text-center sm:text-left">
+                    <div className="w-14 h-14 bg-emerald-600 text-white rounded-xl flex items-center justify-center text-2xl">
+                      <i className="fab fa-whatsapp"></i>
+                    </div>
+                    <div>
+                      <p className="text-emerald-900 font-black text-xs uppercase tracking-widest">
+                        Booking Verified
+                      </p>
+                      <p className="text-emerald-700 text-sm font-semibold">
+                        Send your ticket on WhatsApp
+                      </p>
+                    </div>
                   </div>
+
+                  <button
+                    onClick={() => sendWhatsApp(lastAiMessage, b.mobile)}
+                    className="bg-emerald-600 text-white px-10 py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition"
+                  >
+                    Get on WhatsApp
+                  </button>
+                </div>
               )}
 
-              {/* Digital Ticket Card */}
-              <div className="bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col lg:flex-row border border-slate-200 relative group-hover:border-blue-200 transition-all">
-                <div className="blue-gradient lg:w-64 p-12 flex flex-col justify-center items-center text-white text-center">
-                    <p className="text-[10px] font-black uppercase opacity-70 tracking-[0.3em] mb-3">Entrance Pass</p>
-                    <p className="text-3xl font-black tracking-tighter mb-8 bg-white/10 px-4 py-1 rounded-lg border border-white/20">{b.id}</p>
-                    <div className="bg-white p-4 rounded-3xl shadow-2xl transform transition-transform group-hover:scale-110">
-                        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${b.id}`} alt="QR" className="w-28 h-28 mix-blend-multiply" />
-                    </div>
+              <div className="bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col lg:flex-row border border-slate-200">
+
+                <div className="blue-gradient lg:w-64 p-10 flex flex-col justify-center items-center text-white text-center">
+                  <p className="text-[10px] font-black uppercase opacity-70 mb-2 tracking-[0.3em]">
+                    Entrance Pass
+                  </p>
+                  <p className="text-2xl font-black mb-6 bg-white/10 px-4 py-1 rounded border border-white/20">
+                    {b.id}
+                  </p>
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${b.id}`}
+                    alt="QR"
+                    className="w-28 h-28 bg-white p-2 rounded-xl"
+                  />
                 </div>
-                
-                <div className="flex-1 p-10 md:p-14 flex flex-col md:flex-row justify-between items-center gap-12">
-                  <div className="text-center md:text-left space-y-5">
-                    <div>
-                        <h4 className="text-4xl font-black text-[#1B2559] uppercase leading-none tracking-tight">{b.date}</h4>
-                        <p className="text-blue-700 font-black text-[11px] uppercase tracking-[0.4em] mt-3 bg-blue-50 inline-block px-3 py-1 rounded-md">{b.time}</p>
-                    </div>
-                    <div className="flex gap-4 justify-center md:justify-start pt-2">
-                        <div className="bg-slate-100 px-5 py-2.5 rounded-xl border border-slate-200 text-[11px] font-black text-slate-800 uppercase tracking-wider shadow-sm">Adults: {b.adults}</div>
-                        <div className="bg-slate-100 px-5 py-2.5 rounded-xl border border-slate-200 text-[11px] font-black text-slate-800 uppercase tracking-wider shadow-sm">Kids: {b.kids}</div>
+
+                <div className="flex-1 p-8 sm:p-12 flex flex-col sm:flex-row justify-between items-center gap-10">
+                  <div className="text-center sm:text-left space-y-4">
+                    <h4 className="text-3xl font-black text-[#1B2559] uppercase">
+                      {b.date}
+                    </h4>
+                    <p className="text-blue-700 font-black text-xs uppercase tracking-[0.3em]">
+                      {b.time}
+                    </p>
+
+                    <div className="flex gap-3 justify-center sm:justify-start">
+                      <span className="bg-slate-100 px-4 py-2 rounded-lg text-xs font-black uppercase">
+                        Adults: {b.adults}
+                      </span>
+                      <span className="bg-slate-100 px-4 py-2 rounded-lg text-xs font-black uppercase">
+                        Kids: {b.kids}
+                      </span>
                     </div>
                   </div>
-                  
-                  <div className="text-center md:text-right">
-                    <p className="text-[11px] font-black text-emerald-600 uppercase tracking-widest mb-2 flex items-center justify-center md:justify-end gap-2">
-                        <i className="fas fa-check-double"></i> Fully Paid
+
+                  <div className="text-center sm:text-right">
+                    <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-1">
+                      Fully Paid
                     </p>
-                    <h3 className="text-5xl md:text-6xl font-black text-[#1B2559] tracking-tighter">₹{b.totalAmount}</h3>
+                    <h3 className="text-4xl sm:text-5xl font-black text-[#1B2559]">
+                      ₹{b.totalAmount}
+                    </h3>
                   </div>
                 </div>
 
-                {/* Decorative Dotted Line */}
-                <div className="absolute left-[4rem] lg:left-[16rem] top-0 bottom-0 w-[2px] border-l-2 border-dashed border-slate-200 hidden sm:block"></div>
               </div>
             </div>
           ))}
         </div>
       )}
-      
-      <div className="bg-[#1B2559] p-10 rounded-[2.5rem] text-center text-white/50 font-black text-[11px] uppercase tracking-[0.5em] shadow-inner no-print border border-white/5">
-         Spray Aqua Resort • Jagatpura • Jaipur
+
+      <div className="bg-[#1B2559] p-8 rounded-2xl text-center text-white/50 font-black text-[10px] uppercase tracking-[0.4em] border border-white/5">
+        Spray Aqua Resort • Jaipur
       </div>
     </div>
   );
 };
+
 export default TicketHistory;
