@@ -2,9 +2,12 @@
 import { Booking } from "../types";
 
 export const cloudSync = {
-  // Logs a single successful booking to Google Sheets via our API
   saveBooking: async (booking: Booking): Promise<boolean> => {
     try {
+      // Create a controller to abort the fetch if it takes too long (8 seconds)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
       const response = await fetch("/api/booking", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -17,34 +20,29 @@ export const cloudSync = {
           amount: booking.totalAmount,
           date: booking.date,
           time: booking.time
-        })
+        }),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       return response.ok;
     } catch (error) {
-      console.error("Sync Error:", error);
+      console.warn("Sheet sync skipped or failed:", error);
       return false;
     }
   },
 
-  // Stub for fetching data - Sheets is primarily used for logging in this setup.
-  // To implement full sync reading, a 'GET' handler in api/booking.ts would be needed.
   fetchData: async (syncId: string): Promise<Booking[] | null> => {
-    // Returning null allows the app to fallback to local storage
+    // Return null to allow local storage fallback
     return null;
   },
 
-  // Wrapper for updateData used by App.tsx
   updateData: async (syncId: string, bookings: Booking[]): Promise<void> => {
-    // When a full list is updated, we might want to log only the newest entry
-    // or implement a full sheet overwrite (not recommended for simple logging)
-    console.debug("State sync triggered for Room:", syncId);
+    console.debug("Local state updated. Room:", syncId);
   },
 
-  // Added createRoom method to resolve the error in pages/admin_portal.tsx (line 63)
   createRoom: async (bookings: Booking[]): Promise<string> => {
-    // Generate a new random sync ID for cloud synchronization
     const newId = Math.random().toString(36).substring(2, 11).toUpperCase();
-    console.debug("Created new Room ID:", newId);
     return newId;
   }
 };
