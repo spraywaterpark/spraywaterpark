@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminSettings, Booking } from '../types';
@@ -45,32 +46,24 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
     setShowTerms(true);
   };
 
-  const finalProceed = async () => {
-  if (!acceptedTerms) return;
-
-  const bookingData = {
-    name: "Walk-in Guest",
-    mobile: "0000000000",
-    tickets: adults + kids,
-    amount: pricingData.total
+  const finalProceed = () => {
+    if (!acceptedTerms) return;
+    
+    // Save to session storage so SecurePayment can pick it up
+    const draft = { 
+      date, 
+      time: slot, 
+      adults, 
+      kids, 
+      totalAmount: pricingData.total, 
+      status: 'pending' 
+    };
+    sessionStorage.setItem('swp_draft_booking', JSON.stringify(draft));
+    navigate('/payment');
   };
-
-  await fetch("/api/booking", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(bookingData)
-  });
-
-  const draft = { date, time: slot, adults, kids, totalAmount: pricingData.total, status: 'pending' };
-  sessionStorage.setItem('swp_draft_booking', JSON.stringify(draft));
-
-  navigate('/payment');
-};
-
 
   return (
     <div className="w-full flex flex-col items-center animate-slide-up">
-      {/* Centered Header */}
       <div className="w-full max-w-4xl text-center mb-10">
         <h2 className="text-4xl md:text-5xl font-extrabold text-white tracking-tighter uppercase mb-2">Reservation</h2>
         <p className="text-white/60 font-bold text-[10px] uppercase tracking-[0.4em]">Spray Aqua Resort Premium Terminal</p>
@@ -79,7 +72,6 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
       <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-1 gap-8">
         <div className="glass-card rounded-[2rem] p-8 md:p-14 space-y-14">
           
-          {/* Section 1: VISIT DETAILS */}
           <section className="space-y-10">
             <div className="flex flex-col items-center gap-4 text-center">
               <span className="w-8 h-8 bg-slate-900 rounded-md text-white flex items-center justify-center text-[10px] font-bold">01</span>
@@ -112,7 +104,6 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
             </div>
           </section>
 
-          {/* Section 2: MEAL PRIVILEGE - FIXED VISUALS */}
           <section className="flex flex-col items-center">
               <div className="w-full bg-slate-950/5 border border-slate-900/10 p-8 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-8">
                   <div className="flex items-center gap-6">
@@ -133,7 +124,6 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
               </div>
           </section>
 
-          {/* Section 3: QUANTITY */}
           <section className="space-y-10">
             <div className="flex flex-col items-center gap-4 text-center">
               <span className="w-8 h-8 bg-slate-900 rounded-md text-white flex items-center justify-center text-[10px] font-bold">02</span>
@@ -165,7 +155,6 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
             </div>
           </section>
 
-          {/* Section 4: SUMMARY & ACTION */}
           <section className="pt-10 border-t border-slate-100 flex flex-col items-center">
               <div className="w-full max-w-md bg-slate-900 p-10 rounded-3xl text-white space-y-8 text-center shadow-2xl">
                 <h4 className="text-[9px] font-bold uppercase tracking-[0.4em] opacity-40">Reservation Summary</h4>
@@ -195,7 +184,6 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
         </div>
       </div>
 
-      {/* T&C MODAL - CENTERED */}
       {showTerms && (
         <div className="fixed inset-0 z-[500] bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-6 animate-slide-up">
           <div className="bg-white rounded-3xl max-w-xl w-full p-10 md:p-14 shadow-2xl relative border border-slate-200">
