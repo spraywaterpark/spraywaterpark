@@ -12,36 +12,63 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
 
   useEffect(() => {
     const saved = sessionStorage.getItem('swp_draft_booking');
-    const auth = JSON.parse(sessionStorage.getItem('swp_auth') || '{}');
-    if (saved) setDraft({ ...JSON.parse(saved), ...auth.user });
-    else navigate('/');
+    const authString = sessionStorage.getItem('swp_auth');
+    const auth = authString ? JSON.parse(authString) : {};
+    if (saved) {
+      setDraft({ ...JSON.parse(saved), ...auth.user });
+    } else {
+      navigate('/');
+    }
   }, [navigate]);
 
   const processPayment = async () => {
+    if (isPaying) return;
     setIsPaying(true);
-    await new Promise(res => setTimeout(res, 2500));
-    
-    const bookingId = 'SWP-' + Math.floor(100000 + Math.random()*900000);
-    const final: Booking = { 
-        ...draft, 
-        id: bookingId, 
-        status: 'confirmed', 
-        createdAt: new Date().toISOString() 
-    };
-    
-    // 1. Generate AI Confirmation
-    const aiMessage = await generateConfirmationMessage(final);
-    sessionStorage.setItem('last_ai_message', aiMessage);
-    
-    // 2. Add to local state
-    addBooking(final);
 
-    // 3. Sync to Google Sheets
-    await cloudSync.saveBooking(final);
-    
-    sessionStorage.removeItem('swp_draft_booking');
-    navigate('/my-bookings');
+    try {
+      // Simulate a small delay for the payment gateway feel
+      await new Promise(res => setTimeout(res, 2000));
+      
+      const bookingId = 'SWP-' + Math.floor(100000 + Math.random() * 900000);
+      const final: Booking = { 
+          ...draft, 
+          id: bookingId, 
+          status: 'confirmed', 
+          createdAt: new Date().toISOString() 
+      };
+      
+      // Perform AI Generation and Cloud Sync in parallel to save time
+      // We wrap them so that if one fails, it doesn't stop the whole process
+      const [aiMessage] = await Promise.all([
+        generateConfirmationMessage(final).catch(err => {
+          console.error("AI Message failed:", err);
+          return "Booking Confirmed! See you at the park.";
+        }),
+        cloudSync.saveBooking(final).catch(err => {
+          console.error("Sheet Sync failed:", err);
+          return false;
+        })
+      ]);
+
+      // Save the message for the ticket history view
+      sessionStorage.setItem('last_ai_message', aiMessage);
+      
+      // Add to local state (Crucial step)
+      addBooking(final);
+      
+      // Cleanup draft
+      sessionStorage.removeItem('swp_draft_booking');
+      
+      // Final navigation
+      navigate('/my-bookings');
+    } catch (error) {
+      console.error("Payment Processing Error:", error);
+      alert("There was an issue processing your booking. Please try again.");
+      setIsPaying(false);
+    }
   };
+
+  if (!draft) return null;
 
   return (
     <div className="max-w-md mx-auto mt-12 px-4 animate-fade">
@@ -54,11 +81,11 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
 
         <div className="bg-gray-50 p-8 rounded-[2rem] text-left space-y-6 mb-10 border border-gray-100">
            <div className="flex justify-between items-center">
-              <span className="text-[10px] font-black text-gray-400 uppercase">Booking Name</span>
-              <span className="text-sm font-black text-[#1B2559]">{draft?.name}</span>
+              <span className="text-[10px] font-black text-gray-400 uppercase">Guest Name</span>
+              <span className="text-sm font-black text-[#1B2559]">{draft?.name || 'Guest'}</span>
            </div>
            <div className="flex justify-between items-center pt-6 border-t border-gray-200">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount to Pay</span>
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Amount</span>
               <span className="text-4xl font-black text-blue-600">₹{draft?.totalAmount}</span>
            </div>
         </div>
@@ -66,7 +93,7 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
         <button 
             onClick={processPayment} 
             disabled={isPaying} 
-            className="w-full btn-resort !bg-blue-600 !text-white py-6 text-xl shadow-2xl relative overflow-hidden uppercase tracking-widest"
+            className="w-full btn-resort !bg-blue-600 !text-white py-6 text-xl shadow-2xl relative overflow-hidden uppercase tracking-widest disabled:opacity-70"
         >
            {isPaying ? (
                <span className="flex items-center justify-center gap-3">
