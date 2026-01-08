@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import LoginGate from './pages/login_gate';
@@ -59,7 +60,12 @@ const AppContent: React.FC = () => {
 
   const loginAsGuest = (name: string, mobile: string) => setAuth({ role: 'guest', user: { name, mobile } });
   const loginAsAdmin = (email: string) => setAuth({ role: 'admin', user: { email } });
-  const logout = () => { setAuth({ role: null, user: null }); sessionStorage.clear(); };
+  const logout = () => { 
+    if(confirm("Are you sure you want to sign out?")) {
+      setAuth({ role: null, user: null }); 
+      sessionStorage.clear(); 
+    }
+  };
   
   const updateSettings = (newSettings: AdminSettings) => setSettings(newSettings);
   const setupSyncId = (id: string) => setSyncId(id);
@@ -81,7 +87,7 @@ const AppContent: React.FC = () => {
             <h1 className="text-lg font-extrabold text-white tracking-tight uppercase">Spray Aqua Resort</h1>
           </Link>
 
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-6">
             {auth.role === 'guest' && (
               <nav className="hidden md:flex items-center gap-10">
                 <Link to="/book" className={`text-[10px] font-bold uppercase tracking-widest transition-all ${location.pathname === '/book' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'}`}>Book Now</Link>
@@ -90,8 +96,14 @@ const AppContent: React.FC = () => {
             )}
             
             {auth.role && (
-              <button onClick={logout} className="text-white/40 hover:text-white transition-colors">
-                <i className="fas fa-power-off text-sm"></i>
+              <button 
+                onClick={logout} 
+                className="flex items-center gap-3 bg-white/10 hover:bg-red-500/20 px-5 py-2.5 rounded-full border border-white/20 transition-all duration-300 group"
+              >
+                <span className="text-[9px] font-black text-white/70 uppercase tracking-widest group-hover:text-white transition-colors">Sign Out</span>
+                <div className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center text-white group-hover:bg-white group-hover:text-red-600 transition-all">
+                  <i className="fas fa-power-off text-[10px]"></i>
+                </div>
               </button>
             )}
           </div>
