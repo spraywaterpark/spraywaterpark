@@ -53,7 +53,21 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
   };
 
   return (
-    <div className="w-full flex flex-col items-center animate-slide-up pb-10">
+    <div className="w-full flex flex-col items-center animate-slide-up pb-10 relative">
+      
+      {/* Premium Back Button */}
+      <div className="w-full max-w-4xl flex justify-start mb-6">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="group flex items-center gap-3 bg-white/10 hover:bg-white/20 px-6 py-3 rounded-full border border-white/20 transition-all duration-300 backdrop-blur-md shadow-xl"
+          >
+            <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-white group-hover:bg-white group-hover:text-slate-900 transition-all">
+               <i className="fas fa-arrow-left text-[10px]"></i>
+            </div>
+            <span className="text-[10px] font-black text-white/80 uppercase tracking-[0.2em] group-hover:text-white transition-colors">Go Back</span>
+          </button>
+      </div>
+
       {/* Centered Header */}
       <div className="w-full max-w-4xl text-center mb-10">
         <h2 className="text-4xl md:text-5xl font-extrabold text-white tracking-tighter uppercase mb-2">Reservation</h2>
