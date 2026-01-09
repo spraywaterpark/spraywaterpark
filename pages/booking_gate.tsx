@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AdminSettings, Booking } from '../types';
 import { TIME_SLOTS, TERMS_AND_CONDITIONS } from '../constants';
 
-const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[] }> = ({ settings, bookings }) => {
+const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onProceed: any }> = ({ settings, bookings }) => {
   const navigate = useNavigate();
 
   const [date, setDate] = useState('');
@@ -28,21 +28,11 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[] }> = 
       b => b.date === date && b.time === slot && b.status === 'confirmed'
     );
 
-    const totalGuestsBefore = todayBookings.reduce((s, b) => s + b.adults + b.kids, 0);
-    const newGuests = adults + kids;
-
-    const tiers = isMorning ? settings.discounts.morning.tiers : settings.discounts.evening.tiers;
+    const count = todayBookings.reduce((s, b) => s + b.adults + b.kids, 0);
 
     let discountPercent = 0;
-    let counted = 0;
-
-    for (const tier of tiers) {
-      if (totalGuestsBefore < counted + tier.maxGuests) {
-        discountPercent = tier.discountPercent;
-        break;
-      }
-      counted += tier.maxGuests;
-    }
+    if (count < 100) discountPercent = 20;
+    else if (count < 200) discountPercent = 10;
 
     const discount = Math.round(subtotal * discountPercent / 100);
 
@@ -52,7 +42,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[] }> = 
       total: subtotal - discount,
       discountPercent
     };
-  }, [date, slot, adults, kids, bookings, adultRate, kidRate, settings, isMorning]);
+  }, [date, slot, adults, kids, bookings, adultRate, kidRate]);
 
   const handleCheckout = () => {
     if (!date) return alert("Please select your visit date");
