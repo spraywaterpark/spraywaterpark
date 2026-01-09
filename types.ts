@@ -1,4 +1,3 @@
-
 export type UserRole = 'guest' | 'admin' | null;
 
 export interface Booking {
@@ -15,14 +14,25 @@ export interface Booking {
   createdAt: string;
 }
 
+/* 🔒 Blackout Structure */
+export type BlackoutShift = 'Morning' | 'Evening' | 'Both';
+
+export interface BlackoutEntry {
+  date: string;
+  shift: BlackoutShift;
+}
+
 export interface AdminSettings {
   morningAdultRate: number;
   eveningAdultRate: number;
   morningKidRate: number;
   eveningKidRate: number;
+
   earlyBirdDiscount: number;
   extraDiscountPercent: number;
-  blockedDates: string[];
+
+  /* 🧠 Blackout system */
+  blackouts?: BlackoutEntry[];
 }
 
 export interface AuthState {
