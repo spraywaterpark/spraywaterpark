@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import LoginGate from './pages/login_gate';
 import BookingGate from './pages/booking_gate';
 import AdminPortal from './pages/admin_portal';
@@ -10,6 +11,9 @@ import { DEFAULT_ADMIN_SETTINGS, MASTER_SYNC_ID } from './constants';
 import { cloudSync } from './services/cloud_sync';
 
 const AppContent: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [auth, setAuth] = useState<AuthState>(() => {
     const saved = sessionStorage.getItem('swp_auth');
     return saved ? JSON.parse(saved) : { role: null, user: null };
@@ -22,11 +26,12 @@ const AppContent: React.FC = () => {
 
   const [settings, setSettings] = useState<AdminSettings>(() => {
     const saved = localStorage.getItem('swp_settings');
-    return saved ? JSON.parse(saved) : DEFAULT_ADMIN_SETTINGS;
+    const parsed = saved ? JSON.parse(saved) : DEFAULT_ADMIN_SETTINGS;
+    // Migration: Ensure blockedSlots is always an array
+    return { ...DEFAULT_ADMIN_SETTINGS, ...parsed, blockedSlots: parsed.blockedSlots || [] };
   });
 
   const [syncId, setSyncId] = useState<string>(() => localStorage.getItem('swp_sync_id') || MASTER_SYNC_ID);
-  const location = useLocation();
 
   const bookingsRef = useRef<Booking[]>(bookings);
   useEffect(() => { bookingsRef.current = bookings; }, [bookings]);
@@ -52,11 +57,12 @@ const AppContent: React.FC = () => {
   const loginAsGuest = (name: string, mobile: string) => setAuth({ role: 'guest', user: { name, mobile } });
   const loginAsAdmin = (email: string) => setAuth({ role: 'admin', user: { email } });
 
-  const logout = () => {
-    if (confirm("Are you sure you want to sign out?")) {
-      setAuth({ role: null, user: null });
-      sessionStorage.clear();
-    }
+  const logout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // Instant logout as requested
+    sessionStorage.clear();
+    setAuth({ role: null, user: null });
+    navigate('/', { replace: true });
   };
 
   const addBooking = async (booking: Booking) => {
@@ -65,10 +71,16 @@ const AppContent: React.FC = () => {
     if (syncId) await cloudSync.updateData(syncId, updated);
   };
 
+  const handleUpdateSettings = (newSettings: AdminSettings) => {
+    setSettings(newSettings);
+    localStorage.setItem('swp_settings', JSON.stringify(newSettings));
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
 
-      <header className="sticky top-0 z-[100] w-full glass-header no-print">
+      {/* Extreme Z-Index to stay above ALL Modals and Admin Settings */}
+      <header className="sticky top-0 z-[9999] w-full glass-header no-print">
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-20 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-3">
             <div className="w-9 h-9 bg-white/10 rounded-lg flex items-center justify-center text-white border border-white/20">
@@ -88,12 +100,14 @@ const AppContent: React.FC = () => {
             )}
 
             {auth.role && (
-              <button onClick={logout}
-                className="flex items-center gap-3 bg-white/10 hover:bg-red-500/20 px-5 py-2.5 rounded-full border border-white/20 transition-all">
-                <span className="text-[9px] font-black text-white/70 uppercase tracking-widest">
+              <button 
+                onClick={logout}
+                className="relative z-[10000] flex items-center gap-3 bg-white/10 hover:bg-red-500/40 px-5 py-2.5 rounded-full border border-white/20 transition-all group cursor-pointer pointer-events-auto"
+              >
+                <span className="text-[9px] font-black text-white/70 uppercase tracking-widest group-hover:text-white">
                   Sign Out
                 </span>
-                <div className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center text-white">
+                <div className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center text-white group-hover:bg-red-500 transition-colors">
                   <i className="fas fa-power-off text-[10px]"></i>
                 </div>
               </button>
@@ -104,33 +118,18 @@ const AppContent: React.FC = () => {
 
       <main className="flex-1 w-full flex justify-center px-3 md:px-6 py-6 md:py-10 overflow-visible">
         <div className="w-full max-w-7xl overflow-visible">
-
           <Routes>
             <Route path="/" element={
               auth.role === 'admin' ? <Navigate to="/admin" /> :
               auth.role === 'guest' ? <Navigate to="/book" /> :
               <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />
             } />
-
-            <Route path="/book" element={auth.role === 'guest'
-              ? <BookingGate settings={settings} bookings={bookings} onProceed={() => null} />
-              : <Navigate to="/" />} />
-
-            <Route path="/payment" element={auth.role === 'guest'
-              ? <SecurePayment addBooking={addBooking} />
-              : <Navigate to="/" />} />
-
-            <Route path="/my-bookings" element={auth.role === 'guest'
-              ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} />
-              : <Navigate to="/" />} />
-
-            <Route path="/admin" element={auth.role === 'admin'
-              ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={setSettings} syncId={syncId} onSyncSetup={setSyncId} />
-              : <Navigate to="/" />} />
-
+            <Route path="/book" element={auth.role === 'guest' ? <BookingGate settings={settings} bookings={bookings} onProceed={(b:any)=>b} /> : <Navigate to="/" />} />
+            <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} /> : <Navigate to="/" />} />
+            <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
+            <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={handleUpdateSettings} syncId={syncId} onSyncSetup={setSyncId} onLogout={() => {}} /> : <Navigate to="/" />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
-
         </div>
       </main>
     </div>
