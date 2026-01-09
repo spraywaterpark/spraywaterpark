@@ -13,6 +13,14 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
   const [showTerms, setShowTerms] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
+  // 🧠 Blackout Logic
+  const isBlocked = (d: string, s: string) => {
+    const shift = s.toLowerCase().includes('morning') ? 'morning' : 'evening';
+    return settings.blackouts?.some(b =>
+      b.date === d && (b.shift === 'all' || b.shift === shift)
+    );
+  };
+
   const isMorning = slot.includes('Morning');
   const adultRate = isMorning ? settings.morningAdultRate : settings.eveningAdultRate;
   const kidRate = isMorning ? settings.morningKidRate : settings.eveningKidRate;
@@ -81,18 +89,35 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
         <div className="grid md:grid-cols-2 gap-8">
           <div>
             <label className="block text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Visit Date</label>
-            <input type="date" value={date}
-              onChange={e => setDate(e.target.value)}
+            <input
+              type="date"
+              value={date}
+              onChange={e => {
+                if (isBlocked(e.target.value, slot)) {
+                  alert("Fully booked. No more tickets available.");
+                  return;
+                }
+                setDate(e.target.value);
+              }}
               min={new Date().toISOString().split('T')[0]}
-              className="input-premium text-center" />
+              className="input-premium text-center"
+            />
           </div>
 
           <div className="space-y-3">
             <label className="block text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Select Session</label>
             {TIME_SLOTS.map(s => (
-              <button key={s}
-                onClick={() => setSlot(s)}
-                className={`w-full p-4 rounded-xl border transition-all ${slot === s ? 'bg-slate-900 text-white' : 'bg-white hover:border-slate-600'}`}>
+              <button
+                key={s}
+                onClick={() => {
+                  if (date && isBlocked(date, s)) {
+                    alert("Fully booked. No more tickets available.");
+                    return;
+                  }
+                  setSlot(s);
+                }}
+                className={`w-full p-4 rounded-xl border transition-all ${slot === s ? 'bg-slate-900 text-white' : 'bg-white hover:border-slate-600'}`}
+              >
                 {s}
               </button>
             ))}
