@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminSettings, Booking } from '../types';
-import { TIME_SLOTS, TERMS_AND_CONDITIONS } from '../constants';
+import { TIME_SLOTS, TERMS_AND_CONDITIONS, OFFERS } from '../constants';
 
 const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onProceed: any }> = ({ settings, bookings }) => {
   const navigate = useNavigate();
@@ -13,23 +14,11 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
   const [showTerms, setShowTerms] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  // 🔒 BLACKOUT CHECK
-  const isBlocked = (d: string, s: string) => {
-    if (!settings.blackouts) return false;
-    const shift = s.toLowerCase().includes('morning') ? 'Morning' : 'Evening';
-
-    return settings.blackouts.some(b =>
-      b.date === d && (b.shift === 'Both' || b.shift === shift)
-    );
-  };
-
   const isMorning = slot.includes('Morning');
   const adultRate = isMorning ? settings.morningAdultRate : settings.eveningAdultRate;
   const kidRate = isMorning ? settings.morningKidRate : settings.eveningKidRate;
 
-  const offerText = isMorning
-    ? "🎁 Free with every ticket: One Plate Chole Bhature"
-    : "🎁 Free with every ticket: Buffet Dinner";
+  const currentOffer = isMorning ? OFFERS.MORNING : OFFERS.EVENING;
 
   const pricingData = useMemo(() => {
     const subtotal = (adults * adultRate) + (kids * kidRate);
@@ -41,148 +30,241 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
     const count = todayBookings.reduce((s, b) => s + b.adults + b.kids, 0);
 
     let discountPercent = 0;
-    if (count < 100) discountPercent = 20;
-    else if (count < 200) discountPercent = 10;
+    if (date) {
+        if (count < 100) discountPercent = settings.earlyBirdDiscount;
+        else if (count < 200) discountPercent = settings.extraDiscountPercent;
+    }
 
     const discount = Math.round(subtotal * discountPercent / 100);
 
-    return { subtotal, discount, total: subtotal - discount, discountPercent };
-  }, [date, slot, adults, kids, bookings, adultRate, kidRate]);
+    return {
+      subtotal,
+      discount,
+      total: subtotal - discount,
+      discountPercent
+    };
+  }, [date, slot, adults, kids, bookings, adultRate, kidRate, settings]);
 
   const handleCheckout = () => {
-    if (!date) return alert("Please select your visit date");
-    if (isBlocked(date, slot)) return alert("Fully booked — No more tickets available.");
+    if (!date) return alert("Please select your visit date first.");
+    
+    // Check if the current slot is blocked
+    const isBlocked = (settings.blockedSlots || []).some(bs => 
+        bs.date === date && (bs.slot === slot || bs.slot === 'Full Day')
+    );
+
+    if (isBlocked) {
+        return alert("Sorry, this slot is currently blocked for maintenance or private events. Please choose another slot.");
+    }
+
     setShowTerms(true);
   };
 
   const finalProceed = () => {
     if (!acceptedTerms) return;
 
-    const draft = { date, time: slot, adults, kids, totalAmount: pricingData.total, status: 'pending' };
+    const draft = {
+      date,
+      time: slot,
+      adults,
+      kids,
+      totalAmount: pricingData.total,
+      status: 'pending'
+    };
+
     sessionStorage.setItem('swp_draft_booking', JSON.stringify(draft));
     navigate('/payment');
   };
 
   return (
-    <div className="w-full flex flex-col items-center pb-16">
-
-      <div className="max-w-4xl w-full text-center mb-10">
-        <h2 className="text-4xl md:text-5xl font-extrabold text-white uppercase">Reservation</h2>
-        <p className="text-white/60 text-[10px] uppercase tracking-[0.4em] mt-2">
-          Spray Aqua Resort Premium Terminal
-        </p>
+    <div className="w-full flex flex-col items-center animate-slide-up pb-10 relative">
+      
+      {/* Premium Back Button */}
+      <div className="w-full max-w-4xl flex justify-start mb-6">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="group flex items-center gap-3 bg-white/10 hover:bg-white/20 px-6 py-3 rounded-full border border-white/20 transition-all duration-300 backdrop-blur-md shadow-xl"
+          >
+            <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-white group-hover:bg-white group-hover:text-slate-900 transition-all">
+               <i className="fas fa-arrow-left text-[10px]"></i>
+            </div>
+            <span className="text-[10px] font-black text-white/80 uppercase tracking-[0.2em] group-hover:text-white transition-colors">Go Back</span>
+          </button>
       </div>
 
-      <div className="max-w-4xl w-full glass-card rounded-[2rem] p-8 md:p-14 space-y-12">
+      {/* Centered Header */}
+      <div className="w-full max-w-4xl text-center mb-10">
+        <h2 className="text-4xl md:text-5xl font-extrabold text-white tracking-tighter uppercase mb-2">Reservation</h2>
+        <p className="text-white/60 font-bold text-[10px] uppercase tracking-[0.4em]">Spray Aqua Resort Premium Terminal</p>
+      </div>
 
-        {/* DATE & SLOT */}
-        <div className="grid md:grid-cols-2 gap-8">
-          <div>
-            <label className="block text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Visit Date</label>
-            <input
-              type="date"
-              value={date}
-              min={new Date().toISOString().split('T')[0]}
-              className="input-premium text-center"
-              onChange={e => {
-                const d = e.target.value;
-                if (isBlocked(d, slot)) return alert("Fully booked — No more tickets available.");
-                setDate(d);
-              }}
-            />
-          </div>
+      <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-1 gap-8">
+        <div className="glass-card rounded-[2rem] p-8 md:p-14 space-y-14">
+          
+          {/* Section 1: VISIT DETAILS */}
+          <section className="space-y-10">
+            <div className="flex flex-col items-center gap-4 text-center">
+              <span className="w-8 h-8 bg-slate-900 rounded-md text-white flex items-center justify-center text-[10px] font-bold">01</span>
+              <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Visit Schedule</h4>
+            </div>
 
-          <div className="space-y-3">
-            <label className="block text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Select Session</label>
-            {TIME_SLOTS.map(s => (
-              <button
-                key={s}
-                onClick={() => {
-                  if (date && isBlocked(date, s)) return alert("Fully booked — No more tickets available.");
-                  setSlot(s);
-                }}
-                className={`w-full p-4 rounded-xl border transition-all ${slot === s ? 'bg-slate-900 text-white' : 'bg-white hover:border-slate-600'}`}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block text-center">Preferred Date</label>
+                <input type="date" className="input-premium text-center" onChange={e => setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} value={date} />
+              </div>
 
-        {/* OFFER */}
-        <div className="bg-amber-100 border border-amber-300 text-amber-800 text-sm font-bold text-center py-3 rounded-xl shadow">
-          {offerText}
-        </div>
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block text-center">Available Sessions</label>
+                <div className="space-y-3">
+                  {TIME_SLOTS.map(s => {
+                    const isActive = slot === s;
+                    const isBlocked = date && (settings.blockedSlots || []).some(bs => 
+                        bs.date === date && (bs.slot === s || bs.slot === 'Full Day')
+                    );
 
-        {/* QUANTITY */}
-        <div className="grid md:grid-cols-2 gap-6">
-          {[{ label: 'Adults', value: adults, set: setAdults, rate: adultRate },
-            { label: 'Kids', value: kids, set: setKids, rate: kidRate }].map((x, i) => (
-              <div key={i} className="bg-white p-6 rounded-xl flex justify-between items-center border">
-                <div>
-                  <p className="text-xs font-bold text-slate-400 uppercase">{x.label}</p>
-                  <p className="text-lg font-black">₹{x.rate}</p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <button onClick={() => x.set(Math.max(0, x.value - 1))} className="btn-circle">-</button>
-                  <span className="font-black text-lg">{x.value}</span>
-                  <button onClick={() => x.set(x.value + 1)} className="btn-circle">+</button>
+                    return (
+                      <button 
+                        key={s} 
+                        disabled={isBlocked}
+                        onClick={() => setSlot(s)} 
+                        className={`w-full p-5 rounded-xl border transition-all flex justify-between items-center text-left ${isBlocked ? 'opacity-30 grayscale cursor-not-allowed bg-slate-100 border-slate-200' : isActive ? 'border-slate-900 bg-slate-900 text-white shadow-xl' : 'border-slate-300 bg-white hover:border-slate-600'}`}>
+                         <div>
+                            <p className="text-[10px] font-black uppercase tracking-wide">{s.split(': ')[0]}</p>
+                            <p className={`text-[9px] font-bold uppercase tracking-widest mt-1 opacity-60`}>{s.split(': ')[1]}</p>
+                         </div>
+                         {isBlocked ? (
+                            <span className="text-[8px] font-black uppercase text-red-500 border border-red-500/20 px-2 py-0.5 rounded">Blocked</span>
+                         ) : isActive && (
+                            <i className="fas fa-check-circle text-xs"></i>
+                         )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-            ))}
-        </div>
-
-        {/* SUMMARY */}
-        <div className="bg-slate-900 text-white p-10 rounded-3xl text-center space-y-6">
-          <div className="flex justify-between text-sm opacity-70">
-            <span>Total Amount</span>
-            <span>₹{pricingData.subtotal}</span>
-          </div>
-
-          {pricingData.discount > 0 && (
-            <div className="flex justify-between text-emerald-400 font-bold">
-              <span>Early Bird Discount ({pricingData.discountPercent}%)</span>
-              <span>- ₹{pricingData.discount}</span>
             </div>
-          )}
+          </section>
 
-          <div className="pt-6 border-t border-white/20">
-            <p className="uppercase text-xs opacity-40">Payable Amount</p>
-            <p className="text-5xl font-black">₹{pricingData.total}</p>
-          </div>
+          {/* Section 2: MEAL PRIVILEGE */}
+          <section className="flex flex-col items-center">
+              <div className="w-full bg-slate-950/5 border border-slate-900/10 p-8 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-8">
+                  <div className="flex items-center gap-6">
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-lg border-2 border-white/40 text-white ${isMorning ? 'bg-amber-500' : 'bg-indigo-600'}`}>
+                          <i className={isMorning ? "fas fa-utensils" : "fas fa-concierge-bell"}></i>
+                      </div>
+                      <div className="text-center md:text-left">
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">Guest Privilege Included</p>
+                          <h5 className="text-lg font-black text-slate-900 uppercase tracking-tight">{currentOffer.split(' (')[0]}</h5>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 opacity-70">{currentOffer.match(/\(([^)]+)\)/)?.[1] || "Selected Slot Only"}</p>
+                      </div>
+                  </div>
+                  {date && pricingData.discountPercent > 0 && (
+                      <div className="bg-emerald-100 text-emerald-800 px-5 py-2 rounded-full text-[10px] font-black uppercase border border-emerald-200">
+                          {pricingData.discountPercent}% Discount Applied
+                      </div>
+                  )}
+              </div>
+          </section>
 
-          <button onClick={handleCheckout} className="btn-resort w-full bg-white text-slate-900 mt-6">
-            Review & Checkout
-          </button>
+          {/* Section 3: QUANTITY */}
+          <section className="space-y-10">
+            <div className="flex flex-col items-center gap-4 text-center">
+              <span className="w-8 h-8 bg-slate-900 rounded-md text-white flex items-center justify-center text-[10px] font-bold">02</span>
+              <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Pass Selection</h4>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="p-8 bg-white/50 rounded-2xl border border-slate-200 flex justify-between items-center">
+                <div className="text-left">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Adult Entry</label>
+                  <span className="text-slate-900 text-lg font-black">₹{adultRate}</span>
+                </div>
+                <div className="flex items-center gap-5">
+                  <button onClick={() => setAdults(Math.max(1, adults-1))} className="w-9 h-9 border border-slate-300 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors">-</button>
+                  <span className="text-lg font-black w-4 text-center">{adults}</span>
+                  <button onClick={() => setAdults(adults+1)} className="w-9 h-9 border border-slate-300 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors">+</button>
+                </div>
+              </div>
+              <div className="p-8 bg-white/50 rounded-2xl border border-slate-200 flex justify-between items-center">
+                <div className="text-left">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Child Entry</label>
+                  <span className="text-slate-900 text-lg font-black">₹{kidRate}</span>
+                </div>
+                <div className="flex items-center gap-5">
+                  <button onClick={() => setKids(Math.max(0, kids-1))} className="w-9 h-9 border border-slate-300 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors">-</button>
+                  <span className="text-lg font-black w-4 text-center">{kids}</span>
+                  <button onClick={() => setKids(kids+1)} className="w-9 h-9 border border-slate-300 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors">+</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Section 4: SUMMARY & ACTION */}
+          <section className="pt-10 border-t border-slate-100 flex flex-col items-center">
+              <div className="w-full max-w-md bg-slate-900 p-10 rounded-3xl text-white space-y-8 text-center shadow-2xl">
+                <h4 className="text-[9px] font-bold uppercase tracking-[0.4em] opacity-40">Reservation Summary</h4>
+                
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center opacity-70">
+                      <span className="text-[10px] font-bold uppercase tracking-widest">Subtotal</span>
+                      <span className="text-lg font-bold">₹{pricingData.subtotal}</span>
+                  </div>
+                  {pricingData.discount > 0 && (
+                      <div className="flex justify-between items-center text-blue-400">
+                          <span className="text-[10px] font-bold uppercase tracking-widest">Tier Discount</span>
+                          <span className="text-lg font-bold">- ₹{pricingData.discount}</span>
+                      </div>
+                  )}
+                  <div className="pt-6 border-t border-white/10">
+                      <p className="text-[10px] font-bold uppercase opacity-30 mb-2 tracking-[0.4em]">Payable Amount</p>
+                      <p className="text-6xl font-black tracking-tighter">₹{pricingData.total}</p>
+                  </div>
+                </div>
+
+                <button onClick={handleCheckout} className="w-full btn-resort !bg-white !text-slate-900 hover:!bg-slate-100 shadow-xl mt-6">
+                  Review & Checkout
+                </button>
+              </div>
+          </section>
         </div>
       </div>
 
-      {/* TERMS */}
+      {/* T&C MODAL - CENTERED */}
       {showTerms && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-6 z-50">
-          <div className="bg-white max-w-xl w-full p-10 rounded-3xl space-y-6">
-            <h3 className="text-2xl font-black text-center">Park Policy</h3>
+        <div className="fixed inset-0 z-[1200] bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-6 animate-slide-up">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-10 md:p-14 shadow-2xl relative border border-slate-200">
+            <button onClick={() => setShowTerms(false)} className="absolute top-8 right-8 text-slate-400 hover:text-slate-900 transition-colors">
+              <i className="fas fa-times text-xl"></i>
+            </button>
 
-            <div className="max-h-60 overflow-y-auto space-y-3">
+            <div className="text-center mb-10">
+              <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tight">Park Policy</h3>
+              <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.3em] mt-2">Please acknowledge resort guidelines</p>
+            </div>
+
+            <div className="space-y-4 mb-12 max-h-[35vh] overflow-y-auto pr-2 custom-scrollbar">
               {TERMS_AND_CONDITIONS.map((t, i) => (
-                <p key={i} className="text-sm text-slate-700">{t}</p>
+                <div key={i} className="flex gap-5 p-5 bg-slate-50 rounded-xl border border-slate-200">
+                    <span className="text-[10px] font-black text-slate-400 mt-0.5">{String(i+1).padStart(2, '0')}</span>
+                    <p className="text-[13px] font-semibold text-slate-700 leading-relaxed uppercase tracking-tight">{t}</p>
+                </div>
               ))}
             </div>
 
-            <label className="flex gap-3 items-center">
-              <input type="checkbox" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} />
-              <span className="font-bold text-sm">I accept all terms</span>
-            </label>
-
-            <button disabled={!acceptedTerms} onClick={finalProceed} className="btn-resort w-full">
-              Confirm Reservation
-            </button>
+            <div className="space-y-8">
+              <label className="flex items-center gap-5 cursor-pointer p-5 rounded-xl border-2 border-slate-200 hover:bg-slate-50 transition-colors">
+                <input type="checkbox" className="w-6 h-6 rounded border-slate-300 accent-slate-900" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} />
+                <span className="text-[11px] font-extrabold text-slate-950 uppercase tracking-widest">I acknowledge resort policy</span>
+              </label>
+              
+              <button onClick={finalProceed} disabled={!acceptedTerms} className="w-full btn-resort h-16 disabled:opacity-20">
+                Confirm Reservation
+              </button>
+            </div>
           </div>
         </div>
       )}
-
     </div>
   );
 };
-
 export default BookingGate;
