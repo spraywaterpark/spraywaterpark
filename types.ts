@@ -7,17 +7,8 @@ export interface Booking {
   adults: number;
   kids: number;
   totalAmount: number;
-  status: string;
+  status: 'pending' | 'confirmed';
   createdAt: string;
-}
-
-export interface DiscountTier {
-  maxGuests: number;
-  discountPercent: number;
-}
-
-export interface ShiftDiscount {
-  tiers: DiscountTier[];
 }
 
 export interface AdminSettings {
@@ -25,9 +16,6 @@ export interface AdminSettings {
   morningKidRate: number;
   eveningAdultRate: number;
   eveningKidRate: number;
-  capacityPerShift: number;
-  discounts: {
-    morning: ShiftDiscount;
-    evening: ShiftDiscount;
-  };
+  earlyBirdDiscount: number;
+  extraDiscountPercent: number;
 }
