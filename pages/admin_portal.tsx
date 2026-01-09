@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Booking, AdminSettings } from '../types';
+import { Booking, AdminSettings, BlockedSlot } from '../types';
 import { cloudSync } from '../services/cloud_sync';
+import { TIME_SLOTS } from '../constants';
 
 interface AdminPanelProps {
   bookings: Booking[];
@@ -8,20 +9,24 @@ interface AdminPanelProps {
   onUpdateSettings: (s: AdminSettings) => void;
   syncId: string | null;
   onSyncSetup: (id: string) => void;
+  onLogout: () => void;
 }
 
-const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings, syncId, onSyncSetup }) => {
-
-  const [activeTab, setActiveTab] = useState<'bookings' | 'settings' | 'sync' | 'blackout'>('bookings');
+const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings, syncId, onSyncSetup, onLogout }) => {
+  const [activeTab, setActiveTab] = useState<'bookings' | 'settings' | 'sync'>('bookings');
   const [viewMode, setViewMode] = useState<'sales_today' | 'visit_today' | 'all'>('sales_today');
   const [draft, setDraft] = useState<AdminSettings>(settings);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>(new Date().toLocaleTimeString());
 
-  const [blockDate, setBlockDate] = useState('');
-  const [blockShift, setBlockShift] = useState<'Morning' | 'Evening' | 'Both'>('Both');
+  // Blackout form states
+  const [blkDate, setBlkDate] = useState('');
+  const [blkSlot, setBlkSlot] = useState(TIME_SLOTS[0]);
 
-  useEffect(() => setDraft(settings), [settings]);
+  useEffect(() => {
+    setDraft(settings);
+  }, [settings]);
+
   useEffect(() => setLastUpdated(new Date().toLocaleTimeString()), [bookings]);
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -55,32 +60,45 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   };
 
   const addBlackout = () => {
-    if (!blockDate) return;
+    if (!blkDate) return alert("Select a date");
+    const newSlot: BlockedSlot = { date: blkDate, slot: blkSlot };
+    const currentBlocked = draft.blockedSlots || [];
 
-    const updated: AdminSettings = {
-      ...draft,
-      blackouts: [...(draft.blackouts || []), { date: blockDate, shift: blockShift }]
-    };
+    if (currentBlocked.some(s => s.date === blkDate && (s.slot === blkSlot || s.slot === 'Full Day'))) {
+        return alert("This slot or full day is already blocked.");
+    }
 
-    setDraft(updated);
-    onUpdateSettings(updated);
-    setBlockDate('');
+    setDraft({ ...draft, blockedSlots: [...currentBlocked, newSlot] });
+  };
+
+  const addFullDayBlackout = () => {
+    if (!blkDate) return alert("Select a date");
+    const currentBlocked = draft.blockedSlots || [];
+    const updatedSlots = currentBlocked.filter(s => s.date !== blkDate);
+    setDraft({ ...draft, blockedSlots: [...updatedSlots, { date: blkDate, slot: 'Full Day' }] });
+  };
+
+  const removeBlackout = (index: number) => {
+    const updated = (draft.blockedSlots || []).filter((_, i) => i !== index);
+    setDraft({ ...draft, blockedSlots: updated });
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-10">
 
       {/* HEADER */}
-      <div className="bg-[#1B2559] text-white p-6 sm:p-10 rounded-3xl shadow-xl flex flex-col lg:flex-row justify-between gap-6">
+      <div className="bg-[#1B2559] text-white p-6 sm:p-10 rounded-3xl shadow-xl flex flex-col lg:flex-row justify-between items-center gap-6">
         <div>
           <p className="text-[10px] uppercase tracking-[0.4em] opacity-70">Live Sales Dashboard</p>
           <h2 className="text-3xl sm:text-5xl font-black mt-2">₹{stats.revenue.toLocaleString()}</h2>
           <p className="text-blue-200 text-sm font-bold mt-1">Today's Revenue</p>
         </div>
 
-        <div className="flex gap-3">
-          <button onClick={() => setViewMode('sales_today')} className={`btn-tab ${viewMode==='sales_today' ? 'active' : ''}`}>Today Sales</button>
-          <button onClick={() => setViewMode('visit_today')} className={`btn-tab ${viewMode==='visit_today' ? 'active' : ''}`}>Today Visits</button>
+        <div className="flex flex-col sm:flex-row gap-4 items-center">
+          <div className="flex gap-2">
+            <button onClick={() => setViewMode('sales_today')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/20 transition-all ${viewMode==='sales_today' ? 'bg-white text-slate-900' : 'hover:bg-white/10'}`}>Today Sales</button>
+            <button onClick={() => setViewMode('visit_today')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/20 transition-all ${viewMode==='visit_today' ? 'bg-white text-slate-900' : 'hover:bg-white/10'}`}>Today Visits</button>
+          </div>
         </div>
       </div>
 
@@ -93,23 +111,30 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       </div>
 
       {/* TABLE */}
-      <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
         <div className="overflow-x-auto">
           <table className="min-w-[900px] w-full">
-            <thead className="bg-slate-50 text-[10px] uppercase tracking-widest">
+            <thead className="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
               <tr>
-                <th className="p-4">ID</th><th>Name</th><th>Mobile</th><th>Date</th><th>Tickets</th><th>Amount</th>
+                <th className="p-5">Booking ID</th>
+                <th>Guest Name</th>
+                <th>Mobile</th>
+                <th>Visit Date</th>
+                <th>Total Passes</th>
+                <th>Amount Paid</th>
               </tr>
             </thead>
             <tbody>
-              {filteredBookings.map(b => (
-                <tr key={b.id} className="border-t text-center text-sm">
-                  <td className="p-4 font-bold">{b.id}</td>
-                  <td>{b.name}</td>
-                  <td>{b.mobile}</td>
-                  <td>{b.date}</td>
+              {filteredBookings.length === 0 ? (
+                <tr><td colSpan={6} className="p-20 text-center text-slate-300 font-bold uppercase text-xs tracking-widest">No transactions found</td></tr>
+              ) : filteredBookings.map(b => (
+                <tr key={b.id} className="border-t hover:bg-slate-50 transition-colors text-center text-sm">
+                  <td className="p-5 font-bold text-slate-900">{b.id}</td>
+                  <td className="font-semibold">{b.name}</td>
+                  <td className="font-medium text-slate-500">{b.mobile}</td>
+                  <td className="font-bold text-blue-600">{b.date}</td>
                   <td>{b.adults + b.kids}</td>
-                  <td className="font-black">₹{b.totalAmount}</td>
+                  <td className="font-black text-slate-900">₹{b.totalAmount}</td>
                 </tr>
               ))}
             </tbody>
@@ -117,29 +142,90 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         </div>
       </div>
 
-      {/* ACTION BUTTONS */}
-      <div className="flex justify-center gap-4">
-        <button onClick={manualRefresh} className="btn-premium">Refresh</button>
-        <button onClick={() => setActiveTab('sync')} className="btn-premium">Sync ID</button>
-        <button onClick={() => setActiveTab('settings')} className="btn-premium">Rates</button>
-        <button onClick={() => setActiveTab('blackout')} className="btn-premium">Blackout</button>
+      {/* FOOTER ACTIONS */}
+      <div className="flex flex-wrap justify-center gap-4">
+        <button onClick={manualRefresh} className="btn-resort !px-8 h-14 !bg-slate-800">
+           <i className="fas fa-sync-alt mr-2 text-xs"></i> Refresh Data
+        </button>
+        <button onClick={() => setActiveTab('sync')} className="btn-resort !px-8 h-14 !bg-blue-600">
+           <i className="fas fa-cloud mr-2 text-xs"></i> Cloud Settings
+        </button>
+        <button onClick={() => setActiveTab('settings')} className="btn-resort !px-8 h-14">
+           <i className="fas fa-cog mr-2 text-xs"></i> Rates & Blackouts
+        </button>
       </div>
 
-      {/* BLACKOUT PANEL */}
-      {activeTab === 'blackout' && (
-        <div className="bg-white rounded-3xl p-8 shadow-xl space-y-6">
-          <h3 className="text-2xl font-black">Block Booking Date</h3>
+      {/* MODALS */}
+      {activeTab === 'sync' && (
+        <Modal title="Cloud Synchronization" onClose={() => setActiveTab('bookings')}>
+          <div className="text-center space-y-6">
+            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Active Master ID</p>
+            <p className="text-3xl font-mono text-blue-700 font-black">{syncId}</p>
+            <button onClick={reLinkCloud} className="btn-resort w-full mt-6 !bg-slate-100 !text-slate-900 border border-slate-200">Generate New ID</button>
+          </div>
+        </Modal>
+      )}
 
-          <input type="date" value={blockDate} onChange={e => setBlockDate(e.target.value)} className="input-premium" />
+      {activeTab === 'settings' && (
+        <Modal title="Rates & Blackout Dates" onClose={() => setActiveTab('bookings')}>
+          <div className="space-y-8 max-h-[65vh] overflow-y-auto px-2 custom-scrollbar">
+            <div className="space-y-4">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Ticket Pricing (₹)</h4>
+              <div className="grid grid-cols-2 gap-4">
+                {['morningAdultRate', 'eveningAdultRate', 'morningKidRate', 'eveningKidRate'].map(key => (
+                  <div key={key} className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">{key.replace(/([A-Z])/g, ' $1')}</label>
+                    <input type="number" className="input-premium py-3" value={(draft as any)[key]} onChange={e => setDraft({...draft, [key]: Number(e.target.value)})} />
+                  </div>
+                ))}
+              </div>
+            </div>
 
-          <select value={blockShift} onChange={e => setBlockShift(e.target.value as any)} className="input-premium">
-            <option>Morning</option>
-            <option>Evening</option>
-            <option>Both</option>
-          </select>
+            <div className="space-y-6 pt-6 border-t border-slate-100">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Blackout Management</h4>
+              <div className="bg-slate-50 p-6 rounded-2xl space-y-5 border border-slate-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase text-slate-500 ml-1">Target Date</label>
+                    <input type="date" className="input-premium py-3" value={blkDate} onChange={e => setBlkDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase text-slate-500 ml-1">Target Shift</label>
+                    <select className="input-premium py-3 bg-white" value={blkSlot} onChange={e => setBlkSlot(e.target.value)}>
+                      {TIME_SLOTS.map(t => <option key={t} value={t}>{t.split(':')[0]}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={addBlackout} className="flex-1 bg-slate-900 text-white text-[10px] font-black uppercase py-4 rounded-xl shadow-lg">Block Shift</button>
+                  <button onClick={addFullDayBlackout} className="flex-1 border-2 border-slate-900 text-slate-900 text-[10px] font-black uppercase py-4 rounded-xl">Block Full Day</button>
+                </div>
+              </div>
 
-          <button onClick={addBlackout} className="btn-premium">Add Block</button>
-        </div>
+              <div className="space-y-3">
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Current Active Blackouts</p>
+                {(!draft.blockedSlots || draft.blockedSlots.length === 0) ? (
+                  <p className="text-xs text-slate-400 text-center py-4">No dates currently blocked</p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2">
+                    {draft.blockedSlots.map((bs, i) => (
+                      <div key={i} className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200">
+                        <div>
+                          <p className="text-sm font-black text-slate-900 uppercase">{bs.date}</p>
+                          <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest">{bs.slot.split(':')[0]}</p>
+                        </div>
+                        <button onClick={() => removeBlackout(i)} className="w-10 h-10 bg-red-50 text-red-500 rounded-lg"><i className="fas fa-trash-alt text-xs"></i></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="pt-8 border-t border-slate-100 mt-6">
+            <button onClick={() => { onUpdateSettings(draft); setActiveTab('bookings'); }} className="btn-resort w-full h-16 shadow-2xl">Save Resort Settings</button>
+          </div>
+        </Modal>
       )}
 
     </div>
@@ -147,9 +233,19 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 };
 
 const Stat = ({label, value}:{label:string, value:any}) => (
-  <div className="bg-white rounded-xl p-4 shadow text-center">
-    <p className="text-xs uppercase opacity-60">{label}</p>
-    <p className="text-2xl font-black">{value}</p>
+  <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 text-center">
+    <p className="text-[10px] uppercase text-slate-400 font-black tracking-[0.2em] mb-1">{label}</p>
+    <p className="text-2xl font-black text-[#1B2559]">{value}</p>
+  </div>
+);
+
+const Modal = ({title, children, onClose}:{title:string, children:any, onClose: () => void}) => (
+  <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-6 z-[1000] no-print">
+    <div className="bg-white rounded-[2.5rem] p-10 md:p-14 w-full max-w-xl shadow-2xl animate-slide-up relative border border-white/20">
+      <button onClick={onClose} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900"><i className="fas fa-times text-2xl"></i></button>
+      <div className="mb-10"><h3 className="text-3xl font-black uppercase text-slate-900 mb-2">{title}</h3></div>
+      {children}
+    </div>
   </div>
 );
 
