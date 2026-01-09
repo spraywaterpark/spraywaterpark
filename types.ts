@@ -1,3 +1,6 @@
+
+export type UserRole = 'guest' | 'admin' | null;
+
 export interface Booking {
   id: string;
   name: string;
@@ -6,16 +9,27 @@ export interface Booking {
   time: string;
   adults: number;
   kids: number;
+  discountCode: string;
   totalAmount: number;
-  status: 'pending' | 'confirmed';
+  status: 'pending' | 'confirmed' | 'cancelled';
   createdAt: string;
 }
 
 export interface AdminSettings {
   morningAdultRate: number;
-  morningKidRate: number;
   eveningAdultRate: number;
+  morningKidRate: number;
   eveningKidRate: number;
   earlyBirdDiscount: number;
   extraDiscountPercent: number;
+  blockedDates: string[];
+}
+
+export interface AuthState {
+  role: UserRole;
+  user: {
+    name?: string;
+    mobile?: string;
+    email?: string;
+  } | null;
 }
