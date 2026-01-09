@@ -1,40 +1,36 @@
 
-export type UserRole = 'guest' | 'admin' | null;
+export const TERMS_AND_CONDITIONS = [
+  "Single male or only males group are not allowed.",
+  "Alcohol or smoking strictly not allowed.",
+  "Costumes are mandatory. Without proper costume guests are not allowed to enter pool side area (beyond change rooms).",
+  "We are not responsible for your belongings, paid locker facilities are available."
+];
 
-export interface Booking {
-  id: string;
-  name: string;
-  mobile: string;
-  date: string;
-  time: string;
-  adults: number;
-  kids: number;
-  discountCode: string;
-  totalAmount: number;
-  status: 'pending' | 'confirmed' | 'cancelled';
-  createdAt: string;
-}
+export const PRICING = {
+  MORNING_ADULT: 500,
+  MORNING_KID: 350,
+  EVENING_ADULT: 800,
+  EVENING_KID: 500
+};
 
-export interface BlockedSlot {
-  date: string;
-  slot: string; // Specific slot name or "Full Day"
-}
+export const OFFERS = {
+  MORNING: "FREE Chole Bhature (2:00 PM - 3:00 PM only)",
+  EVENING: "FREE Buffet Dinner (8:00 PM - 10:00 PM)"
+};
 
-export interface AdminSettings {
-  morningAdultRate: number;
-  eveningAdultRate: number;
-  morningKidRate: number;
-  eveningKidRate: number;
-  earlyBirdDiscount: number;
-  extraDiscountPercent: number;
-  blockedSlots: BlockedSlot[];
-}
+export const DEFAULT_ADMIN_SETTINGS = {
+  morningAdultRate: 500,
+  eveningAdultRate: 800,
+  morningKidRate: 350,
+  eveningKidRate: 500,
+  earlyBirdDiscount: 20, 
+  extraDiscountPercent: 10,
+  blockedSlots: [],
+};
 
-export interface AuthState {
-  role: UserRole;
-  user: {
-    name?: string;
-    mobile?: string;
-    email?: string;
-  } | null;
-}
+export const TIME_SLOTS = [
+  "Morning Slot: 10:00 AM - 03:00 PM",
+  "Evening Slot: 04:00 PM - 10:00 PM"
+];
+
+export const MASTER_SYNC_ID = "1351141753443835904";
