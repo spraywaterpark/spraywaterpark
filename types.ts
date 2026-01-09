@@ -1,3 +1,4 @@
+
 export type UserRole = 'guest' | 'admin' | null;
 
 export interface Booking {
@@ -14,12 +15,9 @@ export interface Booking {
   createdAt: string;
 }
 
-/* 🔒 Blackout Structure */
-export type BlackoutShift = 'Morning' | 'Evening' | 'Both';
-
-export interface BlackoutEntry {
+export interface BlockedSlot {
   date: string;
-  shift: BlackoutShift;
+  slot: string; // Specific slot name or "Full Day"
 }
 
 export interface AdminSettings {
@@ -27,12 +25,9 @@ export interface AdminSettings {
   eveningAdultRate: number;
   morningKidRate: number;
   eveningKidRate: number;
-
   earlyBirdDiscount: number;
   extraDiscountPercent: number;
-
-  /* 🧠 Blackout system */
-  blackouts?: BlackoutEntry[];
+  blockedSlots: BlockedSlot[];
 }
 
 export interface AuthState {
