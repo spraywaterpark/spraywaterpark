@@ -1,3 +1,5 @@
+// 🔽 PASTE ENTIRE FILE
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Booking, AdminSettings } from '../types';
 import { cloudSync } from '../services/cloud_sync';
@@ -11,166 +13,134 @@ interface AdminPanelProps {
 }
 
 const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings, syncId, onSyncSetup }) => {
+  const [activeTab, setActiveTab] = useState<'bookings' | 'settings' | 'sync'>('bookings');
   const [viewMode, setViewMode] = useState<'sales_today' | 'visit_today' | 'all'>('sales_today');
   const [draft, setDraft] = useState<AdminSettings>(settings);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>(new Date().toLocaleTimeString());
 
-  useEffect(() => { setDraft(settings); }, [settings]);
-  useEffect(() => { setLastUpdated(new Date().toLocaleTimeString()); }, [bookings]);
+  useEffect(() => setDraft(settings), [settings]);
+  useEffect(() => setLastUpdated(new Date().toLocaleTimeString()), [bookings]);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
   const filteredBookings = useMemo(() => {
     let list = [...bookings].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    if (viewMode === 'sales_today') return list.filter(b => b.createdAt.split('T')[0] === todayStr);
+    if (viewMode === 'sales_today') return list.filter(b => b.createdAt.startsWith(todayStr));
     if (viewMode === 'visit_today') return list.filter(b => b.date === todayStr);
     return list;
-  }, [bookings, viewMode, todayStr]);
+  }, [bookings, viewMode]);
 
-  const viewStats = useMemo(() => ({
-    totalRev: filteredBookings.reduce((s, b) => s + b.totalAmount, 0),
-    totalAdults: filteredBookings.reduce((s, b) => s + b.adults, 0),
-    totalKids: filteredBookings.reduce((s, b) => s + b.kids, 0),
-    totalTickets: filteredBookings.length
+  const stats = useMemo(() => ({
+    revenue: filteredBookings.reduce((s, b) => s + b.totalAmount, 0),
+    adults: filteredBookings.reduce((s, b) => s + b.adults, 0),
+    kids: filteredBookings.reduce((s, b) => s + b.kids, 0),
+    tickets: filteredBookings.length
   }), [filteredBookings]);
-
-  const handleUpdate = (field: keyof AdminSettings, value: number) => {
-    setDraft({ ...draft, [field]: value });
-  };
 
   const manualRefresh = async () => {
     setIsSyncing(true);
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 1000));
     setIsSyncing(false);
   };
 
   const reLinkCloud = async () => {
-    if (!confirm("Generate new Room ID? All devices must update.")) return;
+    if (!confirm("Generate new Sync ID?")) return;
     setIsSyncing(true);
-    const newId = await cloudSync.createRoom(bookings);
-    if (newId) onSyncSetup(newId);
+    const id = await cloudSync.createRoom(bookings);
+    if (id) onSyncSetup(id);
     setIsSyncing(false);
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8 space-y-8 animate-fade">
+    <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-10">
 
-      {/* Header */}
-      <div className="bg-[#1B2559] text-white p-10 rounded-[2.5rem] shadow-xl flex flex-col md:flex-row justify-between items-center gap-6">
+      {/* HEADER */}
+      <div className="bg-[#1B2559] text-white p-6 sm:p-10 rounded-3xl shadow-xl flex flex-col lg:flex-row justify-between gap-6">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Live Sales</p>
-          <h2 className="text-4xl font-black uppercase tracking-tight">
-            {viewMode === 'sales_today' ? "Today's Bookings" : "Today's Visitors"}
-          </h2>
-          <p className="text-blue-200 mt-2 text-sm font-bold uppercase">
-            Total Revenue: ₹{viewStats.totalRev.toLocaleString()}
-          </p>
+          <p className="text-[10px] uppercase tracking-[0.4em] opacity-70">Live Sales Dashboard</p>
+          <h2 className="text-3xl sm:text-5xl font-black mt-2">₹{stats.revenue.toLocaleString()}</h2>
+          <p className="text-blue-200 text-sm font-bold mt-1">Today's Revenue</p>
         </div>
 
-        <div className="flex bg-white/10 p-2 rounded-xl">
-          <button onClick={() => setViewMode('sales_today')}
-            className={`px-6 py-3 rounded-lg text-[10px] font-black uppercase ${viewMode === 'sales_today' ? 'bg-white text-blue-900' : 'text-white/60'}`}>
-            Sales Today
-          </button>
-          <button onClick={() => setViewMode('visit_today')}
-            className={`px-6 py-3 rounded-lg text-[10px] font-black uppercase ${viewMode === 'visit_today' ? 'bg-white text-blue-900' : 'text-white/60'}`}>
-            Visits Today
-          </button>
+        <div className="flex gap-3">
+          <button onClick={() => setViewMode('sales_today')} className={`btn-tab ${viewMode==='sales_today' && 'active'}`}>Today Sales</button>
+          <button onClick={() => setViewMode('visit_today')} className={`btn-tab ${viewMode==='visit_today' && 'active'}`}>Today Visits</button>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
-        {[
-          ['Tickets', viewStats.totalTickets],
-          ['Adults', viewStats.totalAdults],
-          ['Kids', viewStats.totalKids],
-          ['Revenue', `₹${viewStats.totalRev}`]
-        ].map(([label, value]) => (
-          <div key={label} className="bg-white p-6 rounded-2xl shadow border">
-            <p className="text-[10px] uppercase font-black text-slate-400 mb-2">{label}</p>
-            <p className="text-3xl font-black text-[#1B2559]">{value}</p>
-          </div>
-        ))}
+      {/* STATS */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Stat label="Tickets" value={stats.tickets} />
+        <Stat label="Adults" value={stats.adults} />
+        <Stat label="Kids" value={stats.kids} />
+        <Stat label="Last Sync" value={lastUpdated} />
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl shadow border overflow-x-auto">
-        <table className="w-full text-left">
-          <thead className="bg-slate-50 text-[10px] uppercase font-black text-slate-500">
-            <tr>
-              <th className="p-4">Time / ID</th>
-              <th className="p-4">Name</th>
-              <th className="p-4">Mobile</th>
-              <th className="p-4">Visit</th>
-              <th className="p-4 text-center">Guests</th>
-              <th className="p-4 text-right">Amount</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {filteredBookings.map(b => (
-              <tr key={b.id}>
-                <td className="p-4 text-xs font-bold text-blue-600">
-                  {new Date(b.createdAt).toLocaleTimeString()}<br />{b.id}
-                </td>
-                <td className="p-4 font-bold">{b.name}</td>
-                <td className="p-4">{b.mobile}</td>
-                <td className="p-4 text-sm">{b.date}<br />{b.time}</td>
-                <td className="p-4 text-center">{b.adults + b.kids}</td>
-                <td className="p-4 text-right font-black">₹{b.totalAmount}</td>
+      {/* TABLE */}
+      <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-[900px] w-full">
+            <thead className="bg-slate-50 text-[10px] uppercase tracking-widest">
+              <tr>
+                <th className="p-4">ID</th><th>Name</th><th>Mobile</th><th>Date</th><th>Tickets</th><th>Amount</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Settings */}
-      <div className="bg-white p-8 rounded-2xl shadow border space-y-6">
-        <h3 className="text-xl font-black">Ticket Rates</h3>
-
-        <div className="grid sm:grid-cols-2 gap-6">
-          {([
-            ['Morning Adult', 'morningAdultRate'],
-            ['Morning Kid', 'morningKidRate'],
-            ['Evening Adult', 'eveningAdultRate'],
-            ['Evening Kid', 'eveningKidRate']
-          ] as [string, keyof AdminSettings][]).map(([label, key]) => (
-            <div key={key}>
-              <label className="block text-xs font-bold uppercase text-slate-500 mb-1">{label}</label>
-              <input
-                type="number"
-                value={draft[key]}
-                onChange={e => handleUpdate(key, Number(e.target.value))}
-                className="w-full border p-3 rounded-lg"
-              />
-            </div>
-          ))}
-        </div>
-
-        <button onClick={() => onUpdateSettings(draft)} className="btn-premium w-full py-4">
-          Save Settings
-        </button>
-      </div>
-
-      {/* Sync */}
-      <div className="bg-white p-8 rounded-2xl shadow border text-center space-y-4">
-        <p className="text-sm font-bold">Cloud Sync ID</p>
-        <p className="font-mono text-lg bg-slate-100 p-4 rounded">{syncId}</p>
-
-        <div className="flex justify-center gap-4">
-          <button onClick={manualRefresh} disabled={isSyncing} className="btn-premium">
-            {isSyncing ? 'Refreshing...' : 'Refresh'}
-          </button>
-          <button onClick={reLinkCloud} className="btn-premium">
-            New Room ID
-          </button>
+            </thead>
+            <tbody>
+              {filteredBookings.map(b => (
+                <tr key={b.id} className="border-t text-center text-sm">
+                  <td className="p-4 font-bold">{b.id}</td>
+                  <td>{b.name}</td>
+                  <td>{b.mobile}</td>
+                  <td>{b.date}</td>
+                  <td>{b.adults + b.kids}</td>
+                  <td className="font-black">₹{b.totalAmount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
+
+      {/* FOOTER ACTIONS */}
+      <div className="flex justify-center gap-4">
+        <button onClick={manualRefresh} className="btn-premium">Refresh</button>
+        <button onClick={() => setActiveTab('sync')} className="btn-premium">Sync ID</button>
+        <button onClick={() => setActiveTab('settings')} className="btn-premium">Rates</button>
+      </div>
+
+      {activeTab === 'sync' && (
+        <Modal title="Cloud Sync">
+          <p className="text-xl font-mono text-blue-700">{syncId}</p>
+          <button onClick={reLinkCloud} className="btn-premium mt-6">Generate New</button>
+        </Modal>
+      )}
+
+      {activeTab === 'settings' && (
+        <Modal title="Update Rates">
+          <button onClick={() => { onUpdateSettings(draft); setActiveTab('bookings'); }} className="btn-premium mt-6">Save</button>
+        </Modal>
+      )}
 
     </div>
   );
 };
+
+const Stat = ({label, value}:{label:string, value:any}) => (
+  <div className="bg-white rounded-xl p-4 shadow text-center">
+    <p className="text-xs uppercase opacity-60">{label}</p>
+    <p className="text-2xl font-black">{value}</p>
+  </div>
+);
+
+const Modal = ({title, children}:{title:string, children:any}) => (
+  <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-6">
+    <div className="bg-white rounded-3xl p-10 w-full max-w-lg">
+      <h3 className="text-2xl font-black mb-6">{title}</h3>
+      {children}
+      <button onClick={() => location.reload()} className="mt-6 text-sm">Close</button>
+    </div>
+  </div>
+);
 
 export default AdminPortal;
