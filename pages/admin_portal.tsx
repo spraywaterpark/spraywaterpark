@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Booking, AdminSettings, BlockedSlot } from '../types';
 import { cloudSync } from '../services/cloud_sync';
-import { TIME_SLOTS } from '../constants';
+import { TIME_SLOTS, MASTER_SYNC_ID } from '../constants';
 
 interface AdminPanelProps {
   bookings: Booking[];
@@ -19,7 +20,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>(new Date().toLocaleTimeString());
 
-  // Blackout form states
   const [blkDate, setBlkDate] = useState('');
   const [blkSlot, setBlkSlot] = useState(TIME_SLOTS[0]);
 
@@ -29,14 +29,25 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
   useEffect(() => setLastUpdated(new Date().toLocaleTimeString()), [bookings]);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Today's date in various formats for matching
+  const today = new Date();
+  const todayISO = today.toISOString().split('T')[0];
+  const todayLocale = today.toLocaleDateString("en-IN"); // DD/MM/YYYY format usually
 
   const filteredBookings = useMemo(() => {
-    let list = [...bookings].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    if (viewMode === 'sales_today') return list.filter(b => b.createdAt.startsWith(todayStr));
-    if (viewMode === 'visit_today') return list.filter(b => b.date === todayStr);
+    let list = [...bookings];
+    
+    if (viewMode === 'sales_today') {
+      // Matches if the timestamp contains today's locale date or ISO date
+      return list.filter(b => b.createdAt.includes(todayLocale) || b.createdAt.startsWith(todayISO));
+    }
+    
+    if (viewMode === 'visit_today') {
+      return list.filter(b => b.date === todayISO);
+    }
+    
     return list;
-  }, [bookings, viewMode]);
+  }, [bookings, viewMode, todayLocale, todayISO]);
 
   const stats = useMemo(() => ({
     revenue: filteredBookings.reduce((s, b) => s + b.totalAmount, 0),
@@ -47,7 +58,14 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
   const manualRefresh = async () => {
     setIsSyncing(true);
-    await new Promise(r => setTimeout(r, 1000));
+    // Explicitly call the sync service to pull fresh data
+    const remoteData = await cloudSync.fetchData(syncId || MASTER_SYNC_ID);
+    if (remoteData) {
+        // App.tsx effect will pick this up if the parent state is updated, 
+        // but for immediate feedback we rely on the component re-render.
+        console.log("Sync complete:", remoteData.length, "records found.");
+    }
+    await new Promise(r => setTimeout(r, 800));
     setIsSyncing(false);
   };
 
@@ -91,13 +109,14 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         <div>
           <p className="text-[10px] uppercase tracking-[0.4em] opacity-70">Live Sales Dashboard</p>
           <h2 className="text-3xl sm:text-5xl font-black mt-2">₹{stats.revenue.toLocaleString()}</h2>
-          <p className="text-blue-200 text-sm font-bold mt-1">Today's Revenue</p>
+          <p className="text-blue-200 text-sm font-bold mt-1">{viewMode === 'sales_today' ? "Today's Revenue" : "Filtered Revenue"}</p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 items-center">
           <div className="flex gap-2">
             <button onClick={() => setViewMode('sales_today')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/20 transition-all ${viewMode==='sales_today' ? 'bg-white text-slate-900' : 'hover:bg-white/10'}`}>Today Sales</button>
             <button onClick={() => setViewMode('visit_today')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/20 transition-all ${viewMode==='visit_today' ? 'bg-white text-slate-900' : 'hover:bg-white/10'}`}>Today Visits</button>
+            <button onClick={() => setViewMode('all')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/20 transition-all ${viewMode==='all' ? 'bg-white text-slate-900' : 'hover:bg-white/10'}`}>All Data</button>
           </div>
         </div>
       </div>
@@ -116,20 +135,20 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
           <table className="min-w-[900px] w-full">
             <thead className="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
               <tr>
-                <th className="p-5">Booking ID</th>
+                <th className="p-5 text-left">Timestamp</th>
                 <th>Guest Name</th>
                 <th>Mobile</th>
                 <th>Visit Date</th>
-                <th>Total Passes</th>
-                <th>Amount Paid</th>
+                <th>Passes</th>
+                <th>Amount</th>
               </tr>
             </thead>
             <tbody>
               {filteredBookings.length === 0 ? (
-                <tr><td colSpan={6} className="p-20 text-center text-slate-300 font-bold uppercase text-xs tracking-widest">No transactions found</td></tr>
-              ) : filteredBookings.map(b => (
-                <tr key={b.id} className="border-t hover:bg-slate-50 transition-colors text-center text-sm">
-                  <td className="p-5 font-bold text-slate-900">{b.id}</td>
+                <tr><td colSpan={6} className="p-20 text-center text-slate-300 font-bold uppercase text-xs tracking-widest">No data matching current filter</td></tr>
+              ) : filteredBookings.map((b, i) => (
+                <tr key={i} className="border-t hover:bg-slate-50 transition-colors text-center text-sm">
+                  <td className="p-5 text-left font-medium text-slate-400 text-[10px]">{b.createdAt}</td>
                   <td className="font-semibold">{b.name}</td>
                   <td className="font-medium text-slate-500">{b.mobile}</td>
                   <td className="font-bold text-blue-600">{b.date}</td>
@@ -144,11 +163,8 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
       {/* FOOTER ACTIONS */}
       <div className="flex flex-wrap justify-center gap-4">
-        <button onClick={manualRefresh} className="btn-resort !px-8 h-14 !bg-slate-800">
-           <i className="fas fa-sync-alt mr-2 text-xs"></i> Refresh Data
-        </button>
-        <button onClick={() => setActiveTab('sync')} className="btn-resort !px-8 h-14 !bg-blue-600">
-           <i className="fas fa-cloud mr-2 text-xs"></i> Cloud Settings
+        <button onClick={manualRefresh} disabled={isSyncing} className="btn-resort !px-8 h-14 !bg-slate-800 disabled:opacity-50">
+           <i className={`fas fa-sync-alt mr-2 text-xs ${isSyncing ? 'fa-spin' : ''}`}></i> {isSyncing ? 'Syncing...' : 'Fetch Cloud Data'}
         </button>
         <button onClick={() => setActiveTab('settings')} className="btn-resort !px-8 h-14">
            <i className="fas fa-cog mr-2 text-xs"></i> Rates & Blackouts
@@ -156,16 +172,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       </div>
 
       {/* MODALS */}
-      {activeTab === 'sync' && (
-        <Modal title="Cloud Synchronization" onClose={() => setActiveTab('bookings')}>
-          <div className="text-center space-y-6">
-            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Active Master ID</p>
-            <p className="text-3xl font-mono text-blue-700 font-black">{syncId}</p>
-            <button onClick={reLinkCloud} className="btn-resort w-full mt-6 !bg-slate-100 !text-slate-900 border border-slate-200">Generate New ID</button>
-          </div>
-        </Modal>
-      )}
-
       {activeTab === 'settings' && (
         <Modal title="Rates & Blackout Dates" onClose={() => setActiveTab('bookings')}>
           <div className="space-y-8 max-h-[65vh] overflow-y-auto px-2 custom-scrollbar">
