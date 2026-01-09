@@ -4,7 +4,6 @@ import { Booking } from "../types";
 export const cloudSync = {
   saveBooking: async (booking: Booking): Promise<boolean> => {
     try {
-      // Create a controller to abort the fetch if it takes too long (8 seconds)
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
 
@@ -27,18 +26,27 @@ export const cloudSync = {
       clearTimeout(timeoutId);
       return response.ok;
     } catch (error) {
-      console.warn("Sheet sync skipped or failed:", error);
+      console.warn("Sheet sync failed:", error);
       return false;
     }
   },
 
   fetchData: async (syncId: string): Promise<Booking[] | null> => {
-    // Return null to allow local storage fallback
-    return null;
+    try {
+      const response = await fetch("/api/booking");
+      if (response.ok) {
+        return await response.json();
+      }
+      return null;
+    } catch (e) {
+      console.error("Cloud fetch error:", e);
+      return null;
+    }
   },
 
   updateData: async (syncId: string, bookings: Booking[]): Promise<void> => {
-    console.debug("Local state updated. Room:", syncId);
+    // This could be used for advanced real-time features
+    console.debug("Local state sync active.");
   },
 
   createRoom: async (bookings: Booking[]): Promise<string> => {
