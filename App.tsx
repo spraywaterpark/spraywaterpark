@@ -42,31 +42,35 @@ const AppContent: React.FC = () => {
 
   // Unified Cloud Sync Logic
   const performSync = async () => {
-    // 1. Sync Bookings
-    const remoteBookings = await cloudSync.fetchData(syncId);
-    if (remoteBookings && JSON.stringify(bookingsRef.current) !== JSON.stringify(remoteBookings)) {
-      setBookings(remoteBookings);
-    }
+    try {
+      // 1. Sync Bookings
+      const remoteBookings = await cloudSync.fetchData(syncId);
+      if (remoteBookings && JSON.stringify(bookingsRef.current) !== JSON.stringify(remoteBookings)) {
+        setBookings(remoteBookings);
+      }
 
-    // 2. Sync Settings (Rates/Blackouts)
-    const remoteSettings = await cloudSync.fetchSettings();
-    if (remoteSettings) {
-      setSettings(prev => {
-        // Only update if the cloud version is different to avoid unnecessary re-renders
-        if (JSON.stringify(prev) !== JSON.stringify(remoteSettings)) {
-          console.log("Global settings updated from cloud.");
-          return remoteSettings;
-        }
-        return prev;
-      });
+      // 2. Sync Settings (Rates/Blackouts)
+      const remoteSettings = await cloudSync.fetchSettings();
+      if (remoteSettings && typeof remoteSettings === 'object') {
+        setSettings(prev => {
+          // If the cloud data is valid and different from local state, update it
+          if (JSON.stringify(prev) !== JSON.stringify(remoteSettings)) {
+            console.log("Global cloud settings successfully applied to this device.");
+            return remoteSettings;
+          }
+          return prev;
+        });
+      }
+    } catch (err) {
+      console.warn("Sync encountered a minor error, will retry shortly.", err);
     }
   };
 
   useEffect(() => {
-    // Immediate sync on load
+    // Immediate sync on component mount (Ensures Guest gets latest blackout dates instantly)
     performSync();
 
-    // Regular interval sync
+    // Regular interval sync (Every 30 seconds)
     const interval = setInterval(performSync, 30000); 
     return () => clearInterval(interval);
   }, [syncId]);
@@ -88,11 +92,16 @@ const AppContent: React.FC = () => {
   };
 
   const handleUpdateSettings = async (newSettings: AdminSettings) => {
+    // 1. Update local state immediately for snappy UI
     setSettings(newSettings);
     localStorage.setItem('swp_settings', JSON.stringify(newSettings));
+    
+    // 2. Push to Cloud (Google Sheets)
     const success = await cloudSync.saveSettings(newSettings);
     if (!success) {
-      alert("Note: Settings were saved locally but could not be synced to the Cloud. Please ensure the 'Settings' tab exists in your Google Sheet.");
+      alert("⚠️ Cloud Sync Failed: Blocked dates were saved locally on THIS laptop, but they won't show up on others. Please ensure you have a tab named 'Settings' in your Google Sheet.");
+    } else {
+      console.log("Settings pushed to Cloud successfully.");
     }
   };
 
