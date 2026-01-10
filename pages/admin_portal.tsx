@@ -18,6 +18,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const [viewMode, setViewMode] = useState<'sales_today' | 'visit_today' | 'all'>('sales_today');
   const [draft, setDraft] = useState<AdminSettings>(settings);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>(new Date().toLocaleTimeString());
 
   const [blkDate, setBlkDate] = useState('');
@@ -53,10 +54,15 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
   const manualRefresh = async () => {
     setIsSyncing(true);
-    await cloudSync.fetchData(syncId || MASTER_SYNC_ID);
-    await cloudSync.fetchSettings();
-    await new Promise(r => setTimeout(r, 800));
-    setIsSyncing(false);
+    try {
+      await cloudSync.fetchData(syncId || MASTER_SYNC_ID);
+      await cloudSync.fetchSettings();
+      setLastUpdated(new Date().toLocaleTimeString());
+    } catch (e) {
+      console.error("Manual refresh failed", e);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const addBlackout = () => {
@@ -82,9 +88,18 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     setDraft({ ...draft, blockedSlots: updated });
   };
 
+  const handleSaveSettings = async () => {
+    setIsSaving(true);
+    try {
+      await onUpdateSettings(draft);
+      setActiveTab('bookings');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-10">
-
       {/* HEADER */}
       <div className="bg-[#1B2559] text-white p-6 sm:p-10 rounded-3xl shadow-xl flex flex-col lg:flex-row justify-between items-center gap-6">
         <div>
@@ -93,7 +108,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           </p>
           <h2 className="text-3xl sm:text-5xl font-black mt-2">₹{stats.revenue.toLocaleString()}</h2>
-          <p className="text-blue-200 text-sm font-bold mt-1">{viewMode === 'sales_today' ? "Today's Revenue" : "Filtered Revenue"}</p>
+          <p className="text-blue-200 text-sm font-bold mt-1">{viewMode === 'sales_today' ? "Today's Revenue" : viewMode === 'visit_today' ? "Revenue for Visitors Today" : "Total Revenue"}</p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 items-center">
@@ -107,16 +122,16 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
       {/* STATS */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Stat label="Tickets" value={stats.tickets} />
+        <Stat label="Total Tickets" value={stats.tickets} />
         <Stat label="Adults" value={stats.adults} />
         <Stat label="Kids" value={stats.kids} />
         <Stat label="Last Sync" value={lastUpdated} />
       </div>
 
-      {/* TABLE */}
+      {/* BOOKINGS TABLE */}
       <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
-        <div className="overflow-x-auto">
-          <table className="min-w-[900px] w-full">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="min-w-[900px] w-full text-center">
             <thead className="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
               <tr>
                 <th className="p-5 text-left">Timestamp</th>
@@ -129,9 +144,9 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
             </thead>
             <tbody>
               {filteredBookings.length === 0 ? (
-                <tr><td colSpan={6} className="p-20 text-center text-slate-300 font-bold uppercase text-xs tracking-widest">No data matching current filter</td></tr>
+                <tr><td colSpan={6} className="p-20 text-slate-300 font-bold uppercase text-xs tracking-widest">No matching records found</td></tr>
               ) : filteredBookings.map((b, i) => (
-                <tr key={i} className="border-t hover:bg-slate-50 transition-colors text-center text-sm">
+                <tr key={i} className="border-t hover:bg-slate-50 transition-colors text-sm">
                   <td className="p-5 text-left font-medium text-slate-400 text-[10px]">{b.createdAt}</td>
                   <td className="font-semibold">{b.name}</td>
                   <td className="font-medium text-slate-500">{b.mobile}</td>
@@ -145,49 +160,61 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         </div>
       </div>
 
-      {/* FOOTER ACTIONS */}
+      {/* ACTIONS */}
       <div className="flex flex-wrap justify-center gap-4">
         <button onClick={manualRefresh} disabled={isSyncing} className="btn-resort !px-8 h-14 !bg-slate-800 disabled:opacity-50">
-           <i className={`fas fa-sync-alt mr-2 text-xs ${isSyncing ? 'fa-spin' : ''}`}></i> {isSyncing ? 'Syncing...' : 'Fetch Cloud Data'}
+           <i className={`fas fa-sync-alt mr-2 text-xs ${isSyncing ? 'fa-spin' : ''}`}></i> {isSyncing ? 'Refreshing...' : 'Refresh Cloud Data'}
         </button>
         <button onClick={() => setActiveTab('settings')} className="btn-resort !px-8 h-14">
-           <i className="fas fa-cog mr-2 text-xs"></i> Rates & Blackouts
+           <i className="fas fa-cog mr-2 text-xs"></i> Rates & Blackout Dates
         </button>
       </div>
 
-      {/* MODALS */}
+      {/* SETTINGS MODAL */}
       {activeTab === 'settings' && (
-        <Modal title="Rates & Blackout Dates" onClose={() => setActiveTab('bookings')}>
-          <div className="space-y-8 max-h-[65vh] overflow-y-auto px-2 custom-scrollbar">
+        <Modal title="Configure Resort" onClose={() => setActiveTab('bookings')}>
+          <div className="space-y-8 max-h-[60vh] overflow-y-auto px-2 custom-scrollbar">
+            {/* PRICING */}
             <div className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Ticket Pricing (₹)</h4>
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Ticket Rates (₹)</h4>
               <div className="grid grid-cols-2 gap-4">
-                {['morningAdultRate', 'eveningAdultRate', 'morningKidRate', 'eveningKidRate'].map(key => (
-                  <div key={key} className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">{key.replace(/([A-Z])/g, ' $1')}</label>
-                    <input type="number" className="input-premium py-3" value={(draft as any)[key]} onChange={e => setDraft({...draft, [key]: Number(e.target.value)})} />
-                  </div>
-                ))}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Morning Adult</label>
+                  <input type="number" className="input-premium py-3" value={draft.morningAdultRate} onChange={e => setDraft({...draft, morningAdultRate: Number(e.target.value)})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Evening Adult</label>
+                  <input type="number" className="input-premium py-3" value={draft.eveningAdultRate} onChange={e => setDraft({...draft, eveningAdultRate: Number(e.target.value)})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Morning Kid</label>
+                  <input type="number" className="input-premium py-3" value={draft.morningKidRate} onChange={e => setDraft({...draft, morningKidRate: Number(e.target.value)})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Evening Kid</label>
+                  <input type="number" className="input-premium py-3" value={draft.eveningKidRate} onChange={e => setDraft({...draft, eveningKidRate: Number(e.target.value)})} />
+                </div>
               </div>
             </div>
 
+            {/* BLACKOUTS */}
             <div className="space-y-6 pt-6 border-t border-slate-100">
               <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Blackout Management</h4>
               <div className="bg-slate-50 p-6 rounded-2xl space-y-5 border border-slate-200">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase text-slate-500 ml-1">Target Date</label>
+                    <label className="text-[10px] font-bold uppercase text-slate-500 ml-1">Date</label>
                     <input type="date" className="input-premium py-3" value={blkDate} onChange={e => setBlkDate(e.target.value)} />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase text-slate-500 ml-1">Target Shift</label>
+                    <label className="text-[10px] font-bold uppercase text-slate-500 ml-1">Shift</label>
                     <select className="input-premium py-3 bg-white" value={blkSlot} onChange={e => setBlkSlot(e.target.value)}>
                       {TIME_SLOTS.map(t => <option key={t} value={t}>{t.split(':')[0]}</option>)}
                     </select>
                   </div>
                 </div>
                 <div className="flex gap-3">
-                  <button onClick={addBlackout} className="flex-1 bg-slate-900 text-white text-[10px] font-black uppercase py-4 rounded-xl shadow-lg">Block Shift</button>
+                  <button onClick={addBlackout} className="flex-1 bg-slate-900 text-white text-[10px] font-black uppercase py-4 rounded-xl shadow-lg">Block Slot</button>
                   <button onClick={addFullDayBlackout} className="flex-1 border-2 border-slate-900 text-slate-900 text-[10px] font-black uppercase py-4 rounded-xl">Block Full Day</button>
                 </div>
               </div>
@@ -195,7 +222,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
               <div className="space-y-3">
                 <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Current Active Blackouts</p>
                 {(!draft.blockedSlots || draft.blockedSlots.length === 0) ? (
-                  <p className="text-xs text-slate-400 text-center py-4">No dates currently blocked</p>
+                  <p className="text-xs text-slate-400 text-center py-4">All dates are open for booking</p>
                 ) : (
                   <div className="grid grid-cols-1 gap-2">
                     {draft.blockedSlots.map((bs, i) => (
@@ -204,7 +231,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                           <p className="text-sm font-black text-slate-900 uppercase">{bs.date}</p>
                           <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest">{bs.slot.split(':')[0]}</p>
                         </div>
-                        <button onClick={() => removeBlackout(i)} className="w-10 h-10 bg-red-50 text-red-500 rounded-lg"><i className="fas fa-trash-alt text-xs"></i></button>
+                        <button onClick={() => removeBlackout(i)} className="w-10 h-10 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"><i className="fas fa-trash-alt text-xs"></i></button>
                       </div>
                     ))}
                   </div>
@@ -212,13 +239,19 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
               </div>
             </div>
           </div>
+          
           <div className="pt-8 border-t border-slate-100 mt-6 space-y-4">
-            <p className="text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest">Data will be synced to 'Settings' tab in your Google Sheet.</p>
-            <button onClick={() => { onUpdateSettings(draft); setActiveTab('bookings'); }} className="btn-resort w-full h-16 shadow-2xl">Save & Sync with Cloud</button>
+            <p className="text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest">Settings will be saved to 'Settings' tab in Google Sheets.</p>
+            <button 
+              onClick={handleSaveSettings} 
+              disabled={isSaving}
+              className="btn-resort w-full h-16 shadow-2xl disabled:opacity-50"
+            >
+              {isSaving ? <><i className="fas fa-circle-notch fa-spin mr-2"></i> Syncing to Cloud...</> : 'Save & Sync Global Settings'}
+            </button>
           </div>
         </Modal>
       )}
-
     </div>
   );
 };
