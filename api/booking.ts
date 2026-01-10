@@ -24,32 +24,40 @@ export default async function handler(req: any, res: any) {
           range: "Settings!A1", 
         });
         const data = response.data.values?.[0]?.[0];
+        // If data exists, parse it; otherwise return null
         return res.status(200).json(data ? JSON.parse(data) : null);
       } catch (error: any) {
-        // If "Settings" sheet doesn't exist, just return null so frontend uses defaults
-        console.warn("Settings fetch failed (likely missing 'Settings' tab):", error.message);
+        // If "Settings" sheet doesn't exist or is empty, return null gracefully
+        console.warn("Settings fetch notice (Normal if tab 'Settings' is new/missing):", error.message);
         return res.status(200).json(null);
       }
     }
 
     if (req.method === "POST") {
       try {
-        const values = [[JSON.stringify(req.body)]];
-        // Note: The user MUST create a tab named 'Settings' in their Google Sheet
+        const settingsJson = JSON.stringify(req.body);
+        const values = [[settingsJson]];
+        
+        // Use 'update' to overwrite A1 in the 'Settings' tab
         await sheets.spreadsheets.values.update({
           spreadsheetId: process.env.SHEET_ID,
           range: "Settings!A1",
           valueInputOption: "USER_ENTERED",
           requestBody: { values }
         });
+        
+        console.log("Settings successfully synced to Google Sheet.");
         return res.status(200).json({ success: true });
       } catch (error: any) {
-        console.error("Settings Save Error:", error.message);
-        // Fallback: If Settings tab is missing, try to log it but return error so admin knows
-        return res.status(500).json({ 
-          error: "Failed to save settings. Please ensure a tab named 'Settings' exists in your Google Sheet.",
-          details: error.message 
-        });
+        console.error("Settings Sync Error:", error.message);
+        // Provide a helpful error if the tab is missing
+        if (error.message.includes("range")) {
+          return res.status(400).json({ 
+            error: "MISSING_TAB", 
+            message: "Please create a tab named 'Settings' in your Google Sheet." 
+          });
+        }
+        return res.status(500).json({ error: "Cloud Sync Failed", details: error.message });
       }
     }
   }
@@ -59,11 +67,11 @@ export default async function handler(req: any, res: any) {
     try {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId: process.env.SHEET_ID,
-        range: "A2:J501",
+        range: "A2:J1000", // Increased range for larger history
       });
       const rows = response.data.values || [];
       const bookings = rows.map((row: any, index: number) => ({
-        id: row[0] ? `SYNC-${index}` : row[0],
+        id: row[0] ? `SYNC-${index}` : `ID-${Math.random()}`,
         name: row[1] || "Guest",
         mobile: row[2] || "",
         adults: parseInt(row[3]) || 0,
@@ -82,12 +90,20 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method === "POST") {
-    const { name, mobile, adults, kids, tickets, amount, date, time } = req.body;
+    const { name, mobile, adults, kids, amount, date, time } = req.body;
     try {
       const timestamp = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
       const values = [[
-        timestamp, name || "Guest", mobile || "N/A", adults || 0, kids || 0,
-        tickets || ((adults || 0) + (kids || 0)), amount || 0, date || "N/A", time || "N/A", "PAID"
+        timestamp, 
+        name || "Guest", 
+        mobile || "N/A", 
+        adults || 0, 
+        kids || 0,
+        (adults || 0) + (kids || 0), 
+        amount || 0, 
+        date || "N/A", 
+        time || "N/A", 
+        "PAID"
       ]];
       await sheets.spreadsheets.values.append({
         spreadsheetId: process.env.SHEET_ID,
@@ -97,7 +113,7 @@ export default async function handler(req: any, res: any) {
       });
       return res.status(200).json({ success: true });
     } catch (error: any) {
-      console.error("Booking Append Error:", error.message);
+      console.error("Booking Save Error:", error.message);
       return res.status(500).json({ error: "Failed to log booking" });
     }
   }
