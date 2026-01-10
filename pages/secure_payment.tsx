@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Booking } from '../types';
@@ -8,6 +9,7 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
   const navigate = useNavigate();
   const [draft, setDraft] = useState<any>(null);
   const [isPaying, setIsPaying] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = sessionStorage.getItem('swp_draft_booking');
@@ -23,9 +25,27 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
   const processPayment = async () => {
     if (isPaying) return;
     setIsPaying(true);
+    setSyncError(null);
 
     try {
-      await new Promise(res => setTimeout(res, 2000));
+      // 1. FINAL SECURITY SYNC: Pull latest settings from cloud just before payment
+      const latestSettings = await cloudSync.fetchSettings();
+      if (latestSettings) {
+        const isBlocked = (latestSettings.blockedSlots || []).some(bs => 
+          bs.date === draft.date && (bs.slot === draft.time || bs.slot === 'Full Day')
+        );
+
+        if (isBlocked) {
+          setIsPaying(false);
+          const msg = "We apologize, but the selected date and time slot have reached full capacity. Please select an alternative day or time for your reservation.";
+          setSyncError(`⚠️ ${msg}`);
+          alert(msg);
+          return;
+        }
+      }
+
+      // 2. Simulated Payment delay
+      await new Promise(res => setTimeout(res, 1500));
 
       const bookingId = 'SWP-' + Math.floor(100000 + Math.random() * 900000);
       const final: Booking = {
@@ -35,18 +55,27 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
         createdAt: new Date().toISOString()
       };
 
-      const [aiMessage] = await Promise.all([
-        generateConfirmationMessage(final).catch(() => "Booking Confirmed! See you at the park."),
-        cloudSync.saveBooking(final).catch(() => false)
-      ]);
+      // 3. Attempt to save to Cloud (This now has server-side rejection logic)
+      const success = await cloudSync.saveBooking(final);
+      
+      if (!success) {
+        throw new Error("SERVER_REJECTED");
+      }
 
+      // 4. Generate AI Message and finalize
+      const aiMessage = await generateConfirmationMessage(final).catch(() => "Booking Confirmed! See you at the park.");
       sessionStorage.setItem('last_ai_message', aiMessage);
       addBooking(final);
       sessionStorage.removeItem('swp_draft_booking');
       navigate('/my-bookings');
-    } catch {
-      alert("There was an issue processing your booking. Please try again.");
+    } catch (err: any) {
+      console.error("Payment Process Error:", err);
       setIsPaying(false);
+      if (err.message === "SERVER_REJECTED") {
+        setSyncError("⚠️ We apologize, but this slot is no longer available as it has reached full capacity. Please choose another date or time.");
+      } else {
+        alert("There was an issue processing your booking. Please try again.");
+      }
     }
   };
 
@@ -60,7 +89,7 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
         <div className="text-white space-y-8">
           <h2 className="text-4xl sm:text-5xl font-black uppercase">Secure Checkout</h2>
           <p className="text-white/70 text-sm leading-relaxed">
-            Your booking is almost complete. Please verify your details and proceed with the payment.
+            Your booking is almost complete. We are performing a final check with our park schedule to ensure your slot is still available.
           </p>
 
           <div className="bg-white/10 p-8 rounded-3xl border border-white/20 space-y-4">
@@ -73,6 +102,12 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
               <span className="text-3xl font-black text-emerald-400">₹{draft?.totalAmount}</span>
             </div>
           </div>
+          
+          {syncError && (
+            <div className="bg-red-500/20 border border-red-500/50 p-6 rounded-2xl text-red-100 text-[11px] font-black uppercase tracking-widest leading-relaxed">
+              {syncError}
+            </div>
+          )}
         </div>
 
         {/* Right Payment Card */}
@@ -85,14 +120,14 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
           <div>
             <h3 className="text-3xl font-black uppercase text-slate-900">Checkout</h3>
             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mt-2">
-              Secure Payment Gateway
+              Validating Schedule & Security
             </p>
           </div>
 
           <div className="bg-gray-50 p-6 rounded-2xl space-y-4 border border-gray-100">
             <div className="flex justify-between text-sm font-bold">
-              <span className="text-gray-400">Guest</span>
-              <span className="text-slate-900">{draft?.name || 'Guest'}</span>
+              <span className="text-gray-400">Visit Date</span>
+              <span className="text-slate-900">{draft?.date}</span>
             </div>
             <div className="flex justify-between border-t border-gray-200 pt-4">
               <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Amount</span>
@@ -107,15 +142,15 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
           >
             {isPaying ? (
               <span className="flex items-center justify-center gap-3">
-                <i className="fas fa-circle-notch fa-spin"></i> Processing...
+                <i className="fas fa-circle-notch fa-spin"></i> Final Check...
               </span>
             ) : (
-              <>Pay ₹{draft?.totalAmount}</>
+              <>Complete Reservation</>
             )}
           </button>
 
           <p className="text-[10px] text-gray-400 font-bold uppercase italic">
-            256-bit SSL Secured Payment
+            Double-checked with real-time park schedule
           </p>
 
         </div>
