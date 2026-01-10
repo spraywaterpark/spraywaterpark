@@ -40,29 +40,34 @@ const AppContent: React.FC = () => {
   useEffect(() => { localStorage.setItem('swp_settings', JSON.stringify(settings)); }, [settings]);
   useEffect(() => { localStorage.setItem('swp_sync_id', syncId); }, [syncId]);
 
-  // Cloud Sync Logic for Bookings AND Settings
+  // Unified Cloud Sync Logic
+  const performSync = async () => {
+    // 1. Sync Bookings
+    const remoteBookings = await cloudSync.fetchData(syncId);
+    if (remoteBookings && JSON.stringify(bookingsRef.current) !== JSON.stringify(remoteBookings)) {
+      setBookings(remoteBookings);
+    }
+
+    // 2. Sync Settings (Rates/Blackouts)
+    const remoteSettings = await cloudSync.fetchSettings();
+    if (remoteSettings) {
+      setSettings(prev => {
+        // Only update if the cloud version is different to avoid unnecessary re-renders
+        if (JSON.stringify(prev) !== JSON.stringify(remoteSettings)) {
+          console.log("Global settings updated from cloud.");
+          return remoteSettings;
+        }
+        return prev;
+      });
+    }
+  };
+
   useEffect(() => {
-    const syncAll = async () => {
-      // 1. Sync Bookings
-      const remoteBookings = await cloudSync.fetchData(syncId);
-      if (remoteBookings && JSON.stringify(bookingsRef.current) !== JSON.stringify(remoteBookings)) {
-        setBookings(remoteBookings);
-      }
+    // Immediate sync on load
+    performSync();
 
-      // 2. Sync Settings (Rates/Blackouts)
-      const remoteSettings = await cloudSync.fetchSettings();
-      if (remoteSettings) {
-        setSettings(prev => {
-          if (JSON.stringify(prev) !== JSON.stringify(remoteSettings)) {
-             return remoteSettings;
-          }
-          return prev;
-        });
-      }
-    };
-
-    syncAll();
-    const interval = setInterval(syncAll, 30000); 
+    // Regular interval sync
+    const interval = setInterval(performSync, 30000); 
     return () => clearInterval(interval);
   }, [syncId]);
 
@@ -85,12 +90,14 @@ const AppContent: React.FC = () => {
   const handleUpdateSettings = async (newSettings: AdminSettings) => {
     setSettings(newSettings);
     localStorage.setItem('swp_settings', JSON.stringify(newSettings));
-    await cloudSync.saveSettings(newSettings);
+    const success = await cloudSync.saveSettings(newSettings);
+    if (!success) {
+      alert("Note: Settings were saved locally but could not be synced to the Cloud. Please ensure the 'Settings' tab exists in your Google Sheet.");
+    }
   };
 
   const handleBack = () => {
     if (location.pathname === '/book') {
-      // Specifically for the reservation page, going back means returning to the login identity screen
       setAuth({ role: null, user: null });
       navigate('/', { replace: true });
     } else {
