@@ -62,15 +62,15 @@ const AppContent: React.FC = () => {
     };
 
     syncAll();
-    const interval = setInterval(syncAll, 30000); // Check every 30s
+    const interval = setInterval(syncAll, 30000); 
     return () => clearInterval(interval);
   }, [syncId]);
 
   const loginAsGuest = (name: string, mobile: string) => setAuth({ role: 'guest', user: { name, mobile } });
   const loginAsAdmin = (email: string) => setAuth({ role: 'admin', user: { email } });
 
-  const logout = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const logout = (e: React.MouseEvent | void) => {
+    if (e) (e as React.MouseEvent).preventDefault();
     sessionStorage.clear();
     setAuth({ role: null, user: null });
     navigate('/', { replace: true });
@@ -85,8 +85,17 @@ const AppContent: React.FC = () => {
   const handleUpdateSettings = async (newSettings: AdminSettings) => {
     setSettings(newSettings);
     localStorage.setItem('swp_settings', JSON.stringify(newSettings));
-    // Push to cloud immediately
     await cloudSync.saveSettings(newSettings);
+  };
+
+  const handleBack = () => {
+    if (location.pathname === '/book') {
+      // Specifically for the reservation page, going back means returning to the login identity screen
+      setAuth({ role: null, user: null });
+      navigate('/', { replace: true });
+    } else {
+      navigate(-1);
+    }
   };
 
   const showBackButton = auth.role === 'guest' && location.pathname !== '/';
@@ -94,33 +103,32 @@ const AppContent: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <header className="sticky top-0 z-[9999] w-full glass-header no-print">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 h-20 flex justify-between items-center">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-white/10 rounded-lg flex items-center justify-center text-white border border-white/20">
-              <i className="fas fa-water text-sm"></i>
+        <div className="max-w-7xl mx-auto px-4 md:px-6 h-20 flex justify-between items-center gap-4">
+          <Link to="/" className="flex items-center gap-2 shrink-0">
+            <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center text-white border border-white/20">
+              <i className="fas fa-water text-xs"></i>
             </div>
-            <h1 className="text-lg font-extrabold text-white uppercase tracking-tight">Spray Aqua Resort</h1>
+            <h1 className="text-sm md:text-lg font-extrabold text-white uppercase tracking-tight whitespace-nowrap">Spray Aqua Resort</h1>
           </Link>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 md:gap-8 overflow-x-auto no-scrollbar">
             {auth.role === 'guest' && (
-              <nav className="hidden md:flex items-center gap-10">
+              <nav className="flex items-center gap-4 md:gap-10 shrink-0">
                 {showBackButton && (
                   <button 
-                    onClick={() => navigate(-1)} 
-                    className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-white/50 hover:text-white transition-all cursor-pointer group"
+                    onClick={handleBack} 
+                    className="flex items-center gap-1.5 text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-white/50 hover:text-white transition-all cursor-pointer group whitespace-nowrap"
                   >
-                    <i className="fas fa-arrow-left text-[9px] group-hover:-translate-x-1 transition-transform"></i> Go Back
+                    <i className="fas fa-arrow-left text-[8px] group-hover:-translate-x-1 transition-transform"></i> Go Back
                   </button>
                 )}
-                <Link to="/book" className={`text-[10px] font-bold uppercase tracking-widest ${location.pathname === '/book' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'}`}>Book Now</Link>
-                <Link to="/my-bookings" className={`text-[10px] font-bold uppercase tracking-widest ${location.pathname === '/my-bookings' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'}`}>My Tickets</Link>
+                <Link to="/my-bookings" className={`text-[9px] md:text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${location.pathname === '/my-bookings' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'}`}>My Tickets</Link>
               </nav>
             )}
             {auth.role && (
-              <button onClick={logout} className="relative z-[10000] flex items-center gap-3 bg-white/10 hover:bg-red-500/40 px-5 py-2.5 rounded-full border border-white/20 transition-all group cursor-pointer pointer-events-auto">
-                <span className="text-[9px] font-black text-white/70 uppercase tracking-widest group-hover:text-white">Sign Out</span>
-                <div className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center text-white group-hover:bg-red-500 transition-colors">
-                  <i className="fas fa-power-off text-[10px]"></i>
+              <button onClick={() => logout()} className="relative z-[10000] flex items-center gap-2 md:gap-3 bg-white/10 hover:bg-red-500/40 px-3 md:px-5 py-2 rounded-full border border-white/20 transition-all group cursor-pointer shrink-0">
+                <span className="hidden sm:inline text-[9px] font-black text-white/70 uppercase tracking-widest group-hover:text-white">Sign Out</span>
+                <div className="w-6 h-6 md:w-7 md:h-7 bg-white/20 rounded-full flex items-center justify-center text-white group-hover:bg-red-500 transition-colors">
+                  <i className="fas fa-power-off text-[9px] md:text-[10px]"></i>
                 </div>
               </button>
             )}
@@ -134,7 +142,7 @@ const AppContent: React.FC = () => {
             <Route path="/book" element={auth.role === 'guest' ? <BookingGate settings={settings} bookings={bookings} onProceed={(b:any)=>b} /> : <Navigate to="/" />} />
             <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} /> : <Navigate to="/" />} />
             <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
-            <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={handleUpdateSettings} syncId={syncId} onSyncSetup={setSyncId} onLogout={() => {}} /> : <Navigate to="/" />} />
+            <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={handleUpdateSettings} syncId={syncId} onSyncSetup={setSyncId} onLogout={() => logout()} /> : <Navigate to="/" />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </div>
