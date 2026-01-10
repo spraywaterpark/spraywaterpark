@@ -20,6 +20,12 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
 
   const currentOffer = isMorning ? OFFERS.MORNING : OFFERS.EVENING;
 
+  // Calculate Date Restrictions
+  const todayStr = new Date().toISOString().split('T')[0];
+  const maxDateObj = new Date();
+  maxDateObj.setDate(maxDateObj.getDate() + 7);
+  const maxDateStr = maxDateObj.toISOString().split('T')[0];
+
   const pricingData = useMemo(() => {
     const subtotal = (adults * adultRate) + (kids * kidRate);
 
@@ -48,6 +54,11 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
   const handleCheckout = () => {
     if (!date) return alert("Please select your visit date first.");
     
+    // Check 7-day restriction logic
+    if (date > maxDateStr) {
+      return alert("Bookings are only allowed up to 7 days in advance. Please select a closer date.");
+    }
+
     // Check if the current slot is blocked
     const isBlocked = (settings.blockedSlots || []).some(bs => 
         bs.date === date && (bs.slot === slot || bs.slot === 'Full Day')
@@ -111,7 +122,15 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
               <div className="space-y-3">
                 <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest block text-center">Preferred Date</label>
-                <input type="date" className="input-premium text-center font-bold text-slate-900" onChange={e => setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} value={date} />
+                <input 
+                  type="date" 
+                  className="input-premium text-center font-bold text-slate-900" 
+                  onChange={e => setDate(e.target.value)} 
+                  min={todayStr} 
+                  max={maxDateStr}
+                  value={date} 
+                />
+                <p className="text-[8px] text-center text-slate-400 font-bold uppercase tracking-widest">Max 7 days advance booking allowed</p>
               </div>
 
               <div className="space-y-3">
