@@ -120,16 +120,16 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
             </p>
           </div>
 
-          <form onSubmit={view === 'landing' ? handleGuest : handleAdmin} className="w-full max-w-sm space-y-6">
+          <form onSubmit={view === 'landing' ? handleGuest : handleAdmin} className="w-full max-sm space-y-6">
             {view === 'landing' ? (
               <>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Guest Full Name</label>
+                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest ml-1">Guest Full Name</label>
                   <input type="text" placeholder="Alphabets Only" className={`input-premium ${errors.name ? 'border-red-400' : ''}`} value={data.name} onChange={handleNameChange} required />
                   {errors.name && <p className="text-[9px] text-red-500 font-bold uppercase ml-1 mt-1">{errors.name}</p>}
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Mobile Contact</label>
+                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest ml-1">Mobile Contact</label>
                   <input type="tel" placeholder="10-digit number" className={`input-premium ${errors.mobile ? 'border-red-400' : ''}`} value={data.mobile} onChange={handleMobileChange} required />
                   {errors.mobile && <p className="text-[9px] text-red-500 font-bold uppercase ml-1 mt-1">{errors.mobile}</p>}
                 </div>
@@ -137,11 +137,11 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
             ) : (
               <>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Staff Email</label>
+                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest ml-1">Staff Email</label>
                   <input type="email" placeholder="admin@sprayresort.com" className="input-premium" value={data.email} onChange={e => setData({...data, email: e.target.value})} required />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Password</label>
+                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest ml-1">Password</label>
                   <input type="password" placeholder="••••••••" className="input-premium" value={data.password} onChange={e => setData({...data, password: e.target.value})} required />
                 </div>
               </>
