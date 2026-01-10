@@ -93,7 +93,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
       {/* Centered Header */}
       <div className="w-full max-w-4xl text-center mb-10">
         <h2 className="text-4xl md:text-5xl font-extrabold text-white tracking-tighter uppercase mb-2">Reservation</h2>
-        <p className="text-white/80 font-bold text-[10px] uppercase tracking-[0.4em]">Spray Aqua Resort Premium Terminal</p>
+        <p className="text-white/80 font-bold text-[10px] uppercase tracking-[0.4em]">Spray Aqua Resort Booking Terminal</p>
       </div>
 
       <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-1 gap-8">
