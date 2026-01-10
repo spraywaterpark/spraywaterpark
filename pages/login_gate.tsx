@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const LOGIN_HERO_IMAGE = "/hero.webp";
+const LOGIN_HERO_IMAGE = "https://www.vickerypediatrics.com/wp-content/uploads/2018/07/child-swimming-safely.jpg";
 
 interface LoginPageProps {
   onGuestLogin: (n: string, m: string) => void;
@@ -14,104 +14,154 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
   const [data, setData] = useState({ name: '', mobile: '', email: '', password: '' });
   const [errors, setErrors] = useState({ name: '', mobile: '' });
 
+  const validateName = (name: string) => {
+    if (name.trim() === "") return "";
+    const nameRegex = /^[a-zA-Z\s]*$/;
+    if (!nameRegex.test(name)) {
+      return "Use alphabets only. No numbers or signs allowed. (केवल अक्षरों का उपयोग करें। नंबर या चिह्नों की अनुमति नहीं है।)";
+    }
+    if (name.trim().length < 2) {
+      return "Name is too short. (नाम बहुत छोटा है।)";
+    }
+    return "";
+  };
+
+  const validateMobile = (mobile: string) => {
+    if (mobile === "") return "";
+    if (!/^[6-9]/.test(mobile)) {
+      return "Must start with 6, 7, 8, or 9. (नंबर 6, 7, 8 या 9 से शुरू होना चाहिए।)";
+    }
+    if (!/^\d*$/.test(mobile)) {
+      return "Numbers only. (केवल नंबर मान्य हैं।)";
+    }
+    if (mobile.length > 0 && mobile.length < 10) {
+      return "Enter full 10 digits. (पूरे 10 अंक दर्ज करें।)";
+    }
+    return "";
+  };
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    const cleanVal = val.replace(/[^a-zA-Z\s]/g, '');
+    setData({ ...data, name: cleanVal });
+    
+    if (val !== cleanVal) {
+      setErrors(prev => ({ ...prev, name: "Numbers & signs are not allowed in names. (नाम में नंबर और चिह्न मान्य नहीं हैं।)" }));
+    } else {
+      setErrors(prev => ({ ...prev, name: validateName(cleanVal) }));
+    }
+  };
+
+  const handleMobileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val.length > 10) return;
+    const cleanVal = val.replace(/\D/g, '');
+    setData({ ...data, mobile: cleanVal });
+
+    if (val !== cleanVal) {
+      setErrors(prev => ({ ...prev, mobile: "Only numbers are allowed. (केवल नंबर दर्ज करें।)" }));
+    } else {
+      setErrors(prev => ({ ...prev, mobile: validateMobile(cleanVal) }));
+    }
+  };
+
   const handleGuest = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!data.name || data.mobile.length !== 10) {
-      alert("Please enter valid name & 10-digit mobile number");
+    const nameErr = validateName(data.name);
+    const mobileErr = data.mobile.length !== 10 ? "Please enter a valid 10-digit number." : validateMobile(data.mobile);
+
+    if (nameErr || mobileErr || data.name.trim() === "" || data.mobile.trim() === "") {
+      setErrors({ 
+        name: nameErr || (data.name.trim() === "" ? "Name is required." : ""), 
+        mobile: mobileErr || (data.mobile.trim() === "" ? "Mobile is required." : "") 
+      });
+      alert("Registration Error: Please provide valid details in the highlighted fields. (पंजीकरण त्रुटि: कृपया सही जानकारी भरें।)");
       return;
     }
-    onGuestLogin(data.name, data.mobile);
+    onGuestLogin(data.name.trim(), data.mobile.trim());
     navigate('/book');
   };
 
   const handleAdmin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (data.email === 'admin@spraywaterpark.com' && data.password === 'admin123') {
-      onAdminLogin(data.email);
+    if (data.email.trim() === 'admin@spraywaterpark.com' && data.password.trim() === 'admin123') {
+      onAdminLogin(data.email.trim());
       navigate('/admin');
     } else {
-      alert("Invalid admin credentials");
+      alert("Unauthorized access attempt. Please check credentials.");
     }
   };
 
   return (
-    <div className="w-full min-h-screen flex items-center justify-center bg-slate-900">
-      <div className="w-full max-w-5xl glass-card rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row">
-
-        {/* LEFT IMAGE */}
-        <div className="w-full md:w-5/12 h-64 md:h-full relative">
-          <img
-            src={LOGIN_HERO_IMAGE}
-            alt="Spray Water Park"
-            className="absolute inset-0 w-full h-full object-cover"
+    <div className="w-full flex items-center justify-center animate-slide-up">
+      <div className="w-full max-w-5xl glass-card rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row h-auto md:h-[600px] border border-white/40">
+        
+        {/* LEFT SIDE: THE IMAGE */}
+        <div className="w-full md:w-5/12 h-64 md:h-full relative overflow-hidden bg-slate-900">
+          <img 
+            src={LOGIN_HERO_IMAGE} 
+            alt="Resort Guest" 
+            className="absolute inset-0 w-full h-full object-cover grayscale-[20%]"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-10">
-            <h1 className="text-3xl font-black text-white uppercase">Spray Aqua Resort</h1>
-            <p className="text-white/60 text-xs uppercase tracking-widest">Premium Water Destination</p>
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent flex flex-col justify-end p-12 text-center md:text-left">
+            <h1 className="text-3xl font-black text-white tracking-tight uppercase leading-none mb-2">Spray Aqua Resort</h1>
+            <p className="text-white/70 text-[10px] font-bold uppercase tracking-[0.3em]">Premium Waterfront Destination</p>
           </div>
         </div>
 
-        {/* RIGHT FORM */}
-        <div className="w-full md:w-7/12 p-10 md:p-16 flex flex-col justify-center">
-          <h2 className="text-4xl font-black text-slate-900 text-center mb-2">
-            {view === 'landing' ? 'Guest Login' : 'Admin Login'}
-          </h2>
+        {/* RIGHT SIDE: THE FORM */}
+        <div className="w-full md:w-7/12 p-10 md:p-16 flex flex-col items-center justify-center">
+          <div className="mb-12 text-center">
+            <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter mb-2">
+              {view === 'landing' ? 'Guest Portal' : 'Staff Portal'}
+            </h2>
+            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">
+              {view === 'landing' ? 'Enter your credentials to book tickets' : 'Management access required'}
+            </p>
+          </div>
 
-          <p className="text-center text-slate-500 text-xs uppercase tracking-widest mb-10">
-            {view === 'landing' ? 'Book Your Tickets' : 'Management Portal'}
-          </p>
-
-          <form onSubmit={view === 'landing' ? handleGuest : handleAdmin} className="space-y-6">
-
+          <form onSubmit={view === 'landing' ? handleGuest : handleAdmin} className="w-full max-sm space-y-6">
             {view === 'landing' ? (
               <>
-                <input
-                  className="input-premium"
-                  placeholder="Full Name"
-                  value={data.name}
-                  onChange={e => setData({ ...data, name: e.target.value })}
-                />
-                <input
-                  className="input-premium"
-                  placeholder="Mobile Number"
-                  maxLength={10}
-                  value={data.mobile}
-                  onChange={e => setData({ ...data, mobile: e.target.value })}
-                />
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest ml-1">Guest Full Name</label>
+                  <input type="text" placeholder="Alphabets Only" className={`input-premium ${errors.name ? 'border-red-400' : ''}`} value={data.name} onChange={handleNameChange} required />
+                  {errors.name && <p className="text-[9px] text-red-500 font-bold uppercase ml-1 mt-1">{errors.name}</p>}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest ml-1">Mobile Contact</label>
+                  <input type="tel" placeholder="10-digit number" className={`input-premium ${errors.mobile ? 'border-red-400' : ''}`} value={data.mobile} onChange={handleMobileChange} required />
+                  {errors.mobile && <p className="text-[9px] text-red-500 font-bold uppercase ml-1 mt-1">{errors.mobile}</p>}
+                </div>
               </>
             ) : (
               <>
-                <input
-                  className="input-premium"
-                  placeholder="Admin Email"
-                  value={data.email}
-                  onChange={e => setData({ ...data, email: e.target.value })}
-                />
-                <input
-                  className="input-premium"
-                  type="password"
-                  placeholder="Password"
-                  value={data.password}
-                  onChange={e => setData({ ...data, password: e.target.value })}
-                />
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest ml-1">Staff Email</label>
+                  <input type="email" placeholder="admin@sprayresort.com" className="input-premium" value={data.email} onChange={e => setData({...data, email: e.target.value})} required />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest ml-1">Password</label>
+                  <input type="password" placeholder="••••••••" className="input-premium" value={data.password} onChange={e => setData({...data, password: e.target.value})} required />
+                </div>
               </>
             )}
 
-            <button className="btn-resort w-full h-14">
-              {view === 'landing' ? 'Proceed to Booking' : 'Admin Login'}
+            <button type="submit" className="w-full btn-resort mt-4 h-16 shadow-xl">
+              {view === 'landing' ? 'Book Tickets Now' : 'Sign In'}
             </button>
 
-            <button
-              type="button"
-              className="text-xs uppercase tracking-widest text-slate-500 w-full text-center mt-4"
-              onClick={() => setView(view === 'landing' ? 'admin' : 'landing')}
-            >
-              {view === 'landing' ? 'Management Access' : 'Back to Guest Login'}
-            </button>
-
+            <div className="pt-8 border-t border-slate-200/50 flex flex-col items-center gap-4">
+               <button 
+                type="button" 
+                onClick={() => { setView(view === 'landing' ? 'admin' : 'landing'); setErrors({name:'', mobile:''}); }} 
+                className="text-[10px] font-bold text-slate-400 hover:text-slate-900 uppercase tracking-widest transition-all"
+               >
+                 {view === 'landing' ? 'Management Access' : 'Back to Guest Entry'}
+               </button>
+            </div>
           </form>
         </div>
-
       </div>
     </div>
   );
