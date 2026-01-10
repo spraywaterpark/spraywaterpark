@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const LOGIN_HERO_IMAGE = "public/hero.webp";
+const LOGIN_HERO_IMAGE = "/hero.webp";
 
 interface LoginPageProps {
   onGuestLogin: (n: string, m: string) => void;
