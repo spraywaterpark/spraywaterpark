@@ -2,6 +2,11 @@
 import { google } from "googleapis";
 
 export default async function handler(req: any, res: any) {
+  // Prevent caching at the API level
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   if (!process.env.GOOGLE_CREDENTIALS || !process.env.SHEET_ID) {
     console.error("CRITICAL: Missing Sheets Config");
     return res.status(500).json({ error: "Server Configuration Error" });
@@ -24,11 +29,9 @@ export default async function handler(req: any, res: any) {
           range: "Settings!A1", 
         });
         const data = response.data.values?.[0]?.[0];
-        // If data exists, parse it; otherwise return null
         return res.status(200).json(data ? JSON.parse(data) : null);
       } catch (error: any) {
-        // If "Settings" sheet doesn't exist or is empty, return null gracefully
-        console.warn("Settings fetch notice (Normal if tab 'Settings' is new/missing):", error.message);
+        console.warn("Settings fetch notice (Normal if empty):", error.message);
         return res.status(200).json(null);
       }
     }
@@ -38,7 +41,7 @@ export default async function handler(req: any, res: any) {
         const settingsJson = JSON.stringify(req.body);
         const values = [[settingsJson]];
         
-        // Use 'update' to overwrite A1 in the 'Settings' tab
+        // Use 'update' to strictly overwrite Settings tab A1
         await sheets.spreadsheets.values.update({
           spreadsheetId: process.env.SHEET_ID,
           range: "Settings!A1",
@@ -46,28 +49,26 @@ export default async function handler(req: any, res: any) {
           requestBody: { values }
         });
         
-        console.log("Settings successfully synced to Google Sheet.");
         return res.status(200).json({ success: true });
       } catch (error: any) {
         console.error("Settings Sync Error:", error.message);
-        // Provide a helpful error if the tab is missing
-        if (error.message.includes("range")) {
-          return res.status(400).json({ 
-            error: "MISSING_TAB", 
-            message: "Please create a tab named 'Settings' in your Google Sheet." 
-          });
-        }
-        return res.status(500).json({ error: "Cloud Sync Failed", details: error.message });
+        // Return detailed error so the Admin can see what's wrong on their screen
+        return res.status(500).json({ 
+          error: "Cloud Sync Failed", 
+          message: error.message,
+          hint: error.message.includes("range") ? "Check if tab name is exactly 'Settings'" : "Check API permissions"
+        });
       }
     }
   }
 
   // Handle BOOKINGS Sync
+  // Note: We use 'A:J' which targets the FIRST tab in the sheet.
   if (req.method === "GET") {
     try {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId: process.env.SHEET_ID,
-        range: "A2:J1000", // Increased range for larger history
+        range: "A2:J1000", 
       });
       const rows = response.data.values || [];
       const bookings = rows.map((row: any, index: number) => ({
@@ -84,8 +85,7 @@ export default async function handler(req: any, res: any) {
       })).reverse();
       return res.status(200).json(bookings);
     } catch (error: any) {
-      console.error("Bookings Fetch Error:", error.message);
-      return res.status(500).json({ error: "Failed to fetch bookings" });
+      return res.status(500).json({ error: "Failed to fetch bookings", details: error.message });
     }
   }
 
@@ -107,14 +107,13 @@ export default async function handler(req: any, res: any) {
       ]];
       await sheets.spreadsheets.values.append({
         spreadsheetId: process.env.SHEET_ID,
-        range: "A:J",
+        range: "A:J", // Appends to the first available sheet
         valueInputOption: "USER_ENTERED",
         requestBody: { values }
       });
       return res.status(200).json({ success: true });
     } catch (error: any) {
-      console.error("Booking Save Error:", error.message);
-      return res.status(500).json({ error: "Failed to log booking" });
+      return res.status(500).json({ error: "Failed to log booking", details: error.message });
     }
   }
 
