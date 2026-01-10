@@ -20,7 +20,7 @@ export default async function handler(req: any, res: any) {
   const sheets = google.sheets({ version: "v4", auth });
   const isSettingsRequest = req.query.type === 'settings';
 
-  // Handle SETTINGS Sync (Rates, Blocked Slots, etc.)
+  // Handle SETTINGS Sync
   if (isSettingsRequest) {
     if (req.method === "GET") {
       try {
@@ -31,7 +31,6 @@ export default async function handler(req: any, res: any) {
         const data = response.data.values?.[0]?.[0];
         return res.status(200).json(data ? JSON.parse(data) : null);
       } catch (error: any) {
-        console.warn("Settings fetch notice (Normal if empty):", error.message);
         return res.status(200).json(null);
       }
     }
@@ -40,30 +39,20 @@ export default async function handler(req: any, res: any) {
       try {
         const settingsJson = JSON.stringify(req.body);
         const values = [[settingsJson]];
-        
-        // Use 'update' to strictly overwrite Settings tab A1
         await sheets.spreadsheets.values.update({
           spreadsheetId: process.env.SHEET_ID,
           range: "Settings!A1",
           valueInputOption: "USER_ENTERED",
           requestBody: { values }
         });
-        
         return res.status(200).json({ success: true });
       } catch (error: any) {
-        console.error("Settings Sync Error:", error.message);
-        // Return detailed error so the Admin can see what's wrong on their screen
-        return res.status(500).json({ 
-          error: "Cloud Sync Failed", 
-          message: error.message,
-          hint: error.message.includes("range") ? "Check if tab name is exactly 'Settings'" : "Check API permissions"
-        });
+        return res.status(500).json({ error: "Cloud Sync Failed", message: error.message });
       }
     }
   }
 
   // Handle BOOKINGS Sync
-  // Note: We use 'A:J' which targets the FIRST tab in the sheet.
   if (req.method === "GET") {
     try {
       const response = await sheets.spreadsheets.values.get({
@@ -91,7 +80,30 @@ export default async function handler(req: any, res: any) {
 
   if (req.method === "POST") {
     const { name, mobile, adults, kids, amount, date, time } = req.body;
+
     try {
+      // --- SERVER SIDE SECURITY CHECK ---
+      const settingsResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId: process.env.SHEET_ID,
+        range: "Settings!A1",
+      });
+      const settingsData = settingsResponse.data.values?.[0]?.[0];
+      if (settingsData) {
+        const currentSettings = JSON.parse(settingsData);
+        const isBlocked = (currentSettings.blockedSlots || []).some((bs: any) => 
+          bs.date === date && (bs.slot === time || bs.slot === 'Full Day')
+        );
+
+        if (isBlocked) {
+          console.error(`BLOCKED BOOKING ATTEMPT: ${date} ${time}`);
+          return res.status(403).json({ 
+            error: "DATE_BLOCKED", 
+            message: "We apologize, but the requested date and time slot have reached full capacity. Please select an alternative day or session for your reservation." 
+          });
+        }
+      }
+      // --- END SECURITY CHECK ---
+
       const timestamp = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
       const values = [[
         timestamp, 
@@ -107,7 +119,7 @@ export default async function handler(req: any, res: any) {
       ]];
       await sheets.spreadsheets.values.append({
         spreadsheetId: process.env.SHEET_ID,
-        range: "A:J", // Appends to the first available sheet
+        range: "A:J",
         valueInputOption: "USER_ENTERED",
         requestBody: { values }
       });
