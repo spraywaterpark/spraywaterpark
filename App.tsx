@@ -27,7 +27,6 @@ const AppContent: React.FC = () => {
   const [settings, setSettings] = useState<AdminSettings>(() => {
     const saved = localStorage.getItem('swp_settings');
     const parsed = saved ? JSON.parse(saved) : DEFAULT_ADMIN_SETTINGS;
-    // Migration: Ensure blockedSlots is always an array
     return { ...DEFAULT_ADMIN_SETTINGS, ...parsed, blockedSlots: parsed.blockedSlots || [] };
   });
 
@@ -41,16 +40,29 @@ const AppContent: React.FC = () => {
   useEffect(() => { localStorage.setItem('swp_settings', JSON.stringify(settings)); }, [settings]);
   useEffect(() => { localStorage.setItem('swp_sync_id', syncId); }, [syncId]);
 
+  // Cloud Sync Logic for Bookings AND Settings
   useEffect(() => {
-    if (!syncId) return;
-    const syncData = async () => {
-      const remoteData = await cloudSync.fetchData(syncId);
-      if (remoteData && JSON.stringify(bookingsRef.current) !== JSON.stringify(remoteData)) {
-        setBookings(remoteData);
+    const syncAll = async () => {
+      // 1. Sync Bookings
+      const remoteBookings = await cloudSync.fetchData(syncId);
+      if (remoteBookings && JSON.stringify(bookingsRef.current) !== JSON.stringify(remoteBookings)) {
+        setBookings(remoteBookings);
+      }
+
+      // 2. Sync Settings (Rates/Blackouts)
+      const remoteSettings = await cloudSync.fetchSettings();
+      if (remoteSettings) {
+        setSettings(prev => {
+          if (JSON.stringify(prev) !== JSON.stringify(remoteSettings)) {
+             return remoteSettings;
+          }
+          return prev;
+        });
       }
     };
-    syncData();
-    const interval = setInterval(syncData, 5000);
+
+    syncAll();
+    const interval = setInterval(syncAll, 30000); // Check every 30s
     return () => clearInterval(interval);
   }, [syncId]);
 
@@ -59,7 +71,6 @@ const AppContent: React.FC = () => {
 
   const logout = (e: React.MouseEvent) => {
     e.preventDefault();
-    // Instant logout as requested
     sessionStorage.clear();
     setAuth({ role: null, user: null });
     navigate('/', { replace: true });
@@ -71,42 +82,43 @@ const AppContent: React.FC = () => {
     if (syncId) await cloudSync.updateData(syncId, updated);
   };
 
-  const handleUpdateSettings = (newSettings: AdminSettings) => {
+  const handleUpdateSettings = async (newSettings: AdminSettings) => {
     setSettings(newSettings);
     localStorage.setItem('swp_settings', JSON.stringify(newSettings));
+    // Push to cloud immediately
+    await cloudSync.saveSettings(newSettings);
   };
+
+  const showBackButton = auth.role === 'guest' && location.pathname !== '/';
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-
-      {/* Extreme Z-Index to stay above ALL Modals and Admin Settings */}
       <header className="sticky top-0 z-[9999] w-full glass-header no-print">
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-20 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-3">
             <div className="w-9 h-9 bg-white/10 rounded-lg flex items-center justify-center text-white border border-white/20">
               <i className="fas fa-water text-sm"></i>
             </div>
-            <h1 className="text-lg font-extrabold text-white uppercase tracking-tight">
-              Spray Aqua Resort
-            </h1>
+            <h1 className="text-lg font-extrabold text-white uppercase tracking-tight">Spray Aqua Resort</h1>
           </Link>
-
           <div className="flex items-center gap-6">
             {auth.role === 'guest' && (
               <nav className="hidden md:flex items-center gap-10">
+                {showBackButton && (
+                  <button 
+                    onClick={() => navigate(-1)} 
+                    className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-white/50 hover:text-white transition-all cursor-pointer group"
+                  >
+                    <i className="fas fa-arrow-left text-[9px] group-hover:-translate-x-1 transition-transform"></i> Go Back
+                  </button>
+                )}
                 <Link to="/book" className={`text-[10px] font-bold uppercase tracking-widest ${location.pathname === '/book' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'}`}>Book Now</Link>
                 <Link to="/my-bookings" className={`text-[10px] font-bold uppercase tracking-widest ${location.pathname === '/my-bookings' ? 'text-white border-b-2 border-white pb-1' : 'text-white/60 hover:text-white'}`}>My Tickets</Link>
               </nav>
             )}
-
             {auth.role && (
-              <button 
-                onClick={logout}
-                className="relative z-[10000] flex items-center gap-3 bg-white/10 hover:bg-red-500/40 px-5 py-2.5 rounded-full border border-white/20 transition-all group cursor-pointer pointer-events-auto"
-              >
-                <span className="text-[9px] font-black text-white/70 uppercase tracking-widest group-hover:text-white">
-                  Sign Out
-                </span>
+              <button onClick={logout} className="relative z-[10000] flex items-center gap-3 bg-white/10 hover:bg-red-500/40 px-5 py-2.5 rounded-full border border-white/20 transition-all group cursor-pointer pointer-events-auto">
+                <span className="text-[9px] font-black text-white/70 uppercase tracking-widest group-hover:text-white">Sign Out</span>
                 <div className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center text-white group-hover:bg-red-500 transition-colors">
                   <i className="fas fa-power-off text-[10px]"></i>
                 </div>
@@ -115,15 +127,10 @@ const AppContent: React.FC = () => {
           </div>
         </div>
       </header>
-
       <main className="flex-1 w-full flex justify-center px-3 md:px-6 py-6 md:py-10 overflow-visible">
         <div className="w-full max-w-7xl overflow-visible">
           <Routes>
-            <Route path="/" element={
-              auth.role === 'admin' ? <Navigate to="/admin" /> :
-              auth.role === 'guest' ? <Navigate to="/book" /> :
-              <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />
-            } />
+            <Route path="/" element={auth.role === 'admin' ? <Navigate to="/admin" /> : auth.role === 'guest' ? <Navigate to="/book" /> : <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />} />
             <Route path="/book" element={auth.role === 'guest' ? <BookingGate settings={settings} bookings={bookings} onProceed={(b:any)=>b} /> : <Navigate to="/" />} />
             <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} /> : <Navigate to="/" />} />
             <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
