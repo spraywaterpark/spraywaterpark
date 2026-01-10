@@ -13,8 +13,8 @@ interface AdminPanelProps {
   onLogout: () => void;
 }
 
-const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings, syncId, onSyncSetup, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'bookings' | 'settings' | 'sync'>('bookings');
+const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings, syncId, onLogout }) => {
+  const [activeTab, setActiveTab] = useState<'bookings' | 'settings'>('bookings');
   const [viewMode, setViewMode] = useState<'sales_today' | 'visit_today' | 'all'>('sales_today');
   const [draft, setDraft] = useState<AdminSettings>(settings);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -29,23 +29,18 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
   useEffect(() => setLastUpdated(new Date().toLocaleTimeString()), [bookings]);
 
-  // Today's date in various formats for matching
   const today = new Date();
   const todayISO = today.toISOString().split('T')[0];
-  const todayLocale = today.toLocaleDateString("en-IN"); // DD/MM/YYYY format usually
+  const todayLocale = today.toLocaleDateString("en-IN");
 
   const filteredBookings = useMemo(() => {
     let list = [...bookings];
-    
     if (viewMode === 'sales_today') {
-      // Matches if the timestamp contains today's locale date or ISO date
       return list.filter(b => b.createdAt.includes(todayLocale) || b.createdAt.startsWith(todayISO));
     }
-    
     if (viewMode === 'visit_today') {
       return list.filter(b => b.date === todayISO);
     }
-    
     return list;
   }, [bookings, viewMode, todayLocale, todayISO]);
 
@@ -58,22 +53,9 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
   const manualRefresh = async () => {
     setIsSyncing(true);
-    // Explicitly call the sync service to pull fresh data
-    const remoteData = await cloudSync.fetchData(syncId || MASTER_SYNC_ID);
-    if (remoteData) {
-        // App.tsx effect will pick this up if the parent state is updated, 
-        // but for immediate feedback we rely on the component re-render.
-        console.log("Sync complete:", remoteData.length, "records found.");
-    }
+    await cloudSync.fetchData(syncId || MASTER_SYNC_ID);
+    await cloudSync.fetchSettings();
     await new Promise(r => setTimeout(r, 800));
-    setIsSyncing(false);
-  };
-
-  const reLinkCloud = async () => {
-    if (!confirm("Generate new Sync ID?")) return;
-    setIsSyncing(true);
-    const id = await cloudSync.createRoom(bookings);
-    if (id) onSyncSetup(id);
     setIsSyncing(false);
   };
 
@@ -85,7 +67,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     if (currentBlocked.some(s => s.date === blkDate && (s.slot === blkSlot || s.slot === 'Full Day'))) {
         return alert("This slot or full day is already blocked.");
     }
-
     setDraft({ ...draft, blockedSlots: [...currentBlocked, newSlot] });
   };
 
@@ -107,7 +88,10 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       {/* HEADER */}
       <div className="bg-[#1B2559] text-white p-6 sm:p-10 rounded-3xl shadow-xl flex flex-col lg:flex-row justify-between items-center gap-6">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.4em] opacity-70">Live Sales Dashboard</p>
+          <p className="text-[10px] uppercase tracking-[0.4em] opacity-70 flex items-center gap-2">
+            Live Sales Dashboard
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          </p>
           <h2 className="text-3xl sm:text-5xl font-black mt-2">₹{stats.revenue.toLocaleString()}</h2>
           <p className="text-blue-200 text-sm font-bold mt-1">{viewMode === 'sales_today' ? "Today's Revenue" : "Filtered Revenue"}</p>
         </div>
@@ -228,8 +212,9 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
               </div>
             </div>
           </div>
-          <div className="pt-8 border-t border-slate-100 mt-6">
-            <button onClick={() => { onUpdateSettings(draft); setActiveTab('bookings'); }} className="btn-resort w-full h-16 shadow-2xl">Save Resort Settings</button>
+          <div className="pt-8 border-t border-slate-100 mt-6 space-y-4">
+            <p className="text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest">Data will be synced to 'Settings' tab in your Google Sheet.</p>
+            <button onClick={() => { onUpdateSettings(draft); setActiveTab('bookings'); }} className="btn-resort w-full h-16 shadow-2xl">Save & Sync with Cloud</button>
           </div>
         </Modal>
       )}
