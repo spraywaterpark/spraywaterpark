@@ -1,12 +1,9 @@
 
-import { Booking } from "../types";
+import { Booking, AdminSettings } from "../types";
 
 export const cloudSync = {
   saveBooking: async (booking: Booking): Promise<boolean> => {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
-
       const response = await fetch("/api/booking", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -19,11 +16,8 @@ export const cloudSync = {
           amount: booking.totalAmount,
           date: booking.date,
           time: booking.time
-        }),
-        signal: controller.signal
+        })
       });
-      
-      clearTimeout(timeoutId);
       return response.ok;
     } catch (error) {
       console.warn("Sheet sync failed:", error);
@@ -33,24 +27,51 @@ export const cloudSync = {
 
   fetchData: async (syncId: string): Promise<Booking[] | null> => {
     try {
-      const response = await fetch("/api/booking");
+      // Add timestamp to prevent caching of booking data
+      const response = await fetch(`/api/booking?_t=${Date.now()}`);
       if (response.ok) {
         return await response.json();
       }
       return null;
     } catch (e) {
-      console.error("Cloud fetch error:", e);
       return null;
     }
   },
 
+  fetchSettings: async (): Promise<AdminSettings | null> => {
+    try {
+      // CRITICAL: Added timestamp _t to URL to bypass browser cache on mobile/laptops
+      const response = await fetch(`/api/booking?type=settings&_t=${Date.now()}`);
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
+      return null;
+    } catch (e) {
+      console.error("Cloud settings fetch error:", e);
+      return null;
+    }
+  },
+
+  saveSettings: async (settings: AdminSettings): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/booking?type=settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings)
+      });
+      return response.ok;
+    } catch (e) {
+      console.error("Cloud settings save error:", e);
+      return false;
+    }
+  },
+
   updateData: async (syncId: string, bookings: Booking[]): Promise<void> => {
-    // This could be used for advanced real-time features
     console.debug("Local state sync active.");
   },
 
   createRoom: async (bookings: Booking[]): Promise<string> => {
-    const newId = Math.random().toString(36).substring(2, 11).toUpperCase();
-    return newId;
+    return Math.random().toString(36).substring(2, 11).toUpperCase();
   }
 };
