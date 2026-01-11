@@ -1,5 +1,9 @@
 export type UserRole = 'guest' | 'admin' | 'staff' | null;
 
+/* ===============================
+   🎟 BOOKING SYSTEM
+================================ */
+
 export interface Booking {
   id: string;
   name: string;
@@ -15,7 +19,7 @@ export interface Booking {
 }
 
 /* ===============================
-   ADMIN: BLOCK DATE / SHIFT
+   🚫 ADMIN: BLOCK DATE / SHIFT
 ================================ */
 
 export type ShiftType = 'morning' | 'evening' | 'all';
@@ -26,7 +30,7 @@ export interface BlockedSlot {
 }
 
 /* ===============================
-   ADMIN SETTINGS
+   🧰 ADMIN SETTINGS
 ================================ */
 
 export interface AdminSettings {
@@ -42,7 +46,7 @@ export interface AdminSettings {
 }
 
 /* ===============================
-   AUTH STATE
+   🔐 AUTH STATE
 ================================ */
 
 export interface AuthState {
@@ -55,13 +59,20 @@ export interface AuthState {
 }
 
 /* ===============================
-   STAFF / LOCKER SYSTEM TYPES
-   (future use – not active yet)
+   🧾 STAFF: LOCKER / COSTUME SYSTEM
+   (New — Safe & Independent)
 ================================ */
 
-export interface LockerIssue {
+export type GenderType = 'male' | 'female';
+
+export interface LockerReceipt {
+  receiptNo: string;
+
   guestName: string;
   guestMobile: string;
+
+  date: string;
+  shift: ShiftType;
 
   maleLockers: number[];
   femaleLockers: number[];
@@ -71,8 +82,11 @@ export interface LockerIssue {
 
   rentAmount: number;
   securityDeposit: number;
-  refundAmount: number;
+  totalCollected: number;
+  refundableAmount: number;
 
-  issuedAt: string;
+  status: 'issued' | 'returned';
+
+  createdAt: string;
   returnedAt?: string;
 }
