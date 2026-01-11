@@ -1,5 +1,4 @@
-
-export type UserRole = 'guest' | 'admin' | null;
+export type UserRole = 'guest' | 'admin' | 'staff' | null;
 
 export interface Booking {
   id: string;
@@ -15,20 +14,36 @@ export interface Booking {
   createdAt: string;
 }
 
+/* ===============================
+   ADMIN: BLOCK DATE / SHIFT
+================================ */
+
+export type ShiftType = 'morning' | 'evening' | 'all';
+
 export interface BlockedSlot {
   date: string;
-  slot: string; // Specific slot name or "Full Day"
+  shift: ShiftType;
 }
+
+/* ===============================
+   ADMIN SETTINGS
+================================ */
 
 export interface AdminSettings {
   morningAdultRate: number;
   eveningAdultRate: number;
   morningKidRate: number;
   eveningKidRate: number;
+
   earlyBirdDiscount: number;
   extraDiscountPercent: number;
+
   blockedSlots: BlockedSlot[];
 }
+
+/* ===============================
+   AUTH STATE
+================================ */
 
 export interface AuthState {
   role: UserRole;
@@ -37,4 +52,27 @@ export interface AuthState {
     mobile?: string;
     email?: string;
   } | null;
+}
+
+/* ===============================
+   STAFF / LOCKER SYSTEM TYPES
+   (future use – not active yet)
+================================ */
+
+export interface LockerIssue {
+  guestName: string;
+  guestMobile: string;
+
+  maleLockers: number[];
+  femaleLockers: number[];
+
+  maleCostumes: number;
+  femaleCostumes: number;
+
+  rentAmount: number;
+  securityDeposit: number;
+  refundAmount: number;
+
+  issuedAt: string;
+  returnedAt?: string;
 }
