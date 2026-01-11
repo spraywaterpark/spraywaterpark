@@ -5,6 +5,7 @@ import BookingGate from './pages/booking_gate';
 import AdminPortal from './pages/admin_portal';
 import SecurePayment from './pages/secure_payment';
 import TicketHistory from './pages/ticket_history';
+import StaffPortal from './pages/staff_portal';
 import { AuthState, Booking, AdminSettings, UserRole, LockerIssue } from './types';
 import { DEFAULT_ADMIN_SETTINGS, MASTER_SYNC_ID } from './constants';
 import { cloudSync } from './services/cloud_sync';
@@ -13,36 +14,20 @@ const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  /* ===============================
-     AUTH STATE
-  ================================ */
-
   const [auth, setAuth] = useState<AuthState>(() => {
     const saved = sessionStorage.getItem('swp_auth');
     return saved ? JSON.parse(saved) : { role: null, user: null };
   });
-
-  /* ===============================
-     BOOKINGS
-  ================================ */
 
   const [bookings, setBookings] = useState<Booking[]>(() => {
     const saved = localStorage.getItem('swp_bookings');
     return saved ? JSON.parse(saved) : [];
   });
 
-  /* ===============================
-     LOCKER / COSTUME ISSUES (NEW)
-  ================================ */
-
   const [lockerIssues, setLockerIssues] = useState<LockerIssue[]>(() => {
     const saved = localStorage.getItem('swp_locker_issues');
     return saved ? JSON.parse(saved) : [];
   });
-
-  /* ===============================
-     ADMIN SETTINGS
-  ================================ */
 
   const [settings, setSettings] = useState<AdminSettings>(() => {
     const saved = localStorage.getItem('swp_settings');
@@ -50,29 +35,17 @@ const AppContent: React.FC = () => {
     return { ...DEFAULT_ADMIN_SETTINGS, ...parsed, blockedSlots: parsed.blockedSlots || [] };
   });
 
-  /* ===============================
-     SYNC STATE
-  ================================ */
-
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncId, setSyncId] = useState<string>(() => localStorage.getItem('swp_sync_id') || MASTER_SYNC_ID);
 
   const bookingsRef = useRef<Booking[]>(bookings);
   useEffect(() => { bookingsRef.current = bookings; }, [bookings]);
 
-  /* ===============================
-     STORAGE SYNC
-  ================================ */
-
   useEffect(() => { sessionStorage.setItem('swp_auth', JSON.stringify(auth)); }, [auth]);
   useEffect(() => { localStorage.setItem('swp_bookings', JSON.stringify(bookings)); }, [bookings]);
   useEffect(() => { localStorage.setItem('swp_settings', JSON.stringify(settings)); }, [settings]);
   useEffect(() => { localStorage.setItem('swp_sync_id', syncId); }, [syncId]);
   useEffect(() => { localStorage.setItem('swp_locker_issues', JSON.stringify(lockerIssues)); }, [lockerIssues]);
-
-  /* ===============================
-     CLOUD SYNC
-  ================================ */
 
   const performSync = async () => {
     setIsSyncing(true);
@@ -96,10 +69,6 @@ const AppContent: React.FC = () => {
     return () => clearInterval(interval);
   }, [syncId]);
 
-  /* ===============================
-     AUTH ACTIONS
-  ================================ */
-
   const loginAsGuest = (name: string, mobile: string) => {
     setAuth({ role: 'guest', user: { name, mobile } });
   };
@@ -114,19 +83,11 @@ const AppContent: React.FC = () => {
     navigate('/', { replace: true });
   };
 
-  /* ===============================
-     BOOKING ACTIONS
-  ================================ */
-
   const addBooking = async (booking: Booking) => {
     const updated = [booking, ...bookingsRef.current];
     setBookings(updated);
     if (syncId) await cloudSync.updateData(syncId, updated);
   };
-
-  /* ===============================
-     LOCKER ISSUE ACTIONS (NEW)
-  ================================ */
 
   const addLockerIssue = (issue: LockerIssue) => {
     setLockerIssues(prev => [issue, ...prev]);
@@ -137,10 +98,6 @@ const AppContent: React.FC = () => {
       prev.map(i => i.receiptNo === receiptNo ? { ...i, returnedAt: new Date().toISOString() } : i)
     );
   };
-
-  /* ===============================
-     UI
-  ================================ */
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -178,9 +135,7 @@ const AppContent: React.FC = () => {
 
             <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={setSettings} syncId={syncId} onSyncSetup={setSyncId} /> : <Navigate to="/" />} />
 
-            <Route path="/staff" element={auth.role === 'staff' ? (
-              <div className="text-white text-3xl font-black p-10">Staff Portal Coming Next 🚧</div>
-            ) : <Navigate to="/" />} />
+            <Route path="/staff" element={auth.role === 'staff' ? <StaffPortal /> : <Navigate to="/" />} />
 
             <Route path="*" element={<Navigate to="/" />} />
 
