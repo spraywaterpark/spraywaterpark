@@ -60,7 +60,7 @@ export interface AuthState {
 
 /* ===============================
    🧾 STAFF: LOCKER / COSTUME SYSTEM
-   (New — Safe & Independent)
+   (Independent Receipt Engine)
 ================================ */
 
 export type GenderType = 'male' | 'female';
