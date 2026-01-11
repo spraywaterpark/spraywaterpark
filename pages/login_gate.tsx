@@ -15,7 +15,7 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
   const [errors, setErrors] = useState({ name: '', mobile: '' });
 
   const validateName = (name: string) => {
-    if (name.trim() === "") return "";
+    if (!name.trim()) return "Name required.";
     if (!/^[a-zA-Z\s]*$/.test(name)) return "Only alphabets allowed.";
     if (name.trim().length < 2) return "Name too short.";
     return "";
@@ -28,12 +28,13 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
 
   const handleGuest = (e: React.FormEvent) => {
     e.preventDefault();
+
     const nameErr = validateName(data.name);
     const mobileErr = validateMobile(data.mobile);
 
     if (nameErr || mobileErr) {
       setErrors({ name: nameErr, mobile: mobileErr });
-      return alert("Please correct the errors.");
+      return alert("Please correct the highlighted fields.");
     }
 
     onGuestLogin(data.name.trim(), data.mobile.trim());
@@ -49,11 +50,11 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
     if (email === 'admin@spraywaterpark.com' && pass === 'admin123') {
       onAdminLogin(email, 'admin');
       navigate('/admin');
-    } 
+    }
     else if (email === 'staff@spraywaterpark.com' && pass === 'staff123') {
       onAdminLogin(email, 'staff');
       navigate('/staff');
-    } 
+    }
     else {
       alert("Invalid credentials.");
     }
@@ -68,7 +69,9 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
           <img src={LOGIN_HERO_IMAGE} className="absolute inset-0 w-full h-full object-cover grayscale-[20%]" />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent flex flex-col justify-end p-12">
             <h1 className="text-3xl font-black text-white uppercase mb-2">Spray Aqua Resort</h1>
-            <p className="text-white/70 text-[10px] font-bold uppercase tracking-[0.3em]">Premium Waterfront Destination</p>
+            <p className="text-white/70 text-[10px] font-bold uppercase tracking-[0.3em]">
+              Premium Waterfront Destination
+            </p>
           </div>
         </div>
 
@@ -88,13 +91,20 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
 
             {view === 'landing' ? (
               <>
-                <input placeholder="Full Name" className="input-premium" value={data.name} onChange={e => setData({...data, name: e.target.value})} />
-                <input placeholder="Mobile Number" className="input-premium" value={data.mobile} onChange={e => setData({...data, mobile: e.target.value})} />
+                <input placeholder="Full Name" className="input-premium" value={data.name}
+                  onChange={e => setData({ ...data, name: e.target.value })} />
+                {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
+
+                <input placeholder="Mobile Number" className="input-premium" value={data.mobile}
+                  onChange={e => setData({ ...data, mobile: e.target.value })} />
+                {errors.mobile && <p className="text-xs text-red-500">{errors.mobile}</p>}
               </>
             ) : (
               <>
-                <input placeholder="Email" className="input-premium" value={data.email} onChange={e => setData({...data, email: e.target.value})} />
-                <input type="password" placeholder="Password" className="input-premium" value={data.password} onChange={e => setData({...data, password: e.target.value})} />
+                <input placeholder="Email" className="input-premium" value={data.email}
+                  onChange={e => setData({ ...data, email: e.target.value })} />
+                <input type="password" placeholder="Password" className="input-premium" value={data.password}
+                  onChange={e => setData({ ...data, password: e.target.value })} />
               </>
             )}
 
@@ -102,7 +112,8 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
               {view === 'landing' ? 'Book Tickets Now' : 'Sign In'}
             </button>
 
-            <button type="button" onClick={() => setView(view === 'landing' ? 'admin' : 'landing')}
+            <button type="button"
+              onClick={() => setView(view === 'landing' ? 'admin' : 'landing')}
               className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-900">
               {view === 'landing' ? 'Management Access' : 'Back to Guest Entry'}
             </button>
