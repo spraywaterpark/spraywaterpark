@@ -21,9 +21,12 @@ const StaffPortal: React.FC = () => {
 
   const printRef = useRef<HTMLDivElement>(null);
 
-  /* ===============================
-     HELPERS
-  ================================ */
+  const [activeLockers, setActiveLockers] = useState<{ male: number[]; female: number[] }>(() => {
+    const saved = localStorage.getItem('swp_active_lockers');
+    return saved ? JSON.parse(saved) : { male: [], female: [] };
+  });
+
+  /* =============================== HELPERS =============================== */
 
   const generateReceiptNo = () => {
     const d = new Date();
@@ -54,9 +57,7 @@ const StaffPortal: React.FC = () => {
     setReceipt(null);
   };
 
-  /* ===============================
-     CORE LOGIC
-  ================================ */
+  /* =============================== CORE LOGIC =============================== */
 
   const toggleLocker = (num: number, gender: 'male' | 'female') => {
     const list = gender === 'male' ? maleLockers : femaleLockers;
@@ -97,6 +98,14 @@ const StaffPortal: React.FC = () => {
 
     saveReceipt(receipt);
 
+    const updated = {
+      male: [...activeLockers.male, ...receipt.maleLockers],
+      female: [...activeLockers.female, ...receipt.femaleLockers]
+    };
+
+    setActiveLockers(updated);
+    localStorage.setItem('swp_active_lockers', JSON.stringify(updated));
+
     const win = window.open('', '', 'width=800,height=900');
     if (!win) return;
 
@@ -110,13 +119,8 @@ const StaffPortal: React.FC = () => {
 
   const findReturn = () => {
     const all: LockerReceipt[] = JSON.parse(localStorage.getItem('swp_receipts') || '[]');
-
-    const found = all.find(r =>
-      r.receiptNo.endsWith(searchCode) && r.status === 'issued'
-    );
-
+    const found = all.find(r => r.receiptNo.endsWith(searchCode) && r.status === 'issued');
     if (!found) return alert("Receipt not found or already returned");
-
     setReturnReceipt(found);
   };
 
@@ -133,6 +137,16 @@ const StaffPortal: React.FC = () => {
 
     localStorage.setItem('swp_receipts', JSON.stringify(updated));
 
+    const active = JSON.parse(localStorage.getItem('swp_active_lockers') || '{"male":[],"female":[]}');
+
+    const newActive = {
+      male: active.male.filter((n: number) => !returnReceipt.maleLockers.includes(n)),
+      female: active.female.filter((n: number) => !returnReceipt.femaleLockers.includes(n))
+    };
+
+    setActiveLockers(newActive);
+    localStorage.setItem('swp_active_lockers', JSON.stringify(newActive));
+
     alert("Return Completed Successfully");
 
     setReturnReceipt(null);
@@ -142,19 +156,24 @@ const StaffPortal: React.FC = () => {
   const renderLockers = (gender: 'male' | 'female') =>
     Array.from({ length: 60 }, (_, i) => i + 1).map(num => {
       const selected = gender === 'male' ? maleLockers : femaleLockers;
+      const isBusy = activeLockers[gender].includes(num);
+
       return (
-        <button key={num}
+        <button
+          key={num}
+          disabled={isBusy}
           onClick={() => toggleLocker(num, gender)}
           className={`w-10 h-10 rounded-lg text-xs font-bold border 
-          ${selected.includes(num) ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white'}`}>
+          ${isBusy ? 'bg-red-500/60 text-white cursor-not-allowed'
+          : selected.includes(num) ? 'bg-emerald-500 text-white'
+          : 'bg-white/10 text-white'}`}
+        >
           {num}
         </button>
       );
     });
 
-  /* ===============================
-     UI
-  ================================ */
+  /* =============================== UI =============================== */
 
   return (
     <div className="w-full flex flex-col items-center py-10 text-white">
