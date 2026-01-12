@@ -109,12 +109,25 @@ const StaffPortal: React.FC = () => {
     resetForm();
   };
 
-  const findReturn = () => {
-    const all = JSON.parse(localStorage.getItem('swp_receipts') || '[]');
-    const found = all.find((r: LockerReceipt) => r.receiptNo.endsWith(searchCode));
-    if (!found) return alert("Receipt not found");
-    setReturnReceipt(found);
-  };
+ const confirmReturn = () => {
+  if (!returnReceipt) return;
+
+  const all: LockerReceipt[] = JSON.parse(localStorage.getItem('swp_receipts') || '[]');
+
+  const updated = all.map(r =>
+    r.receiptNo === returnReceipt.receiptNo
+      ? { ...r, status: 'returned', returnedAt: new Date().toISOString() }
+      : r
+  );
+
+  localStorage.setItem('swp_receipts', JSON.stringify(updated));
+
+  alert("✅ Return Completed Successfully");
+
+  setReturnReceipt(null);
+  setSearchCode('');
+};
+
 
   const confirmReturn = () => {
     const all = JSON.parse(localStorage.getItem('swp_receipts') || '[]');
