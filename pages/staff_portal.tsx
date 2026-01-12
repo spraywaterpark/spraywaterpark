@@ -1,141 +1,92 @@
 import React, { useState } from 'react';
-import { LockerReceipt, ShiftType } from '../types';
+import { LockerReceipt } from '../types';
 
 const StaffPortal: React.FC = () => {
 
-  const [guestName, setGuestName] = useState('');
-  const [guestMobile, setGuestMobile] = useState('');
-  const [shift, setShift] = useState<ShiftType>('morning');
+  const [receipts, setReceipts] = useState<LockerReceipt[]>(() => {
+    const saved = localStorage.getItem('swp_locker_receipts');
+    return saved ? JSON.parse(saved) : [];
+  });
 
-  const [maleLockers, setMaleLockers] = useState<number[]>([]);
-  const [femaleLockers, setFemaleLockers] = useState<number[]>([]);
+  const [search, setSearch] = useState('');
+  const [found, setFound] = useState<LockerReceipt | null>(null);
 
-  const [maleCostumes, setMaleCostumes] = useState(0);
-  const [femaleCostumes, setFemaleCostumes] = useState(0);
-
-  const [receipt, setReceipt] = useState<LockerReceipt | null>(null);
-
-  const toggleLocker = (num: number, gender: 'male' | 'female') => {
-    const list = gender === 'male' ? maleLockers : femaleLockers;
-    const setList = gender === 'male' ? setMaleLockers : setFemaleLockers;
-
-    if (list.includes(num)) {
-      setList(list.filter(n => n !== num));
-    } else {
-      setList([...list, num]);
-    }
+  const saveReceipts = (list: LockerReceipt[]) => {
+    setReceipts(list);
+    localStorage.setItem('swp_locker_receipts', JSON.stringify(list));
   };
 
-  const generateReceipt = () => {
-    const rent = (maleLockers.length + femaleLockers.length) * 100
-      + maleCostumes * 50 + femaleCostumes * 100;
-
-    const deposit = (maleLockers.length + femaleLockers.length) * 200
-      + maleCostumes * 50 + femaleCostumes * 100;
-
-    const data: LockerReceipt = {
-      receiptNo: 'RC' + Date.now(),
-      guestName,
-      guestMobile,
-      date: new Date().toISOString().split('T')[0],
-      shift,
-      maleLockers,
-      femaleLockers,
-      maleCostumes,
-      femaleCostumes,
-      rentAmount: rent,
-      securityDeposit: deposit,
-      totalCollected: rent + deposit,
-      refundableAmount: deposit,
-      status: 'issued',
-      createdAt: new Date().toISOString()
-    };
-
-    setReceipt(data);
+  const handleSearch = () => {
+    const r = receipts.find(x => x.receiptNo === search);
+    if (!r) return alert('Receipt not found');
+    setFound(r);
   };
 
-  const renderLockers = (gender: 'male' | 'female') => {
-    const selected = gender === 'male' ? maleLockers : femaleLockers;
+  const confirmReturn = () => {
+    if (!found) return;
 
-    return Array.from({ length: 60 }, (_, i) => i + 1).map(num => (
-      <button
-        key={num}
-        onClick={() => toggleLocker(num, gender)}
-        className={`w-10 h-10 rounded-lg text-xs font-bold border
-          ${selected.includes(num) ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white'}`}
-      >
-        {num}
-      </button>
-    ));
+    const updated = receipts.map(r =>
+      r.receiptNo === found.receiptNo
+        ? { ...r, status: 'returned', returnedAt: new Date().toISOString() }
+        : r
+    );
+
+    saveReceipts(updated);
+    setFound({ ...found, status: 'returned', returnedAt: new Date().toISOString() });
+
+    setTimeout(() => window.print(), 300);
   };
 
   return (
-    <div className="w-full flex flex-col items-center py-10 text-white animate-fade">
+    <div className="w-full text-white py-12 animate-fade">
 
-      <h1 className="text-4xl font-black uppercase mb-2">Staff Control Panel</h1>
-      <p className="text-white/70 mb-8">Locker & Costume Management</p>
+      <h1 className="text-4xl font-black uppercase mb-6 text-center">
+        Staff Control Panel
+      </h1>
 
-      <div className="bg-white/10 border border-white/20 rounded-3xl p-8 w-full max-w-5xl shadow-xl space-y-6">
+      {/* 🔍 SEARCH */}
+      <div className="max-w-xl mx-auto bg-white/10 p-8 rounded-3xl border border-white/20 space-y-6">
 
-        <div className="grid md:grid-cols-2 gap-4">
-          <input placeholder="Guest Name" className="input-premium" value={guestName} onChange={e => setGuestName(e.target.value)} />
-          <input placeholder="Mobile Number" className="input-premium" value={guestMobile} onChange={e => setGuestMobile(e.target.value)} />
-        </div>
+        <h2 className="text-xl font-bold text-center">Return Panel</h2>
 
-        <div className="flex gap-4">
-          <button onClick={() => setShift('morning')} className={`btn-premium ${shift === 'morning' && 'bg-emerald-500'}`}>Morning</button>
-          <button onClick={() => setShift('evening')} className={`btn-premium ${shift === 'evening' && 'bg-emerald-500'}`}>Evening</button>
-        </div>
+        <input
+          placeholder="Enter Receipt Number"
+          className="input-premium"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
 
-        <div>
-          <p className="font-bold mb-2">Male Lockers</p>
-          <div className="grid grid-cols-10 gap-2">{renderLockers('male')}</div>
-        </div>
+        <button onClick={handleSearch} className="btn-resort w-full">
+          Fetch Receipt
+        </button>
 
-        <div>
-          <p className="font-bold mb-2">Female Lockers</p>
-          <div className="grid grid-cols-10 gap-2">{renderLockers('female')}</div>
-        </div>
+        {/* 📄 FOUND RECEIPT */}
+        {found && (
+          <div className="bg-black/40 p-6 rounded-2xl space-y-3 mt-6">
 
-      <div className="grid md:grid-cols-2 gap-4">
+            <p><b>Guest:</b> {found.guestName} — {found.guestMobile}</p>
+            <p><b>Date:</b> {found.date} | {found.shift}</p>
 
-  <div className="space-y-2">
-    <label className="text-xs uppercase tracking-widest font-bold text-white/70">
-      Male Costumes (Qty)
-    </label>
-    <input
-      type="number"
-      min={0}
-      className="input-premium"
-      value={maleCostumes}
-      onChange={e => setMaleCostumes(+e.target.value)}
-    />
-  </div>
+            <p><b>Male Lockers:</b> {found.maleLockers.join(', ') || 'None'}</p>
+            <p><b>Female Lockers:</b> {found.femaleLockers.join(', ') || 'None'}</p>
 
-  <div className="space-y-2">
-    <label className="text-xs uppercase tracking-widest font-bold text-white/70">
-      Female Costumes (Qty)
-    </label>
-    <input
-      type="number"
-      min={0}
-      className="input-premium"
-      value={femaleCostumes}
-      onChange={e => setFemaleCostumes(+e.target.value)}
-    />
-  </div>
+            <p><b>Male Costumes:</b> {found.maleCostumes}</p>
+            <p><b>Female Costumes:</b> {found.femaleCostumes}</p>
 
-</div>
+            <p className="text-green-400 font-bold">
+              Refund: ₹{found.refundableAmount}
+            </p>
 
+            {found.status === 'issued' ? (
+              <button onClick={confirmReturn} className="btn-resort w-full bg-green-600">
+                Confirm Return & Print Receipt
+              </button>
+            ) : (
+              <p className="text-center text-emerald-400 font-bold">
+                ✔ Already Returned
+              </p>
+            )}
 
-        <button onClick={generateReceipt} className="btn-resort w-full h-14">Generate Receipt</button>
-
-        {receipt && (
-          <div className="bg-white text-black rounded-2xl p-6 mt-6">
-            <h2 className="font-black text-xl mb-4">Receipt #{receipt.receiptNo}</h2>
-            <p>Guest: {receipt.guestName} ({receipt.guestMobile})</p>
-            <p>Total Collected: ₹{receipt.totalCollected}</p>
-            <p>Refundable: ₹{receipt.refundableAmount}</p>
           </div>
         )}
 
