@@ -17,64 +17,51 @@ const StaffPortal: React.FC = () => {
 
   const generateReceiptNo = () => `R-${Date.now()}`;
 
-  /* ================= ISSUE PANEL ================= */
+  /* ================= ISSUE STATE (ISOLATED & STABLE) ================= */
 
-  const IssuePanel = () => {
-    const [guestName, setGuestName] = useState('');
-    const [guestMobile, setGuestMobile] = useState('');
-    const [maleCostume, setMaleCostume] = useState(0);
-    const [femaleCostume, setFemaleCostume] = useState(0);
-    const [maleLockers, setMaleLockers] = useState('');
-    const [femaleLockers, setFemaleLockers] = useState('');
+  const [guestName, setGuestName] = useState('');
+  const [guestMobile, setGuestMobile] = useState('');
 
-    const handleIssue = () => {
-      const mLockers = maleLockers.split(',').map(x => Number(x.trim())).filter(Boolean);
-      const fLockers = femaleLockers.split(',').map(x => Number(x.trim())).filter(Boolean);
+  const [maleLockerText, setMaleLockerText] = useState('');
+  const [femaleLockerText, setFemaleLockerText] = useState('');
 
-      const rent = (mLockers.length + fLockers.length) * 100 +
-                   maleCostume * 50 + femaleCostume * 100;
+  const [maleCostume, setMaleCostume] = useState(0);
+  const [femaleCostume, setFemaleCostume] = useState(0);
 
-      const security = (mLockers.length + fLockers.length) * 200 +
-                       maleCostume * 50 + femaleCostume * 100;
+  const handleIssue = () => {
+    const maleLockers = maleLockerText.split(',').map(v => Number(v.trim())).filter(Boolean);
+    const femaleLockers = femaleLockerText.split(',').map(v => Number(v.trim())).filter(Boolean);
 
-      const receipt: LockerReceipt = {
-        receiptNo: generateReceiptNo(),
-        guestName,
-        guestMobile,
-        date: new Date().toLocaleDateString(),
-        shift: 'all',
-        maleLockers: mLockers,
-        femaleLockers: fLockers,
-        maleCostumes: maleCostume,
-        femaleCostumes: femaleCostume,
-        rentAmount: rent,
-        securityDeposit: security,
-        totalCollected: rent + security,
-        refundableAmount: security,
-        status: 'issued',
-        createdAt: new Date().toISOString()
-      };
+    const lockerRent = (maleLockers.length + femaleLockers.length) * 100;
+    const lockerSecurity = (maleLockers.length + femaleLockers.length) * 200;
 
-      saveReceipts([receipt, ...receipts]);
-      alert(`Receipt Generated: ${receipt.receiptNo}`);
+    const costumeRent = maleCostume * 50 + femaleCostume * 100;
+    const costumeSecurity = maleCostume * 50 + femaleCostume * 100;
+
+    const receipt: LockerReceipt = {
+      receiptNo: generateReceiptNo(),
+      guestName,
+      guestMobile,
+      date: new Date().toLocaleDateString(),
+      shift: 'all',
+
+      maleLockers,
+      femaleLockers,
+      maleCostumes: maleCostume,
+      femaleCostumes: femaleCostume,
+
+      rentAmount: lockerRent + costumeRent,
+      securityDeposit: lockerSecurity + costumeSecurity,
+      totalCollected: lockerRent + costumeRent + lockerSecurity + costumeSecurity,
+      refundableAmount: lockerSecurity + costumeSecurity,
+
+      status: 'issued',
+      createdAt: new Date().toISOString()
     };
 
-    return (
-      <div className="space-y-4">
+    saveReceipts([receipt, ...receipts]);
 
-        <input placeholder="Guest Name" className="input-premium" value={guestName} onChange={e=>setGuestName(e.target.value)} />
-        <input placeholder="Mobile" className="input-premium" value={guestMobile} onChange={e=>setGuestMobile(e.target.value)} />
-
-        <input placeholder="Male Lockers (1,2,5)" className="input-premium" value={maleLockers} onChange={e=>setMaleLockers(e.target.value)} />
-        <input placeholder="Female Lockers (3,4)" className="input-premium" value={femaleLockers} onChange={e=>setFemaleLockers(e.target.value)} />
-
-        <input placeholder="Male Costumes" type="number" className="input-premium" value={maleCostume} onChange={e=>setMaleCostume(+e.target.value)} />
-        <input placeholder="Female Costumes" type="number" className="input-premium" value={femaleCostume} onChange={e=>setFemaleCostume(+e.target.value)} />
-
-        <button className="btn-resort w-full" onClick={handleIssue}>Generate Receipt</button>
-
-      </div>
-    );
+    alert(`Receipt Generated: ${receipt.receiptNo}`);
   };
 
   /* ================= RETURN PANEL ================= */
@@ -87,7 +74,7 @@ const StaffPortal: React.FC = () => {
         r.receiptNo === no ? { ...r, status:'returned', returnedAt:new Date().toISOString() } : r
       );
       saveReceipts(updated);
-      alert("Items Returned Successfully");
+      alert("Return Completed");
     };
 
     return (
@@ -120,11 +107,28 @@ const StaffPortal: React.FC = () => {
       </div>
 
       <div className="bg-white/10 p-8 rounded-2xl">
-        {tab==='issue' && <IssuePanel/>}
+
+        {tab==='issue' && (
+          <div className="space-y-4">
+
+            <input placeholder="Guest Name" className="input-premium" value={guestName} onChange={e=>setGuestName(e.target.value)} />
+            <input placeholder="Guest Mobile" className="input-premium" value={guestMobile} onChange={e=>setGuestMobile(e.target.value)} />
+
+            <input placeholder="Male Locker Numbers (1,5,9)" className="input-premium" value={maleLockerText} onChange={e=>setMaleLockerText(e.target.value)} />
+            <input placeholder="Female Locker Numbers (2,6,10)" className="input-premium" value={femaleLockerText} onChange={e=>setFemaleLockerText(e.target.value)} />
+
+            <input type="number" placeholder="Male Costumes Qty" className="input-premium" value={maleCostume} onChange={e=>setMaleCostume(+e.target.value)} />
+            <input type="number" placeholder="Female Costumes Qty" className="input-premium" value={femaleCostume} onChange={e=>setFemaleCostume(+e.target.value)} />
+
+            <button className="btn-resort w-full" onClick={handleIssue}>Generate Receipt</button>
+
+          </div>
+        )}
+
         {tab==='return' && <ReturnPanel/>}
         {tab==='summary' && <SummaryPanel/>}
-      </div>
 
+      </div>
     </div>
   );
 };
