@@ -21,7 +21,9 @@ const StaffPortal: React.FC = () => {
 
   const printRef = useRef<HTMLDivElement>(null);
 
-  /* ---------------- Receipt helpers ---------------- */
+  /* ===============================
+     HELPERS
+  ================================ */
 
   const generateReceiptNo = () => {
     const d = new Date();
@@ -29,8 +31,10 @@ const StaffPortal: React.FC = () => {
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     const key = `swp_rc_${yy}${mm}${dd}`;
+
     const count = Number(localStorage.getItem(key) || 0) + 1;
     localStorage.setItem(key, String(count));
+
     return `SWP-${yy}${mm}${dd}-${String(count).padStart(4, '0')}`;
   };
 
@@ -50,11 +54,14 @@ const StaffPortal: React.FC = () => {
     setReceipt(null);
   };
 
-  /* ---------------- Core logic ---------------- */
+  /* ===============================
+     CORE LOGIC
+  ================================ */
 
   const toggleLocker = (num: number, gender: 'male' | 'female') => {
     const list = gender === 'male' ? maleLockers : femaleLockers;
     const setList = gender === 'male' ? setMaleLockers : setFemaleLockers;
+
     setList(list.includes(num) ? list.filter(n => n !== num) : [...list, num]);
   };
 
@@ -126,23 +133,35 @@ const StaffPortal: React.FC = () => {
     Array.from({ length: 60 }, (_, i) => i + 1).map(num => {
       const selected = gender === 'male' ? maleLockers : femaleLockers;
       return (
-        <button key={num} onClick={() => toggleLocker(num, gender)}
-          className={`w-10 h-10 rounded-lg text-xs font-bold border ${selected.includes(num) ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white'}`}>
+        <button key={num}
+          onClick={() => toggleLocker(num, gender)}
+          className={`w-10 h-10 rounded-lg text-xs font-bold border 
+          ${selected.includes(num) ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white'}`}>
           {num}
         </button>
       );
     });
 
-  /* ---------------- UI ---------------- */
+  /* ===============================
+     UI
+  ================================ */
 
   return (
     <div className="w-full flex flex-col items-center py-10 text-white">
 
-      <div className="flex gap-4 mb-8">
-        <button onClick={() => setMode('issue')} className={`btn-premium ${mode === 'issue' && 'bg-emerald-500'}`}>Issue</button>
-        <button onClick={() => setMode('return')} className={`btn-premium ${mode === 'return' && 'bg-emerald-500'}`}>Return</button>
+      {/* MODE TABS */}
+      <div className="flex mb-8 bg-white/10 rounded-full p-1">
+        <button onClick={() => setMode('issue')}
+          className={`px-8 py-2 rounded-full font-bold ${mode === 'issue' ? 'bg-emerald-500 text-black' : 'text-white/70'}`}>
+          ISSUE
+        </button>
+        <button onClick={() => setMode('return')}
+          className={`px-8 py-2 rounded-full font-bold ${mode === 'return' ? 'bg-emerald-500 text-black' : 'text-white/70'}`}>
+          RETURN
+        </button>
       </div>
 
+      {/* ================= ISSUE PANEL ================= */}
       {mode === 'issue' && (
         <div className="bg-white/10 border border-white/20 rounded-3xl p-8 w-full max-w-5xl space-y-6">
 
@@ -176,33 +195,39 @@ const StaffPortal: React.FC = () => {
           {receipt && (
             <div ref={printRef} className="bg-white text-black rounded-xl p-6 space-y-1">
               <h2 className="font-black text-xl">Receipt {receipt.receiptNo}</h2>
-              <p>Guest: {receipt.guestName} ({receipt.guestMobile})</p>
-              <p>Lockers: {receipt.maleLockers.length + receipt.femaleLockers.length}</p>
-              <p>Male Costumes: {receipt.maleCostumes}</p>
-              <p>Female Costumes: {receipt.femaleCostumes}</p>
-              <p>Rent: ₹{receipt.rentAmount}</p>
-              <p>Security: ₹{receipt.securityDeposit}</p>
-              <p className="font-bold">Total: ₹{receipt.totalCollected}</p>
-              <p className="text-emerald-600 font-bold">Refundable: ₹{receipt.refundableAmount}</p>
+              <p><b>Guest:</b> {receipt.guestName} ({receipt.guestMobile})</p>
+              <p><b>Male Lockers:</b> {receipt.maleLockers.join(', ') || '-'}</p>
+              <p><b>Female Lockers:</b> {receipt.femaleLockers.join(', ') || '-'}</p>
+              <p><b>Male Costumes:</b> {receipt.maleCostumes}</p>
+              <p><b>Female Costumes:</b> {receipt.femaleCostumes}</p>
+              <p><b>Total:</b> ₹{receipt.totalCollected}</p>
+              <p className="text-emerald-600 font-bold"><b>Refundable:</b> ₹{receipt.refundableAmount}</p>
 
-              <button onClick={printReceipt} className="btn-premium mt-4 w-full">
-                Print Final Receipt
-              </button>
+              <button onClick={printReceipt} className="btn-premium mt-4 w-full">Print Final Receipt</button>
             </div>
           )}
+
         </div>
       )}
 
+      {/* ================= RETURN PANEL ================= */}
       {mode === 'return' && (
         <div className="bg-white/10 border border-white/20 rounded-3xl p-8 w-full max-w-xl space-y-6">
-          <h2 className="text-xl font-black">Return Panel</h2>
-          <input placeholder="Last 4 digits of receipt" className="input-premium" value={searchCode} onChange={e => setSearchCode(e.target.value)} />
+
+          <input placeholder="Last 4 digits of receipt" className="input-premium"
+            value={searchCode} onChange={e => setSearchCode(e.target.value)} />
+
           <button onClick={findReturn} className="btn-resort w-full">Find Receipt</button>
 
           {returnReceipt && (
             <div className="bg-white text-black rounded-xl p-6 space-y-2">
               <p><b>Receipt:</b> {returnReceipt.receiptNo}</p>
-              <p><b>Refund:</b> ₹{returnReceipt.refundableAmount}</p>
+              <p><b>Male Lockers:</b> {returnReceipt.maleLockers.join(', ') || '-'}</p>
+              <p><b>Female Lockers:</b> {returnReceipt.femaleLockers.join(', ') || '-'}</p>
+              <p><b>Male Costumes:</b> {returnReceipt.maleCostumes}</p>
+              <p><b>Female Costumes:</b> {returnReceipt.femaleCostumes}</p>
+              <p className="text-emerald-600 font-bold"><b>Refund:</b> ₹{returnReceipt.refundableAmount}</p>
+
               <button onClick={confirmReturn} className="btn-premium w-full">Confirm Return</button>
             </div>
           )}
