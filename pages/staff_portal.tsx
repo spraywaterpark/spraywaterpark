@@ -21,9 +21,7 @@ const StaffPortal: React.FC = () => {
 
   const printRef = useRef<HTMLDivElement>(null);
 
-  /* ===============================
-     Helpers
-  ================================ */
+  /* ---------------- Receipt helpers ---------------- */
 
   const generateReceiptNo = () => {
     const d = new Date();
@@ -52,9 +50,7 @@ const StaffPortal: React.FC = () => {
     setReceipt(null);
   };
 
-  /* ===============================
-     Core Logic
-  ================================ */
+  /* ---------------- Core logic ---------------- */
 
   const toggleLocker = (num: number, gender: 'male' | 'female') => {
     const list = gender === 'male' ? maleLockers : femaleLockers;
@@ -92,6 +88,7 @@ const StaffPortal: React.FC = () => {
 
   const printReceipt = () => {
     if (!receipt || !printRef.current) return;
+
     saveReceipt(receipt);
 
     const win = window.open('', '', 'width=800,height=900');
@@ -136,9 +133,7 @@ const StaffPortal: React.FC = () => {
       );
     });
 
-  /* ===============================
-     UI
-  ================================ */
+  /* ---------------- UI ---------------- */
 
   return (
     <div className="w-full flex flex-col items-center py-10 text-white">
@@ -149,10 +144,53 @@ const StaffPortal: React.FC = () => {
       </div>
 
       {mode === 'issue' && (
-        <>
-          {/* ISSUE PANEL (your existing UI continues unchanged) */}
-          {/* 👇 everything you already had for issue stays here */}
-        </>
+        <div className="bg-white/10 border border-white/20 rounded-3xl p-8 w-full max-w-5xl space-y-6">
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <input className="input-premium" placeholder="Guest Name" value={guestName} onChange={e => setGuestName(e.target.value)} />
+            <input className="input-premium" placeholder="Mobile Number" value={guestMobile} onChange={e => setGuestMobile(e.target.value)} />
+          </div>
+
+          <div className="flex gap-4">
+            <button onClick={() => setShift('morning')} className={`btn-premium ${shift === 'morning' && 'bg-emerald-500'}`}>Morning</button>
+            <button onClick={() => setShift('evening')} className={`btn-premium ${shift === 'evening' && 'bg-emerald-500'}`}>Evening</button>
+          </div>
+
+          <div>
+            <p className="font-bold mb-2">Male Lockers</p>
+            <div className="grid grid-cols-10 gap-2">{renderLockers('male')}</div>
+          </div>
+
+          <div>
+            <p className="font-bold mb-2">Female Lockers</p>
+            <div className="grid grid-cols-10 gap-2">{renderLockers('female')}</div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <input type="number" min={0} className="input-premium" placeholder="Male Costumes" value={maleCostumes} onChange={e => setMaleCostumes(+e.target.value)} />
+            <input type="number" min={0} className="input-premium" placeholder="Female Costumes" value={femaleCostumes} onChange={e => setFemaleCostumes(+e.target.value)} />
+          </div>
+
+          <button onClick={generateReceipt} className="btn-resort w-full h-14">Generate Receipt</button>
+
+          {receipt && (
+            <div ref={printRef} className="bg-white text-black rounded-xl p-6 space-y-1">
+              <h2 className="font-black text-xl">Receipt {receipt.receiptNo}</h2>
+              <p>Guest: {receipt.guestName} ({receipt.guestMobile})</p>
+              <p>Lockers: {receipt.maleLockers.length + receipt.femaleLockers.length}</p>
+              <p>Male Costumes: {receipt.maleCostumes}</p>
+              <p>Female Costumes: {receipt.femaleCostumes}</p>
+              <p>Rent: ₹{receipt.rentAmount}</p>
+              <p>Security: ₹{receipt.securityDeposit}</p>
+              <p className="font-bold">Total: ₹{receipt.totalCollected}</p>
+              <p className="text-emerald-600 font-bold">Refundable: ₹{receipt.refundableAmount}</p>
+
+              <button onClick={printReceipt} className="btn-premium mt-4 w-full">
+                Print Final Receipt
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {mode === 'return' && (
