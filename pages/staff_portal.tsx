@@ -39,7 +39,7 @@ const StaffPortal: React.FC = () => {
   };
 
   const saveReceipt = (data: LockerReceipt) => {
-    const all = JSON.parse(localStorage.getItem('swp_receipts') || '[]');
+    const all: LockerReceipt[] = JSON.parse(localStorage.getItem('swp_receipts') || '[]');
     all.unshift(data);
     localStorage.setItem('swp_receipts', JSON.stringify(all));
   };
@@ -61,7 +61,6 @@ const StaffPortal: React.FC = () => {
   const toggleLocker = (num: number, gender: 'male' | 'female') => {
     const list = gender === 'male' ? maleLockers : femaleLockers;
     const setList = gender === 'male' ? setMaleLockers : setFemaleLockers;
-
     setList(list.includes(num) ? list.filter(n => n !== num) : [...list, num]);
   };
 
@@ -109,35 +108,33 @@ const StaffPortal: React.FC = () => {
     resetForm();
   };
 
- const confirmReturn = () => {
-  if (!returnReceipt) return;
+  const findReturn = () => {
+    const all: LockerReceipt[] = JSON.parse(localStorage.getItem('swp_receipts') || '[]');
 
-  const all: LockerReceipt[] = JSON.parse(localStorage.getItem('swp_receipts') || '[]');
+    const found = all.find(r =>
+      r.receiptNo.endsWith(searchCode) && r.status === 'issued'
+    );
 
-  const updated = all.map(r =>
-    r.receiptNo === returnReceipt.receiptNo
-      ? { ...r, status: 'returned', returnedAt: new Date().toISOString() }
-      : r
-  );
+    if (!found) return alert("Receipt not found or already returned");
 
-  localStorage.setItem('swp_receipts', JSON.stringify(updated));
-
-  alert("✅ Return Completed Successfully");
-
-  setReturnReceipt(null);
-  setSearchCode('');
-};
-
+    setReturnReceipt(found);
+  };
 
   const confirmReturn = () => {
-    const all = JSON.parse(localStorage.getItem('swp_receipts') || '[]');
-    const updated = all.map((r: LockerReceipt) =>
-      r.receiptNo === returnReceipt?.receiptNo
+    if (!returnReceipt) return;
+
+    const all: LockerReceipt[] = JSON.parse(localStorage.getItem('swp_receipts') || '[]');
+
+    const updated = all.map(r =>
+      r.receiptNo === returnReceipt.receiptNo
         ? { ...r, status: 'returned', returnedAt: new Date().toISOString() }
         : r
     );
+
     localStorage.setItem('swp_receipts', JSON.stringify(updated));
-    alert("Return Completed");
+
+    alert("Return Completed Successfully");
+
     setReturnReceipt(null);
     setSearchCode('');
   };
@@ -162,7 +159,6 @@ const StaffPortal: React.FC = () => {
   return (
     <div className="w-full flex flex-col items-center py-10 text-white">
 
-      {/* MODE TABS */}
       <div className="flex mb-8 bg-white/10 rounded-full p-1">
         <button onClick={() => setMode('issue')}
           className={`px-8 py-2 rounded-full font-bold ${mode === 'issue' ? 'bg-emerald-500 text-black' : 'text-white/70'}`}>
@@ -174,7 +170,6 @@ const StaffPortal: React.FC = () => {
         </button>
       </div>
 
-      {/* ================= ISSUE PANEL ================= */}
       {mode === 'issue' && (
         <div className="bg-white/10 border border-white/20 rounded-3xl p-8 w-full max-w-5xl space-y-6">
 
@@ -223,7 +218,6 @@ const StaffPortal: React.FC = () => {
         </div>
       )}
 
-      {/* ================= RETURN PANEL ================= */}
       {mode === 'return' && (
         <div className="bg-white/10 border border-white/20 rounded-3xl p-8 w-full max-w-xl space-y-6">
 
