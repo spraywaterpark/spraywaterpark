@@ -3,94 +3,128 @@ import { LockerReceipt } from '../types';
 
 const StaffPortal: React.FC = () => {
 
+  const [tab, setTab] = useState<'issue' | 'return' | 'summary'>('issue');
+
   const [receipts, setReceipts] = useState<LockerReceipt[]>(() => {
-    const saved = localStorage.getItem('swp_locker_receipts');
+    const saved = localStorage.getItem('swp_receipts');
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [search, setSearch] = useState('');
-  const [found, setFound] = useState<LockerReceipt | null>(null);
-
   const saveReceipts = (list: LockerReceipt[]) => {
     setReceipts(list);
-    localStorage.setItem('swp_locker_receipts', JSON.stringify(list));
+    localStorage.setItem('swp_receipts', JSON.stringify(list));
   };
 
-  const handleSearch = () => {
-    const r = receipts.find(x => x.receiptNo === search);
-    if (!r) return alert('Receipt not found');
-    setFound(r);
-  };
+  const generateReceiptNo = () => `R-${Date.now()}`;
 
-  const confirmReturn = () => {
-    if (!found) return;
+  /* ================= ISSUE PANEL ================= */
 
-    const updated = receipts.map(r =>
-      r.receiptNo === found.receiptNo
-        ? { ...r, status: 'returned', returnedAt: new Date().toISOString() }
-        : r
-    );
+  const IssuePanel = () => {
+    const [guestName, setGuestName] = useState('');
+    const [guestMobile, setGuestMobile] = useState('');
+    const [maleCostume, setMaleCostume] = useState(0);
+    const [femaleCostume, setFemaleCostume] = useState(0);
+    const [maleLockers, setMaleLockers] = useState('');
+    const [femaleLockers, setFemaleLockers] = useState('');
 
-    saveReceipts(updated);
-    setFound({ ...found, status: 'returned', returnedAt: new Date().toISOString() });
+    const handleIssue = () => {
+      const mLockers = maleLockers.split(',').map(x => Number(x.trim())).filter(Boolean);
+      const fLockers = femaleLockers.split(',').map(x => Number(x.trim())).filter(Boolean);
 
-    setTimeout(() => window.print(), 300);
-  };
+      const rent = (mLockers.length + fLockers.length) * 100 +
+                   maleCostume * 50 + femaleCostume * 100;
 
-  return (
-    <div className="w-full text-white py-12 animate-fade">
+      const security = (mLockers.length + fLockers.length) * 200 +
+                       maleCostume * 50 + femaleCostume * 100;
 
-      <h1 className="text-4xl font-black uppercase mb-6 text-center">
-        Staff Control Panel
-      </h1>
+      const receipt: LockerReceipt = {
+        receiptNo: generateReceiptNo(),
+        guestName,
+        guestMobile,
+        date: new Date().toLocaleDateString(),
+        shift: 'all',
+        maleLockers: mLockers,
+        femaleLockers: fLockers,
+        maleCostumes: maleCostume,
+        femaleCostumes: femaleCostume,
+        rentAmount: rent,
+        securityDeposit: security,
+        totalCollected: rent + security,
+        refundableAmount: security,
+        status: 'issued',
+        createdAt: new Date().toISOString()
+      };
 
-      {/* 🔍 SEARCH */}
-      <div className="max-w-xl mx-auto bg-white/10 p-8 rounded-3xl border border-white/20 space-y-6">
+      saveReceipts([receipt, ...receipts]);
+      alert(`Receipt Generated: ${receipt.receiptNo}`);
+    };
 
-        <h2 className="text-xl font-bold text-center">Return Panel</h2>
+    return (
+      <div className="space-y-4">
 
-        <input
-          placeholder="Enter Receipt Number"
-          className="input-premium"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+        <input placeholder="Guest Name" className="input-premium" value={guestName} onChange={e=>setGuestName(e.target.value)} />
+        <input placeholder="Mobile" className="input-premium" value={guestMobile} onChange={e=>setGuestMobile(e.target.value)} />
 
-        <button onClick={handleSearch} className="btn-resort w-full">
-          Fetch Receipt
-        </button>
+        <input placeholder="Male Lockers (1,2,5)" className="input-premium" value={maleLockers} onChange={e=>setMaleLockers(e.target.value)} />
+        <input placeholder="Female Lockers (3,4)" className="input-premium" value={femaleLockers} onChange={e=>setFemaleLockers(e.target.value)} />
 
-        {/* 📄 FOUND RECEIPT */}
-        {found && (
-          <div className="bg-black/40 p-6 rounded-2xl space-y-3 mt-6">
+        <input placeholder="Male Costumes" type="number" className="input-premium" value={maleCostume} onChange={e=>setMaleCostume(+e.target.value)} />
+        <input placeholder="Female Costumes" type="number" className="input-premium" value={femaleCostume} onChange={e=>setFemaleCostume(+e.target.value)} />
 
-            <p><b>Guest:</b> {found.guestName} — {found.guestMobile}</p>
-            <p><b>Date:</b> {found.date} | {found.shift}</p>
-
-            <p><b>Male Lockers:</b> {found.maleLockers.join(', ') || 'None'}</p>
-            <p><b>Female Lockers:</b> {found.femaleLockers.join(', ') || 'None'}</p>
-
-            <p><b>Male Costumes:</b> {found.maleCostumes}</p>
-            <p><b>Female Costumes:</b> {found.femaleCostumes}</p>
-
-            <p className="text-green-400 font-bold">
-              Refund: ₹{found.refundableAmount}
-            </p>
-
-            {found.status === 'issued' ? (
-              <button onClick={confirmReturn} className="btn-resort w-full bg-green-600">
-                Confirm Return & Print Receipt
-              </button>
-            ) : (
-              <p className="text-center text-emerald-400 font-bold">
-                ✔ Already Returned
-              </p>
-            )}
-
-          </div>
-        )}
+        <button className="btn-resort w-full" onClick={handleIssue}>Generate Receipt</button>
 
       </div>
+    );
+  };
+
+  /* ================= RETURN PANEL ================= */
+
+  const ReturnPanel = () => {
+    const [no, setNo] = useState('');
+
+    const handleReturn = () => {
+      const updated = receipts.map(r =>
+        r.receiptNo === no ? { ...r, status:'returned', returnedAt:new Date().toISOString() } : r
+      );
+      saveReceipts(updated);
+      alert("Items Returned Successfully");
+    };
+
+    return (
+      <div className="space-y-4">
+        <input placeholder="Enter Receipt Number" className="input-premium" value={no} onChange={e=>setNo(e.target.value)} />
+        <button className="btn-resort w-full" onClick={handleReturn}>Confirm Return</button>
+      </div>
+    );
+  };
+
+  /* ================= SUMMARY PANEL ================= */
+
+  const SummaryPanel = () => (
+    <div className="space-y-2 text-white/80">
+      <p>Total Receipts: {receipts.length}</p>
+      <p>Active: {receipts.filter(r=>r.status==='issued').length}</p>
+      <p>Returned: {receipts.filter(r=>r.status==='returned').length}</p>
+    </div>
+  );
+
+  return (
+    <div className="w-full max-w-xl mx-auto text-white space-y-8">
+
+      <h1 className="text-3xl font-black text-center">Staff Control Panel</h1>
+
+      <div className="flex justify-center gap-4">
+        <button onClick={()=>setTab('issue')} className="btn-resort">Issue</button>
+        <button onClick={()=>setTab('return')} className="btn-resort">Return</button>
+        <button onClick={()=>setTab('summary')} className="btn-resort">Summary</button>
+      </div>
+
+      <div className="bg-white/10 p-8 rounded-2xl">
+        {tab==='issue' && <IssuePanel/>}
+        {tab==='return' && <ReturnPanel/>}
+        {tab==='summary' && <SummaryPanel/>}
+      </div>
+
     </div>
   );
 };
