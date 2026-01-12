@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { LockerReceipt, ShiftType } from '../types';
 
 const StaffPortal: React.FC = () => {
@@ -9,33 +9,36 @@ const StaffPortal: React.FC = () => {
 
   const [maleLockers, setMaleLockers] = useState<number[]>([]);
   const [femaleLockers, setFemaleLockers] = useState<number[]>([]);
-
   const [maleCostumes, setMaleCostumes] = useState(0);
   const [femaleCostumes, setFemaleCostumes] = useState(0);
 
   const [receipt, setReceipt] = useState<LockerReceipt | null>(null);
 
-  const [allReceipts, setAllReceipts] = useState<LockerReceipt[]>(() => {
-    const saved = localStorage.getItem('swp_receipts');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const printRef = useRef<HTMLDivElement>(null);
 
   /* ===============================
-     Helpers
+     Receipt Helpers
   ================================ */
 
   const generateReceiptNo = () => {
-    const today = new Date().toISOString().split('T')[0].replaceAll('-', '');
-    const key = `receipt_count_${today}`;
-    const last = Number(localStorage.getItem(key) || 0) + 1;
-    localStorage.setItem(key, String(last));
-    return `R-${today}-${String(last).padStart(5, '0')}`;
+    const d = new Date();
+    const yy = String(d.getFullYear()).slice(-2);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+
+    const dateKey = `${yy}${mm}${dd}`;
+    const countKey = `swp_rc_${dateKey}`;
+
+    const count = Number(localStorage.getItem(countKey) || 0) + 1;
+    localStorage.setItem(countKey, String(count));
+
+    return `SWP-${dateKey}-${String(count).padStart(4, '0')}`;
   };
 
   const saveReceipt = (data: LockerReceipt) => {
-    const updated = [data, ...allReceipts];
-    setAllReceipts(updated);
-    localStorage.setItem('swp_receipts', JSON.stringify(updated));
+    const all = JSON.parse(localStorage.getItem('swp_receipts') || '[]');
+    all.unshift(data);
+    localStorage.setItem('swp_receipts', JSON.stringify(all));
   };
 
   /* ===============================
@@ -46,23 +49,16 @@ const StaffPortal: React.FC = () => {
     const list = gender === 'male' ? maleLockers : femaleLockers;
     const setList = gender === 'male' ? setMaleLockers : setFemaleLockers;
 
-    if (list.includes(num)) {
-      setList(list.filter(n => n !== num));
-    } else {
-      setList([...list, num]);
-    }
+    setList(list.includes(num) ? list.filter(n => n !== num) : [...list, num]);
   };
 
   const generateReceipt = () => {
-    if (!guestName || !guestMobile) {
-      alert("Enter guest details");
-      return;
-    }
+    if (!guestName || !guestMobile) return alert("Enter guest details");
 
-    const lockersCount = maleLockers.length + femaleLockers.length;
+    const lockers = maleLockers.length + femaleLockers.length;
 
-    const rent = lockersCount * 100 + maleCostumes * 50 + femaleCostumes * 100;
-    const deposit = lockersCount * 200 + maleCostumes * 50 + femaleCostumes * 100;
+    const rent = lockers * 100 + maleCostumes * 50 + femaleCostumes * 100;
+    const deposit = lockers * 200 + maleCostumes * 50 + femaleCostumes * 100;
 
     const data: LockerReceipt = {
       receiptNo: generateReceiptNo(),
@@ -82,8 +78,24 @@ const StaffPortal: React.FC = () => {
       createdAt: new Date().toISOString()
     };
 
-    saveReceipt(data);
     setReceipt(data);
+  };
+
+  const printReceipt = () => {
+    if (!receipt || !printRef.current) return;
+
+    saveReceipt(receipt);
+
+    const printContents = printRef.current.innerHTML;
+    const win = window.open('', '', 'width=800,height=900');
+
+    if (!win) return;
+
+    win.document.write(`<html><head><title>Receipt</title></head><body>${printContents}</body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+    win.close();
   };
 
   const renderLockers = (gender: 'male' | 'female') => {
@@ -94,7 +106,7 @@ const StaffPortal: React.FC = () => {
         key={num}
         onClick={() => toggleLocker(num, gender)}
         className={`w-10 h-10 rounded-lg text-xs font-bold border
-          ${selected.includes(num) ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white'}`}
+        ${selected.includes(num) ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white'}`}
       >
         {num}
       </button>
@@ -106,16 +118,16 @@ const StaffPortal: React.FC = () => {
   ================================ */
 
   return (
-    <div className="w-full flex flex-col items-center py-10 text-white animate-fade">
+    <div className="w-full flex flex-col items-center py-10 text-white">
 
-      <h1 className="text-4xl font-black uppercase mb-2">Staff Control Panel</h1>
+      <h1 className="text-4xl font-black mb-2">Staff Control Panel</h1>
       <p className="text-white/70 mb-8">Locker & Costume Management</p>
 
-      <div className="bg-white/10 border border-white/20 rounded-3xl p-8 w-full max-w-5xl shadow-xl space-y-6">
+      <div className="bg-white/10 border border-white/20 rounded-3xl p-8 w-full max-w-5xl space-y-6">
 
         <div className="grid md:grid-cols-2 gap-4">
-          <input placeholder="Guest Name" className="input-premium" value={guestName} onChange={e => setGuestName(e.target.value)} />
-          <input placeholder="Mobile Number" className="input-premium" value={guestMobile} onChange={e => setGuestMobile(e.target.value)} />
+          <input className="input-premium" placeholder="Guest Name" value={guestName} onChange={e => setGuestName(e.target.value)} />
+          <input className="input-premium" placeholder="Mobile Number" value={guestMobile} onChange={e => setGuestMobile(e.target.value)} />
         </div>
 
         <div className="flex gap-4">
@@ -134,33 +146,26 @@ const StaffPortal: React.FC = () => {
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-xs uppercase tracking-widest font-bold text-white/70">Male Costumes (Qty)</label>
-            <input type="number" min={0} className="input-premium" value={maleCostumes} onChange={e => setMaleCostumes(+e.target.value)} />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-xs uppercase tracking-widest font-bold text-white/70">Female Costumes (Qty)</label>
-            <input type="number" min={0} className="input-premium" value={femaleCostumes} onChange={e => setFemaleCostumes(+e.target.value)} />
-          </div>
+          <input type="number" min={0} className="input-premium" placeholder="Male Costumes" value={maleCostumes} onChange={e => setMaleCostumes(+e.target.value)} />
+          <input type="number" min={0} className="input-premium" placeholder="Female Costumes" value={femaleCostumes} onChange={e => setFemaleCostumes(+e.target.value)} />
         </div>
 
         <button onClick={generateReceipt} className="btn-resort w-full h-14">Generate Receipt</button>
 
         {receipt && (
-          <div className="bg-white text-black rounded-2xl p-6 mt-6 space-y-1">
-            <h2 className="font-black text-xl mb-2">Receipt {receipt.receiptNo}</h2>
-            <p><b>Guest:</b> {receipt.guestName} ({receipt.guestMobile})</p>
-            <p><b>Lockers:</b> {receipt.maleLockers.length + receipt.femaleLockers.length}</p>
-            <p><b>Male Costumes:</b> {receipt.maleCostumes}</p>
-            <p><b>Female Costumes:</b> {receipt.femaleCostumes}</p>
-            <p><b>Rent:</b> ₹{receipt.rentAmount}</p>
-            <p><b>Security:</b> ₹{receipt.securityDeposit}</p>
-            <p className="font-bold"><b>Total Collected:</b> ₹{receipt.totalCollected}</p>
-            <p className="text-emerald-600 font-bold"><b>Refundable:</b> ₹{receipt.refundableAmount}</p>
+          <div ref={printRef} className="bg-white text-black rounded-xl p-6 mt-6 space-y-1">
+            <h2 className="font-black text-xl">Receipt {receipt.receiptNo}</h2>
+            <p>Guest: {receipt.guestName} ({receipt.guestMobile})</p>
+            <p>Lockers: {receipt.maleLockers.length + receipt.femaleLockers.length}</p>
+            <p>Male Costumes: {receipt.maleCostumes}</p>
+            <p>Female Costumes: {receipt.femaleCostumes}</p>
+            <p>Rent: ₹{receipt.rentAmount}</p>
+            <p>Security: ₹{receipt.securityDeposit}</p>
+            <p className="font-bold">Total: ₹{receipt.totalCollected}</p>
+            <p className="text-emerald-600 font-bold">Refundable: ₹{receipt.refundableAmount}</p>
 
-            <button onClick={() => window.print()} className="btn-premium mt-4 w-full">
-              Print Receipt
+            <button onClick={printReceipt} className="btn-premium mt-4 w-full">
+              Print Final Receipt
             </button>
           </div>
         )}
