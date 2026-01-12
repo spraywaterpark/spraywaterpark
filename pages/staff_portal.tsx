@@ -1,132 +1,169 @@
 import React, { useState } from 'react';
-import { LockerReceipt } from '../types';
+import { LockerReceipt, ShiftType } from '../types';
 
 const StaffPortal: React.FC = () => {
 
-  const [tab, setTab] = useState<'issue' | 'return' | 'summary'>('issue');
+  const [guestName, setGuestName] = useState('');
+  const [guestMobile, setGuestMobile] = useState('');
+  const [shift, setShift] = useState<ShiftType>('morning');
 
-  const [receipts, setReceipts] = useState<LockerReceipt[]>(() => {
+  const [maleLockers, setMaleLockers] = useState<number[]>([]);
+  const [femaleLockers, setFemaleLockers] = useState<number[]>([]);
+
+  const [maleCostumes, setMaleCostumes] = useState(0);
+  const [femaleCostumes, setFemaleCostumes] = useState(0);
+
+  const [receipt, setReceipt] = useState<LockerReceipt | null>(null);
+
+  const [allReceipts, setAllReceipts] = useState<LockerReceipt[]>(() => {
     const saved = localStorage.getItem('swp_receipts');
     return saved ? JSON.parse(saved) : [];
   });
 
-  const saveReceipts = (list: LockerReceipt[]) => {
-    setReceipts(list);
-    localStorage.setItem('swp_receipts', JSON.stringify(list));
+  /* ===============================
+     Helpers
+  ================================ */
+
+  const generateReceiptNo = () => {
+    const today = new Date().toISOString().split('T')[0].replaceAll('-', '');
+    const key = `receipt_count_${today}`;
+    const last = Number(localStorage.getItem(key) || 0) + 1;
+    localStorage.setItem(key, String(last));
+    return `R-${today}-${String(last).padStart(5, '0')}`;
   };
 
-  const generateReceiptNo = () => `R-${Date.now()}`;
+  const saveReceipt = (data: LockerReceipt) => {
+    const updated = [data, ...allReceipts];
+    setAllReceipts(updated);
+    localStorage.setItem('swp_receipts', JSON.stringify(updated));
+  };
 
-  /* ================= ISSUE STATE (ISOLATED & STABLE) ================= */
+  /* ===============================
+     Core Logic
+  ================================ */
 
-  const [guestName, setGuestName] = useState('');
-  const [guestMobile, setGuestMobile] = useState('');
+  const toggleLocker = (num: number, gender: 'male' | 'female') => {
+    const list = gender === 'male' ? maleLockers : femaleLockers;
+    const setList = gender === 'male' ? setMaleLockers : setFemaleLockers;
 
-  const [maleLockerText, setMaleLockerText] = useState('');
-  const [femaleLockerText, setFemaleLockerText] = useState('');
+    if (list.includes(num)) {
+      setList(list.filter(n => n !== num));
+    } else {
+      setList([...list, num]);
+    }
+  };
 
-  const [maleCostume, setMaleCostume] = useState(0);
-  const [femaleCostume, setFemaleCostume] = useState(0);
+  const generateReceipt = () => {
+    if (!guestName || !guestMobile) {
+      alert("Enter guest details");
+      return;
+    }
 
-  const handleIssue = () => {
-    const maleLockers = maleLockerText.split(',').map(v => Number(v.trim())).filter(Boolean);
-    const femaleLockers = femaleLockerText.split(',').map(v => Number(v.trim())).filter(Boolean);
+    const lockersCount = maleLockers.length + femaleLockers.length;
 
-    const lockerRent = (maleLockers.length + femaleLockers.length) * 100;
-    const lockerSecurity = (maleLockers.length + femaleLockers.length) * 200;
+    const rent = lockersCount * 100 + maleCostumes * 50 + femaleCostumes * 100;
+    const deposit = lockersCount * 200 + maleCostumes * 50 + femaleCostumes * 100;
 
-    const costumeRent = maleCostume * 50 + femaleCostume * 100;
-    const costumeSecurity = maleCostume * 50 + femaleCostume * 100;
-
-    const receipt: LockerReceipt = {
+    const data: LockerReceipt = {
       receiptNo: generateReceiptNo(),
       guestName,
       guestMobile,
-      date: new Date().toLocaleDateString(),
-      shift: 'all',
-
+      date: new Date().toISOString().split('T')[0],
+      shift,
       maleLockers,
       femaleLockers,
-      maleCostumes: maleCostume,
-      femaleCostumes: femaleCostume,
-
-      rentAmount: lockerRent + costumeRent,
-      securityDeposit: lockerSecurity + costumeSecurity,
-      totalCollected: lockerRent + costumeRent + lockerSecurity + costumeSecurity,
-      refundableAmount: lockerSecurity + costumeSecurity,
-
+      maleCostumes,
+      femaleCostumes,
+      rentAmount: rent,
+      securityDeposit: deposit,
+      totalCollected: rent + deposit,
+      refundableAmount: deposit,
       status: 'issued',
       createdAt: new Date().toISOString()
     };
 
-    saveReceipts([receipt, ...receipts]);
-
-    alert(`Receipt Generated: ${receipt.receiptNo}`);
+    saveReceipt(data);
+    setReceipt(data);
   };
 
-  /* ================= RETURN PANEL ================= */
+  const renderLockers = (gender: 'male' | 'female') => {
+    const selected = gender === 'male' ? maleLockers : femaleLockers;
 
-  const ReturnPanel = () => {
-    const [no, setNo] = useState('');
-
-    const handleReturn = () => {
-      const updated = receipts.map(r =>
-        r.receiptNo === no ? { ...r, status:'returned', returnedAt:new Date().toISOString() } : r
-      );
-      saveReceipts(updated);
-      alert("Return Completed");
-    };
-
-    return (
-      <div className="space-y-4">
-        <input placeholder="Enter Receipt Number" className="input-premium" value={no} onChange={e=>setNo(e.target.value)} />
-        <button className="btn-resort w-full" onClick={handleReturn}>Confirm Return</button>
-      </div>
-    );
+    return Array.from({ length: 60 }, (_, i) => i + 1).map(num => (
+      <button
+        key={num}
+        onClick={() => toggleLocker(num, gender)}
+        className={`w-10 h-10 rounded-lg text-xs font-bold border
+          ${selected.includes(num) ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white'}`}
+      >
+        {num}
+      </button>
+    ));
   };
 
-  /* ================= SUMMARY PANEL ================= */
-
-  const SummaryPanel = () => (
-    <div className="space-y-2 text-white/80">
-      <p>Total Receipts: {receipts.length}</p>
-      <p>Active: {receipts.filter(r=>r.status==='issued').length}</p>
-      <p>Returned: {receipts.filter(r=>r.status==='returned').length}</p>
-    </div>
-  );
+  /* ===============================
+     UI
+  ================================ */
 
   return (
-    <div className="w-full max-w-xl mx-auto text-white space-y-8">
+    <div className="w-full flex flex-col items-center py-10 text-white animate-fade">
 
-      <h1 className="text-3xl font-black text-center">Staff Control Panel</h1>
+      <h1 className="text-4xl font-black uppercase mb-2">Staff Control Panel</h1>
+      <p className="text-white/70 mb-8">Locker & Costume Management</p>
 
-      <div className="flex justify-center gap-4">
-        <button onClick={()=>setTab('issue')} className="btn-resort">Issue</button>
-        <button onClick={()=>setTab('return')} className="btn-resort">Return</button>
-        <button onClick={()=>setTab('summary')} className="btn-resort">Summary</button>
-      </div>
+      <div className="bg-white/10 border border-white/20 rounded-3xl p-8 w-full max-w-5xl shadow-xl space-y-6">
 
-      <div className="bg-white/10 p-8 rounded-2xl">
+        <div className="grid md:grid-cols-2 gap-4">
+          <input placeholder="Guest Name" className="input-premium" value={guestName} onChange={e => setGuestName(e.target.value)} />
+          <input placeholder="Mobile Number" className="input-premium" value={guestMobile} onChange={e => setGuestMobile(e.target.value)} />
+        </div>
 
-        {tab==='issue' && (
-          <div className="space-y-4">
+        <div className="flex gap-4">
+          <button onClick={() => setShift('morning')} className={`btn-premium ${shift === 'morning' && 'bg-emerald-500'}`}>Morning</button>
+          <button onClick={() => setShift('evening')} className={`btn-premium ${shift === 'evening' && 'bg-emerald-500'}`}>Evening</button>
+        </div>
 
-            <input placeholder="Guest Name" className="input-premium" value={guestName} onChange={e=>setGuestName(e.target.value)} />
-            <input placeholder="Guest Mobile" className="input-premium" value={guestMobile} onChange={e=>setGuestMobile(e.target.value)} />
+        <div>
+          <p className="font-bold mb-2">Male Lockers</p>
+          <div className="grid grid-cols-10 gap-2">{renderLockers('male')}</div>
+        </div>
 
-            <input placeholder="Male Locker Numbers (1,5,9)" className="input-premium" value={maleLockerText} onChange={e=>setMaleLockerText(e.target.value)} />
-            <input placeholder="Female Locker Numbers (2,6,10)" className="input-premium" value={femaleLockerText} onChange={e=>setFemaleLockerText(e.target.value)} />
+        <div>
+          <p className="font-bold mb-2">Female Lockers</p>
+          <div className="grid grid-cols-10 gap-2">{renderLockers('female')}</div>
+        </div>
 
-            <input type="number" placeholder="Male Costumes Qty" className="input-premium" value={maleCostume} onChange={e=>setMaleCostume(+e.target.value)} />
-            <input type="number" placeholder="Female Costumes Qty" className="input-premium" value={femaleCostume} onChange={e=>setFemaleCostume(+e.target.value)} />
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-xs uppercase tracking-widest font-bold text-white/70">Male Costumes (Qty)</label>
+            <input type="number" min={0} className="input-premium" value={maleCostumes} onChange={e => setMaleCostumes(+e.target.value)} />
+          </div>
 
-            <button className="btn-resort w-full" onClick={handleIssue}>Generate Receipt</button>
+          <div className="space-y-2">
+            <label className="text-xs uppercase tracking-widest font-bold text-white/70">Female Costumes (Qty)</label>
+            <input type="number" min={0} className="input-premium" value={femaleCostumes} onChange={e => setFemaleCostumes(+e.target.value)} />
+          </div>
+        </div>
 
+        <button onClick={generateReceipt} className="btn-resort w-full h-14">Generate Receipt</button>
+
+        {receipt && (
+          <div className="bg-white text-black rounded-2xl p-6 mt-6 space-y-1">
+            <h2 className="font-black text-xl mb-2">Receipt {receipt.receiptNo}</h2>
+            <p><b>Guest:</b> {receipt.guestName} ({receipt.guestMobile})</p>
+            <p><b>Lockers:</b> {receipt.maleLockers.length + receipt.femaleLockers.length}</p>
+            <p><b>Male Costumes:</b> {receipt.maleCostumes}</p>
+            <p><b>Female Costumes:</b> {receipt.femaleCostumes}</p>
+            <p><b>Rent:</b> ₹{receipt.rentAmount}</p>
+            <p><b>Security:</b> ₹{receipt.securityDeposit}</p>
+            <p className="font-bold"><b>Total Collected:</b> ₹{receipt.totalCollected}</p>
+            <p className="text-emerald-600 font-bold"><b>Refundable:</b> ₹{receipt.refundableAmount}</p>
+
+            <button onClick={() => window.print()} className="btn-premium mt-4 w-full">
+              Print Receipt
+            </button>
           </div>
         )}
-
-        {tab==='return' && <ReturnPanel/>}
-        {tab==='summary' && <SummaryPanel/>}
 
       </div>
     </div>
