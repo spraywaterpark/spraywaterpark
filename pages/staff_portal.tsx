@@ -97,10 +97,36 @@ const StaffPortal: React.FC = () => {
           <div className="grid grid-cols-10 gap-2">{renderLockers('female')}</div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4">
-          <input type="number" placeholder="Male Costumes" className="input-premium" value={maleCostumes} onChange={e => setMaleCostumes(+e.target.value)} />
-          <input type="number" placeholder="Female Costumes" className="input-premium" value={femaleCostumes} onChange={e => setFemaleCostumes(+e.target.value)} />
-        </div>
+      <div className="grid md:grid-cols-2 gap-4">
+
+  <div className="space-y-2">
+    <label className="text-xs uppercase tracking-widest font-bold text-white/70">
+      Male Costumes (Qty)
+    </label>
+    <input
+      type="number"
+      min={0}
+      className="input-premium"
+      value={maleCostumes}
+      onChange={e => setMaleCostumes(+e.target.value)}
+    />
+  </div>
+
+  <div className="space-y-2">
+    <label className="text-xs uppercase tracking-widest font-bold text-white/70">
+      Female Costumes (Qty)
+    </label>
+    <input
+      type="number"
+      min={0}
+      className="input-premium"
+      value={femaleCostumes}
+      onChange={e => setFemaleCostumes(+e.target.value)}
+    />
+  </div>
+
+</div>
+
 
         <button onClick={generateReceipt} className="btn-resort w-full h-14">Generate Receipt</button>
 
