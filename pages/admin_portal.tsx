@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Booking, AdminSettings, BlockedSlot } from '../types';
-import { cloudSync } from '../services/cloud_sync';
-import { TIME_SLOTS, MASTER_SYNC_ID } from '../constants';
+import { TIME_SLOTS } from '../constants';
 
 interface AdminPanelProps {
   bookings: Booking[];
@@ -12,14 +11,11 @@ interface AdminPanelProps {
   onLogout: () => void;
 }
 
-const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings, syncId, onLogout }) => {
+const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings }) => {
 
   const [activeTab, setActiveTab] = useState<'bookings' | 'settings'>('bookings');
-  const [viewMode, setViewMode] = useState<'sales_today' | 'visit_today' | 'all'>('sales_today');
+  const [viewMode, setViewMode] = useState<'today' | 'all'>('today');
   const [draft, setDraft] = useState<AdminSettings>(settings);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<string>(new Date().toLocaleTimeString());
 
   const [blkDate, setBlkDate] = useState('');
   const [blkSlot, setBlkSlot] = useState(TIME_SLOTS[0]);
@@ -28,141 +24,129 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     setDraft(settings);
   }, [settings]);
 
-  useEffect(() => setLastUpdated(new Date().toLocaleTimeString()), [bookings]);
-
-  const today = new Date();
-  const todayISO = today.toISOString().split('T')[0];
-  const todayLocale = today.toLocaleDateString("en-IN");
+  const today = new Date().toISOString().split('T')[0];
 
   const filteredBookings = useMemo(() => {
-    let list = [...bookings];
-    if (viewMode === 'sales_today') {
-      return list.filter(b => b.createdAt.includes(todayLocale) || b.createdAt.startsWith(todayISO));
+    if (viewMode === 'today') {
+      return bookings.filter(b => b.date === today);
     }
-    if (viewMode === 'visit_today') {
-      return list.filter(b => b.date === todayISO);
-    }
-    return list;
-  }, [bookings, viewMode, todayLocale, todayISO]);
+    return bookings;
+  }, [bookings, viewMode, today]);
 
-  const stats = useMemo(() => ({
-    revenue: filteredBookings.reduce((s, b) => s + b.totalAmount, 0),
-    adults: filteredBookings.reduce((s, b) => s + b.adults, 0),
-    kids: filteredBookings.reduce((s, b) => s + b.kids, 0),
-    tickets: filteredBookings.length
-  }), [filteredBookings]);
-
-  const manualRefresh = async () => {
-    setIsSyncing(true);
-    try {
-      await cloudSync.fetchData(syncId || MASTER_SYNC_ID);
-      await cloudSync.fetchSettings();
-      setLastUpdated(new Date().toLocaleTimeString());
-    } finally {
-      setIsSyncing(false);
-    }
-  };
+  const revenue = filteredBookings.reduce((s, b) => s + b.totalAmount, 0);
 
   const addBlackout = () => {
-    if (!blkDate) return alert("Select a date");
+    if (!blkDate) return alert("Select date");
 
-    const newSlot: BlockedSlot = { date: blkDate, slot: blkSlot };
-    const currentBlocked = draft.blockedSlots || [];
+    const exists = draft.blockedSlots.some(
+      b => b.date === blkDate && (b.shift === blkSlot || b.shift === 'all')
+    );
 
-    if (currentBlocked.some(s => s.date === blkDate && (s.slot === blkSlot || s.slot === 'Full Day'))) {
-      return alert("This slot or full day is already blocked.");
-    }
+    if (exists) return alert("Already blocked");
 
-    setDraft({ ...draft, blockedSlots: [...currentBlocked, newSlot] });
+    setDraft({
+      ...draft,
+      blockedSlots: [...draft.blockedSlots, { date: blkDate, shift: blkSlot }]
+    });
   };
 
-  const addFullDayBlackout = () => {
-    if (!blkDate) return alert("Select a date");
-
-    const currentBlocked = draft.blockedSlots || [];
-    const updatedSlots = currentBlocked.filter(s => s.date !== blkDate);
-
-    setDraft({ ...draft, blockedSlots: [...updatedSlots, { date: blkDate, slot: 'Full Day' }] });
-  };
-
-  const removeBlackout = (index: number) => {
-    const updated = (draft.blockedSlots || []).filter((_, i) => i !== index);
+  const removeBlackout = (i: number) => {
+    const updated = [...draft.blockedSlots];
+    updated.splice(i, 1);
     setDraft({ ...draft, blockedSlots: updated });
   };
 
-  const handleSaveSettings = async () => {
-    setIsSaving(true);
-    try {
-      await onUpdateSettings(draft);
-      await cloudSync.updateSettings(draft);  // 🧠 Critical fix
-      setActiveTab('bookings');
-    } finally {
-      setIsSaving(false);
-    }
+  const saveSettings = () => {
+    onUpdateSettings(draft);
+    setActiveTab('bookings');
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-10">
+    <div className="max-w-7xl mx-auto px-6 py-10 space-y-10 text-white">
 
-      {/* HEADER */}
-      <div className="bg-[#1B2559] text-white p-6 sm:p-10 rounded-3xl shadow-xl flex flex-col lg:flex-row justify-between items-center gap-6">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.4em] opacity-70 flex items-center gap-2">
-            Live Sales Dashboard
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          </p>
-          <h2 className="text-3xl sm:text-5xl font-black mt-2">₹{stats.revenue.toLocaleString()}</h2>
-          <p className="text-blue-200 text-sm font-bold mt-1">
-            {viewMode === 'sales_today' ? "Today's Revenue" : viewMode === 'visit_today' ? "Revenue for Visitors Today" : "Total Revenue"}
-          </p>
+      {/* TOP BAR */}
+      <div className="flex justify-between items-center">
+        <h1 className="text-4xl font-black">ADMIN PANEL</h1>
+        <div className="flex gap-3">
+          <button onClick={() => setActiveTab('bookings')} className={`btn-premium ${activeTab==='bookings' && 'bg-emerald-500'}`}>Bookings</button>
+          <button onClick={() => setActiveTab('settings')} className={`btn-premium ${activeTab==='settings' && 'bg-emerald-500'}`}>Settings</button>
         </div>
       </div>
 
-      {/* STATS */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Stat label="Total Tickets" value={stats.tickets} />
-        <Stat label="Adults" value={stats.adults} />
-        <Stat label="Kids" value={stats.kids} />
-        <Stat label="Last Sync" value={lastUpdated} />
-      </div>
+      {/* BOOKINGS */}
+      {activeTab === 'bookings' && (
+        <>
+          <div className="flex gap-3">
+            <button onClick={() => setViewMode('today')} className={`btn-premium ${viewMode==='today' && 'bg-emerald-500'}`}>Today</button>
+            <button onClick={() => setViewMode('all')} className={`btn-premium ${viewMode==='all' && 'bg-emerald-500'}`}>All</button>
+          </div>
 
-      {/* ACTIONS */}
-      <div className="flex flex-wrap justify-center gap-4">
-        <button onClick={manualRefresh} disabled={isSyncing} className="btn-resort !px-8 h-14 !bg-slate-800 disabled:opacity-50">
-          {isSyncing ? 'Refreshing...' : 'Refresh Cloud Data'}
-        </button>
+          <div className="bg-white text-black rounded-xl p-6">
+            <h2 className="font-black text-xl mb-3">Revenue: ₹{revenue}</h2>
 
-        <button onClick={() => setActiveTab('settings')} className="btn-resort !px-8 h-14">
-          Ticket & Blackout Settings
-        </button>
-      </div>
-
-      {/* SETTINGS MODAL */}
-      {activeTab === 'settings' && (
-        <Modal title="Ticket & Blackout Settings" onClose={() => setActiveTab('bookings')}>
-          {/* Modal content unchanged */}
-          {/* aapka existing content yahin rahega */}
-        </Modal>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th>Date</th><th>Name</th><th>Mobile</th><th>People</th><th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredBookings.map((b, i) => (
+                  <tr key={i} className="border-b">
+                    <td>{b.date}</td>
+                    <td>{b.name}</td>
+                    <td>{b.mobile}</td>
+                    <td>{b.adults + b.kids}</td>
+                    <td>₹{b.totalAmount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
+
+      {/* SETTINGS */}
+      {activeTab === 'settings' && (
+        <div className="bg-white text-black rounded-xl p-6 space-y-6">
+
+          <h2 className="font-black text-xl">Locker & Costume Settings</h2>
+
+          <div className="grid grid-cols-2 gap-4">
+            <input className="input-premium" placeholder="Locker Rent" value={draft.lockerRent} onChange={e => setDraft({...draft, lockerRent: +e.target.value})} />
+            <input className="input-premium" placeholder="Security Deposit" value={draft.securityDeposit} onChange={e => setDraft({...draft, securityDeposit: +e.target.value})} />
+            <input className="input-premium" placeholder="Male Costume Rent" value={draft.maleCostumeRent} onChange={e => setDraft({...draft, maleCostumeRent: +e.target.value})} />
+            <input className="input-premium" placeholder="Female Costume Rent" value={draft.femaleCostumeRent} onChange={e => setDraft({...draft, femaleCostumeRent: +e.target.value})} />
+          </div>
+
+          <h3 className="font-black">Blackout Dates</h3>
+
+          <div className="flex gap-3">
+            <input type="date" className="input-premium" value={blkDate} onChange={e => setBlkDate(e.target.value)} />
+            <select className="input-premium" value={blkSlot} onChange={e => setBlkSlot(e.target.value as any)}>
+              {TIME_SLOTS.map(t => <option key={t}>{t}</option>)}
+            </select>
+            <button onClick={addBlackout} className="btn-premium">Block</button>
+          </div>
+
+          <ul className="space-y-2">
+            {draft.blockedSlots.map((b, i) => (
+              <li key={i} className="flex justify-between bg-slate-100 p-3 rounded">
+                {b.date} — {b.shift}
+                <button onClick={() => removeBlackout(i)}>❌</button>
+              </li>
+            ))}
+          </ul>
+
+          <button onClick={saveSettings} className="btn-resort w-full h-14">
+            Save Settings
+          </button>
+
+        </div>
+      )}
+
     </div>
   );
 };
-
-const Stat = ({ label, value }: { label: string; value: any }) => (
-  <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 text-center">
-    <p className="text-[10px] uppercase text-slate-400 font-black tracking-[0.2em] mb-1">{label}</p>
-    <p className="text-2xl font-black text-[#1B2559]">{value}</p>
-  </div>
-);
-
-const Modal = ({ title, children, onClose }: { title: string; children: any; onClose: () => void }) => (
-  <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-6 z-[1000] no-print">
-    <div className="bg-white rounded-[2.5rem] p-10 md:p-14 w-full max-w-xl shadow-2xl relative">
-      <button onClick={onClose} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900">✕</button>
-      <h3 className="text-3xl font-black uppercase text-slate-900 mb-8">{title}</h3>
-      {children}
-    </div>
-  </div>
-);
 
 export default AdminPortal;
