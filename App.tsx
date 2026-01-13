@@ -6,7 +6,6 @@ import AdminPortal from './pages/admin_portal';
 import SecurePayment from './pages/secure_payment';
 import TicketHistory from './pages/ticket_history';
 import StaffPortal from './pages/staff_portal';
-import AdminLockerModule from './pages/admin_locker_module';   // 🧩 NEW
 import { AuthState, Booking, AdminSettings, UserRole, LockerIssue } from './types';
 import { DEFAULT_ADMIN_SETTINGS, MASTER_SYNC_ID } from './constants';
 import { cloudSync } from './services/cloud_sync';
@@ -137,9 +136,6 @@ const AppContent: React.FC = () => {
             <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={setSettings} syncId={syncId} onSyncSetup={setSyncId} /> : <Navigate to="/" />} />
 
             <Route path="/staff" element={auth.role === 'staff' ? <StaffPortal /> : <Navigate to="/" />} />
-
-            {/* 🧪 TEST ROUTE FOR LOCKER MODULE */}
-            <Route path="/admin-lockers-test" element={auth.role === 'admin' ? <AdminLockerModule /> : <Navigate to="/" />} />
 
             <Route path="*" element={<Navigate to="/" />} />
 
