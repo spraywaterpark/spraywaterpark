@@ -1,15 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
-
 import LoginGate from './pages/login_gate';
 import BookingGate from './pages/booking_gate';
 import AdminPortal from './pages/admin_portal';
 import SecurePayment from './pages/secure_payment';
 import TicketHistory from './pages/ticket_history';
 import StaffPortal from './pages/staff_portal';
-import AdminLockers from './pages/admin_lockers';
-
-import { AuthState, Booking, AdminSettings, UserRole } from './types';
+import { AuthState, Booking, AdminSettings, UserRole, LockerIssue } from './types';
 import { DEFAULT_ADMIN_SETTINGS, MASTER_SYNC_ID } from './constants';
 import { cloudSync } from './services/cloud_sync';
 
@@ -27,12 +24,18 @@ const AppContent: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [lockerIssues, setLockerIssues] = useState<LockerIssue[]>(() => {
+    const saved = localStorage.getItem('swp_locker_issues');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [settings, setSettings] = useState<AdminSettings>(() => {
     const saved = localStorage.getItem('swp_settings');
     const parsed = saved ? JSON.parse(saved) : DEFAULT_ADMIN_SETTINGS;
     return { ...DEFAULT_ADMIN_SETTINGS, ...parsed, blockedSlots: parsed.blockedSlots || [] };
   });
 
+  const [isSyncing, setIsSyncing] = useState(false);
   const [syncId, setSyncId] = useState<string>(() => localStorage.getItem('swp_sync_id') || MASTER_SYNC_ID);
 
   const bookingsRef = useRef<Booking[]>(bookings);
@@ -42,8 +45,10 @@ const AppContent: React.FC = () => {
   useEffect(() => { localStorage.setItem('swp_bookings', JSON.stringify(bookings)); }, [bookings]);
   useEffect(() => { localStorage.setItem('swp_settings', JSON.stringify(settings)); }, [settings]);
   useEffect(() => { localStorage.setItem('swp_sync_id', syncId); }, [syncId]);
+  useEffect(() => { localStorage.setItem('swp_locker_issues', JSON.stringify(lockerIssues)); }, [lockerIssues]);
 
   const performSync = async () => {
+    setIsSyncing(true);
     try {
       const remoteSettings = await cloudSync.fetchSettings();
       if (remoteSettings && JSON.stringify(settings) !== JSON.stringify(remoteSettings)) {
@@ -55,6 +60,7 @@ const AppContent: React.FC = () => {
         setBookings(remoteBookings);
       }
     } catch {}
+    setIsSyncing(false);
   };
 
   useEffect(() => {
@@ -83,9 +89,18 @@ const AppContent: React.FC = () => {
     if (syncId) await cloudSync.updateData(syncId, updated);
   };
 
+  const addLockerIssue = (issue: LockerIssue) => {
+    setLockerIssues(prev => [issue, ...prev]);
+  };
+
+  const closeLockerIssue = (receiptNo: string) => {
+    setLockerIssues(prev =>
+      prev.map(i => i.receiptNo === receiptNo ? { ...i, returnedAt: new Date().toISOString() } : i)
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-
       <header className="sticky top-0 z-[9999] w-full glass-header no-print">
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-20 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-2">
@@ -119,8 +134,6 @@ const AppContent: React.FC = () => {
             <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
 
             <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={setSettings} syncId={syncId} onSyncSetup={setSyncId} /> : <Navigate to="/" />} />
-
-            <Route path="/admin-lockers" element={auth.role === 'admin' ? <AdminLockers /> : <Navigate to="/" />} />
 
             <Route path="/staff" element={auth.role === 'staff' ? <StaffPortal /> : <Navigate to="/" />} />
 
