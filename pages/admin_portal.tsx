@@ -168,6 +168,16 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         <button onClick={() => setActiveTab('settings')} className="btn-resort !px-8 h-14">
            <i className="fas fa-cog mr-2 text-xs"></i> Rates & Blackout Dates
         </button>
+
+        <button
+  onClick={() => window.location.hash = '#/admin-lockers'}
+  className="btn-resort !px-8 h-14 !bg-emerald-600 hover:!bg-emerald-700"
+>
+  <i className="fas fa-box mr-2 text-xs"></i>
+  CO&LO LOGIN
+</button>
+
+      
       </div>
 
       {/* SETTINGS MODAL */}
