@@ -2,13 +2,11 @@ import React from 'react';
 
 const AdminLockers: React.FC = () => {
   return (
-    <div className="text-white text-center py-32 space-y-6">
-      <h1 className="text-4xl font-black">Locker & Costume Module</h1>
-      <p className="text-white/60">Module loaded successfully.</p>
-      <p className="text-sm text-white/40">Development starts here.</p>
+    <div className="bg-white rounded-3xl shadow-xl p-10 text-center">
+      <h2 className="text-3xl font-black text-slate-800 mb-4">CO&LO MODULE</h2>
+      <p className="text-slate-500">Locker & Costume system will be built here.</p>
     </div>
   );
 };
 
 export default AdminLockers;
-
