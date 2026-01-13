@@ -9,6 +9,8 @@ import StaffPortal from './pages/staff_portal';
 import { AuthState, Booking, AdminSettings, UserRole, LockerIssue } from './types';
 import { DEFAULT_ADMIN_SETTINGS, MASTER_SYNC_ID } from './constants';
 import { cloudSync } from './services/cloud_sync';
+import AdminLockers from './pages/admin_lockers';
+
 
 const AppContent: React.FC = () => {
   const navigate = useNavigate();
@@ -135,6 +137,8 @@ const AppContent: React.FC = () => {
 
             <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={setSettings} syncId={syncId} onSyncSetup={setSyncId} /> : <Navigate to="/" />} />
 
+            <Route path="/admin-lockers" element={auth.role === 'admin' ? <AdminLockers /> : <Navigate to="/" />} />
+            
             <Route path="/staff" element={auth.role === 'staff' ? <StaffPortal /> : <Navigate to="/" />} />
 
             <Route path="*" element={<Navigate to="/" />} />
