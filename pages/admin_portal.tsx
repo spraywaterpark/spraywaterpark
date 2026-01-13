@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Booking, AdminSettings, BlockedSlot } from '../types';
-import { TIME_SLOTS } from '../constants';
+import { Booking, AdminSettings, LockerReceipt } from '../types';
+import { cloudSync } from '../services/cloud_sync';
+import { TIME_SLOTS, MASTER_SYNC_ID } from '../constants';
 
 interface AdminPanelProps {
   bookings: Booking[];
@@ -11,136 +12,133 @@ interface AdminPanelProps {
   onLogout: () => void;
 }
 
-const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings }) => {
+const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings, syncId }) => {
 
-  const [activeTab, setActiveTab] = useState<'bookings' | 'settings'>('bookings');
-  const [viewMode, setViewMode] = useState<'today' | 'all'>('today');
+  const [activeTab, setActiveTab] = useState<'bookings' | 'settings' | 'lockers'>('bookings');
+  const [viewMode, setViewMode] = useState<'sales_today' | 'visit_today' | 'all'>('sales_today');
   const [draft, setDraft] = useState<AdminSettings>(settings);
 
-  const [blkDate, setBlkDate] = useState('');
-  const [blkSlot, setBlkSlot] = useState(TIME_SLOTS[0]);
+  const [lastUpdated, setLastUpdated] = useState<string>(new Date().toLocaleTimeString());
 
-  useEffect(() => {
-    setDraft(settings);
-  }, [settings]);
+  const receipts: LockerReceipt[] = JSON.parse(localStorage.getItem('swp_receipts') || '[]');
 
-  const today = new Date().toISOString().split('T')[0];
+  useEffect(() => setDraft(settings), [settings]);
+
+  /* ===============================
+     BOOKINGS
+  ================================ */
+
+  const today = new Date();
+  const todayISO = today.toISOString().split('T')[0];
 
   const filteredBookings = useMemo(() => {
-    if (viewMode === 'today') {
-      return bookings.filter(b => b.date === today);
-    }
+    if (viewMode === 'visit_today') return bookings.filter(b => b.date === todayISO);
+    if (viewMode === 'sales_today') return bookings.filter(b => b.createdAt.startsWith(todayISO));
     return bookings;
-  }, [bookings, viewMode, today]);
+  }, [bookings, viewMode, todayISO]);
 
-  const revenue = filteredBookings.reduce((s, b) => s + b.totalAmount, 0);
+  const stats = useMemo(() => ({
+    revenue: filteredBookings.reduce((s, b) => s + b.totalAmount, 0),
+    adults: filteredBookings.reduce((s, b) => s + b.adults, 0),
+    kids: filteredBookings.reduce((s, b) => s + b.kids, 0),
+    tickets: filteredBookings.length
+  }), [filteredBookings]);
 
-  const addBlackout = () => {
-    if (!blkDate) return alert("Select date");
+  /* ===============================
+     LOCKER STATS
+  ================================ */
 
-    const exists = draft.blockedSlots.some(
-      b => b.date === blkDate && (b.shift === blkSlot || b.shift === 'all')
-    );
+  const lockerStats = useMemo(() => {
+    const active = receipts.filter(r => r.status === 'issued');
+    const returned = receipts.filter(r => r.status === 'returned');
 
-    if (exists) return alert("Already blocked");
+    return {
+      totalReceipts: receipts.length,
+      activeIssues: active.length,
+      returnedToday: returned.filter(r => r.returnedAt?.startsWith(todayISO)).length,
+      rentCollected: receipts.reduce((s, r) => s + r.rentAmount, 0),
+      pendingRefunds: active.reduce((s, r) => s + r.refundableAmount, 0),
+    };
+  }, [receipts, todayISO]);
 
-    setDraft({
-      ...draft,
-      blockedSlots: [...draft.blockedSlots, { date: blkDate, shift: blkSlot }]
-    });
-  };
-
-  const removeBlackout = (i: number) => {
-    const updated = [...draft.blockedSlots];
-    updated.splice(i, 1);
-    setDraft({ ...draft, blockedSlots: updated });
-  };
-
-  const saveSettings = () => {
-    onUpdateSettings(draft);
-    setActiveTab('bookings');
-  };
+  /* ===============================
+     UI
+  ================================ */
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-10 space-y-10 text-white">
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-10">
 
-      {/* TOP BAR */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-4xl font-black">ADMIN PANEL</h1>
-        <div className="flex gap-3">
-          <button onClick={() => setActiveTab('bookings')} className={`btn-premium ${activeTab==='bookings' && 'bg-emerald-500'}`}>Bookings</button>
-          <button onClick={() => setActiveTab('settings')} className={`btn-premium ${activeTab==='settings' && 'bg-emerald-500'}`}>Settings</button>
-        </div>
+      {/* TABS */}
+      <div className="flex gap-3">
+        {['bookings','settings','lockers'].map(t => (
+          <button key={t} onClick={() => setActiveTab(t as any)}
+            className={`px-6 py-2 rounded-full text-xs font-black uppercase
+              ${activeTab===t?'bg-emerald-500 text-black':'bg-white/10 text-white/70'}`}>
+            {t}
+          </button>
+        ))}
       </div>
 
-      {/* BOOKINGS */}
+      {/* ================= BOOKINGS ================= */}
       {activeTab === 'bookings' && (
-        <>
-          <div className="flex gap-3">
-            <button onClick={() => setViewMode('today')} className={`btn-premium ${viewMode==='today' && 'bg-emerald-500'}`}>Today</button>
-            <button onClick={() => setViewMode('all')} className={`btn-premium ${viewMode==='all' && 'bg-emerald-500'}`}>All</button>
+        <div className="space-y-6">
+          <h2 className="text-white text-3xl font-black">Bookings</h2>
+          <div className="text-white">Revenue: ₹{stats.revenue}</div>
+        </div>
+      )}
+
+      {/* ================= SETTINGS ================= */}
+      {activeTab === 'settings' && (
+        <div className="space-y-6">
+          <h2 className="text-white text-3xl font-black">Settings</h2>
+          <button onClick={() => onUpdateSettings(draft)} className="btn-resort">Save Settings</button>
+        </div>
+      )}
+
+      {/* ================= LOCKERS DASHBOARD ================= */}
+      {activeTab === 'lockers' && (
+        <div className="space-y-10 text-white">
+
+          <h2 className="text-3xl font-black">Locker & Costume Control</h2>
+
+          {/* STAT CARDS */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <Card title="Total Receipts" value={lockerStats.totalReceipts} />
+            <Card title="Active Issues" value={lockerStats.activeIssues} />
+            <Card title="Returned Today" value={lockerStats.returnedToday} />
+            <Card title="Rent Collected" value={`₹${lockerStats.rentCollected}`} />
+            <Card title="Pending Refunds" value={`₹${lockerStats.pendingRefunds}`} />
           </div>
 
-          <div className="bg-white text-black rounded-xl p-6">
-            <h2 className="font-black text-xl mb-3">Revenue: ₹{revenue}</h2>
-
+          {/* RECEIPTS TABLE */}
+          <div className="bg-white text-black rounded-2xl overflow-hidden">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th>Date</th><th>Name</th><th>Mobile</th><th>People</th><th>Amount</th>
+              <thead className="bg-slate-100 text-xs uppercase">
+                <tr>
+                  <th className="p-3">Receipt</th>
+                  <th>Guest</th>
+                  <th>Lockers</th>
+                  <th>Costumes</th>
+                  <th>Rent</th>
+                  <th>Refund</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredBookings.map((b, i) => (
-                  <tr key={i} className="border-b">
-                    <td>{b.date}</td>
-                    <td>{b.name}</td>
-                    <td>{b.mobile}</td>
-                    <td>{b.adults + b.kids}</td>
-                    <td>₹{b.totalAmount}</td>
+                {receipts.map((r,i) => (
+                  <tr key={i} className="border-t text-center">
+                    <td className="p-2 font-bold">{r.receiptNo}</td>
+                    <td>{r.guestName}</td>
+                    <td>M:{r.maleLockers.length} F:{r.femaleLockers.length}</td>
+                    <td>M:{r.maleCostumes} F:{r.femaleCostumes}</td>
+                    <td>₹{r.rentAmount}</td>
+                    <td>₹{r.refundableAmount}</td>
+                    <td className={r.status==='issued'?'text-red-500':'text-emerald-600'}>{r.status}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </>
-      )}
-
-      {/* SETTINGS */}
-      {activeTab === 'settings' && (
-        <div className="bg-white text-black rounded-xl p-6 space-y-6">
-
-          <h2 className="font-black text-xl">Locker & Costume Settings</h2>
-
-          <div className="grid grid-cols-2 gap-4">
-            <input className="input-premium" placeholder="Locker Rent" value={draft.lockerRent} onChange={e => setDraft({...draft, lockerRent: +e.target.value})} />
-            <input className="input-premium" placeholder="Security Deposit" value={draft.securityDeposit} onChange={e => setDraft({...draft, securityDeposit: +e.target.value})} />
-            <input className="input-premium" placeholder="Male Costume Rent" value={draft.maleCostumeRent} onChange={e => setDraft({...draft, maleCostumeRent: +e.target.value})} />
-            <input className="input-premium" placeholder="Female Costume Rent" value={draft.femaleCostumeRent} onChange={e => setDraft({...draft, femaleCostumeRent: +e.target.value})} />
-          </div>
-
-          <h3 className="font-black">Blackout Dates</h3>
-
-          <div className="flex gap-3">
-            <input type="date" className="input-premium" value={blkDate} onChange={e => setBlkDate(e.target.value)} />
-            <select className="input-premium" value={blkSlot} onChange={e => setBlkSlot(e.target.value as any)}>
-              {TIME_SLOTS.map(t => <option key={t}>{t}</option>)}
-            </select>
-            <button onClick={addBlackout} className="btn-premium">Block</button>
-          </div>
-
-          <ul className="space-y-2">
-            {draft.blockedSlots.map((b, i) => (
-              <li key={i} className="flex justify-between bg-slate-100 p-3 rounded">
-                {b.date} — {b.shift}
-                <button onClick={() => removeBlackout(i)}>❌</button>
-              </li>
-            ))}
-          </ul>
-
-          <button onClick={saveSettings} className="btn-resort w-full h-14">
-            Save Settings
-          </button>
 
         </div>
       )}
@@ -148,5 +146,12 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     </div>
   );
 };
+
+const Card = ({title, value}:{title:string, value:any}) => (
+  <div className="bg-white/10 p-4 rounded-xl text-center">
+    <p className="text-xs uppercase text-white/60">{title}</p>
+    <p className="text-xl font-black">{value}</p>
+  </div>
+);
 
 export default AdminPortal;
