@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
+
 import LoginGate from './pages/login_gate';
 import BookingGate from './pages/booking_gate';
 import AdminPortal from './pages/admin_portal';
 import SecurePayment from './pages/secure_payment';
 import TicketHistory from './pages/ticket_history';
 import StaffPortal from './pages/staff_portal';
+import AdminLockers from './pages/admin_lockers';   // 🆕 NEW MODULE
+
 import { AuthState, Booking, AdminSettings, UserRole, LockerIssue } from './types';
 import { DEFAULT_ADMIN_SETTINGS, MASTER_SYNC_ID } from './constants';
 import { cloudSync } from './services/cloud_sync';
@@ -89,16 +92,6 @@ const AppContent: React.FC = () => {
     if (syncId) await cloudSync.updateData(syncId, updated);
   };
 
-  const addLockerIssue = (issue: LockerIssue) => {
-    setLockerIssues(prev => [issue, ...prev]);
-  };
-
-  const closeLockerIssue = (receiptNo: string) => {
-    setLockerIssues(prev =>
-      prev.map(i => i.receiptNo === receiptNo ? { ...i, returnedAt: new Date().toISOString() } : i)
-    );
-  };
-
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <header className="sticky top-0 z-[9999] w-full glass-header no-print">
@@ -134,6 +127,8 @@ const AppContent: React.FC = () => {
             <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
 
             <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={setSettings} syncId={syncId} onSyncSetup={setSyncId} /> : <Navigate to="/" />} />
+
+            <Route path="/admin-lockers" element={auth.role === 'admin' ? <AdminLockers /> : <Navigate to="/" />} />
 
             <Route path="/staff" element={auth.role === 'staff' ? <StaffPortal /> : <Navigate to="/" />} />
 
