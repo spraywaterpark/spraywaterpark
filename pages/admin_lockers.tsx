@@ -8,6 +8,8 @@ interface IssueEntry {
   locker: string;
   costumeQty: number;
   amount: number;
+  deposit: number;
+  refund: number;
   time: string;
   returned?: boolean;
 }
@@ -21,6 +23,8 @@ const AdminLockers: React.FC = () => {
   const [locker, setLocker] = useState('');
   const [costumeQty, setCostumeQty] = useState(0);
   const [amount, setAmount] = useState(0);
+  const [deposit, setDeposit] = useState(0);
+
   const [receipt, setReceipt] = useState<IssueEntry | null>(null);
 
   const [search, setSearch] = useState('');
@@ -44,6 +48,8 @@ const AdminLockers: React.FC = () => {
       locker,
       costumeQty,
       amount,
+      deposit,
+      refund: 0,
       time: new Date().toLocaleString(),
       returned: false
     };
@@ -58,11 +64,12 @@ const AdminLockers: React.FC = () => {
     setLocker('');
     setCostumeQty(0);
     setAmount(0);
+    setDeposit(0);
   };
 
   const markReturned = (no: string) => {
     const updated = records.map(r =>
-      r.receiptNo === no ? { ...r, returned: true } : r
+      r.receiptNo === no ? { ...r, returned: true, refund: r.deposit } : r
     );
     localStorage.setItem('co_lo_data', JSON.stringify(updated));
     setRecords(updated);
@@ -78,9 +85,7 @@ const AdminLockers: React.FC = () => {
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-black text-white">CO&LO MODULE</h2>
-        <div className="flex gap-3">
-          <button onClick={() => navigate('/admin')} className="btn-premium h-12 px-6">⬅ Go Back</button>
-        </div>
+        <button onClick={() => navigate('/admin')} className="btn-premium h-12 px-6">⬅ Go Back</button>
       </div>
 
       {/* ISSUE PANEL */}
@@ -93,6 +98,7 @@ const AdminLockers: React.FC = () => {
           <input className="input-premium w-full" placeholder="Locker No" value={locker} onChange={e=>setLocker(e.target.value)} />
           <input className="input-premium w-full" type="number" placeholder="Costume Quantity" value={costumeQty} onChange={e=>setCostumeQty(Number(e.target.value))} />
           <input className="input-premium w-full" type="number" placeholder="Amount ₹" value={amount} onChange={e=>setAmount(Number(e.target.value))} />
+          <input className="input-premium w-full" type="number" placeholder="Security Deposit ₹" value={deposit} onChange={e=>setDeposit(Number(e.target.value))} />
 
           <button onClick={generateReceipt} className="btn-resort w-full h-14 text-lg">
             Generate Receipt
@@ -107,6 +113,7 @@ const AdminLockers: React.FC = () => {
             <p>Locker: {receipt.locker}</p>
             <p>Costumes: {receipt.costumeQty}</p>
             <p>Amount: ₹{receipt.amount}</p>
+            <p>Deposit: ₹{receipt.deposit}</p>
             <p className="text-xs text-slate-500 mt-2">{receipt.time}</p>
           </div>
         )}
@@ -126,8 +133,9 @@ const AdminLockers: React.FC = () => {
                 <p className="text-sm">{r.name} | {r.mobile}</p>
                 <p className="text-xs text-slate-500">{r.time}</p>
               </div>
+
               {r.returned ? (
-                <span className="text-emerald-600 font-bold">Returned</span>
+                <span className="text-emerald-600 font-bold">Refund ₹{r.refund}</span>
               ) : (
                 <button onClick={() => markReturned(r.receiptNo)} className="bg-red-500 text-white px-4 py-2 rounded-lg">
                   Mark Return
