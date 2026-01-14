@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { LockerReceipt, ShiftType } from '../types';
 
+const LOCKER_API_URL = "https://script.google.com/macros/s/AKfycbwbZl5aaELVZLFNAz3Oo7fBHXXJWddNw699MOgyxNwZIrAxOCBNc6KT21J5ST4JLpFvKw/exec";
+
 const StaffPortal: React.FC = () => {
 
   const [mode, setMode] = useState<'issue' | 'return'>('issue');
@@ -41,12 +43,26 @@ const StaffPortal: React.FC = () => {
     return `SWP-${yy}${mm}${dd}-${String(count).padStart(4, '0')}`;
   };
 
-  const saveReceipt = (data: LockerReceipt) => {
-    const all: LockerReceipt[] = JSON.parse(localStorage.getItem('swp_receipts') || '[]');
-    all.unshift(data);
-    localStorage.setItem('swp_receipts', JSON.stringify(all));
-  };
 
+  
+const saveReceipt = async (data: LockerReceipt) => {
+  try {
+    await fetch(LOCKER_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+  } catch (err) {
+    console.error("Sheet save failed", err);
+  }
+
+  const all: LockerReceipt[] = JSON.parse(localStorage.getItem('swp_receipts') || '[]');
+  all.unshift(data);
+  localStorage.setItem('swp_receipts', JSON.stringify(all));
+};
+
+
+  
   const resetForm = () => {
     setGuestName('');
     setGuestMobile('');
