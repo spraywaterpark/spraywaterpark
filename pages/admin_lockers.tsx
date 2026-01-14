@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const AdminLockers: React.FC = () => {
   const [tab, setTab] = useState<'issue' | 'return' | 'stock' | 'reports'>('issue');
+  const navigate = useNavigate();
 
   return (
     <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-xl p-10 space-y-8">
@@ -12,12 +14,22 @@ const AdminLockers: React.FC = () => {
         <p className="text-slate-500 text-sm mt-1">Locker & Costume Control Panel</p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex justify-center gap-4 flex-wrap">
+      {/* Tabs + Go Back */}
+      <div className="flex justify-center gap-3 flex-wrap">
+
         <TabButton label="Issue" active={tab === 'issue'} onClick={() => setTab('issue')} />
         <TabButton label="Return" active={tab === 'return'} onClick={() => setTab('return')} />
         <TabButton label="Stock" active={tab === 'stock'} onClick={() => setTab('stock')} />
         <TabButton label="Reports" active={tab === 'reports'} onClick={() => setTab('reports')} />
+
+        {/* GO BACK */}
+        <button
+          onClick={() => navigate('/admin')}
+          className="px-6 py-3 rounded-xl font-bold text-sm border border-slate-400 text-slate-700 bg-slate-100 hover:bg-slate-200 transition-all"
+        >
+          ⬅ Go Back
+        </button>
+
       </div>
 
       {/* Content Area */}
