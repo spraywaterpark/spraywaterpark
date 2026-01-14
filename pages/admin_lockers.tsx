@@ -1,90 +1,86 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+
+interface IssueEntry {
+  receiptNo: string;
+  name: string;
+  mobile: string;
+  locker: string;
+  costumeQty: number;
+  amount: number;
+  time: string;
+}
 
 const AdminLockers: React.FC = () => {
-  const [tab, setTab] = useState<'issue' | 'return' | 'stock' | 'reports'>('issue');
-  const navigate = useNavigate();
+
+  const [name, setName] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [locker, setLocker] = useState('');
+  const [costumeQty, setCostumeQty] = useState(0);
+  const [amount, setAmount] = useState(0);
+  const [receipt, setReceipt] = useState<IssueEntry | null>(null);
+
+  const generateReceipt = () => {
+    if (!name || !mobile || !locker || amount <= 0) {
+      alert("Fill all fields");
+      return;
+    }
+
+    const entry: IssueEntry = {
+      receiptNo: "R" + Date.now(),
+      name,
+      mobile,
+      locker,
+      costumeQty,
+      amount,
+      time: new Date().toLocaleString()
+    };
+
+    const all = JSON.parse(localStorage.getItem('co_lo_data') || '[]');
+    localStorage.setItem('co_lo_data', JSON.stringify([entry, ...all]));
+
+    setReceipt(entry);
+
+    setName('');
+    setMobile('');
+    setLocker('');
+    setCostumeQty(0);
+    setAmount(0);
+  };
 
   return (
-    <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-xl p-10 space-y-8">
+    <div className="bg-white rounded-3xl shadow-xl p-10 max-w-xl mx-auto">
 
-      {/* Header */}
-      <div className="text-center">
-        <h2 className="text-3xl font-black text-slate-800">CO & LO MANAGEMENT</h2>
-        <p className="text-slate-500 text-sm mt-1">Locker & Costume Control Panel</p>
-      </div>
+      <h2 className="text-3xl font-black mb-6 text-center">CO&LO — Issue Panel</h2>
 
-      {/* Tabs + Go Back */}
-      <div className="flex justify-center gap-3 flex-wrap">
+      <div className="space-y-4">
 
-        <TabButton label="Issue" active={tab === 'issue'} onClick={() => setTab('issue')} />
-        <TabButton label="Return" active={tab === 'return'} onClick={() => setTab('return')} />
-        <TabButton label="Stock" active={tab === 'stock'} onClick={() => setTab('stock')} />
-        <TabButton label="Reports" active={tab === 'reports'} onClick={() => setTab('reports')} />
+        <input className="input-premium w-full" placeholder="Guest Name" value={name} onChange={e=>setName(e.target.value)} />
+        <input className="input-premium w-full" placeholder="Mobile Number" value={mobile} onChange={e=>setMobile(e.target.value)} />
+        <input className="input-premium w-full" placeholder="Locker No" value={locker} onChange={e=>setLocker(e.target.value)} />
 
-        {/* GO BACK */}
-        <button
-          onClick={() => navigate('/admin')}
-          className="px-6 py-3 rounded-xl font-bold text-sm border border-slate-400 text-slate-700 bg-slate-100 hover:bg-slate-200 transition-all"
-        >
-          ⬅ Go Back
+        <input className="input-premium w-full" type="number" placeholder="Costume Quantity" value={costumeQty} onChange={e=>setCostumeQty(Number(e.target.value))} />
+        <input className="input-premium w-full" type="number" placeholder="Amount ₹" value={amount} onChange={e=>setAmount(Number(e.target.value))} />
+
+        <button onClick={generateReceipt} className="btn-resort w-full h-14 text-lg">
+          Generate Receipt
         </button>
 
       </div>
 
-      {/* Content Area */}
-      <div className="bg-slate-50 rounded-2xl p-8 min-h-[250px] border border-slate-200">
+      {receipt && (
+        <div className="mt-8 p-6 border rounded-xl bg-slate-50 text-center">
+          <p className="font-black text-lg mb-2">Receipt Generated</p>
+          <p>Receipt No: <b>{receipt.receiptNo}</b></p>
+          <p>{receipt.name} | {receipt.mobile}</p>
+          <p>Locker: {receipt.locker}</p>
+          <p>Costumes: {receipt.costumeQty}</p>
+          <p>Amount: ₹{receipt.amount}</p>
+          <p className="text-xs text-slate-500 mt-2">{receipt.time}</p>
+        </div>
+      )}
 
-        {tab === 'issue' && (
-          <div className="text-center space-y-2">
-            <h3 className="font-black text-xl">Issue Panel</h3>
-            <p className="text-slate-500">Locker & costume issuing will be built here</p>
-          </div>
-        )}
-
-        {tab === 'return' && (
-          <div className="text-center space-y-2">
-            <h3 className="font-black text-xl">Return Panel</h3>
-            <p className="text-slate-500">Receipt based return system will be built here</p>
-          </div>
-        )}
-
-        {tab === 'stock' && (
-          <div className="text-center space-y-2">
-            <h3 className="font-black text-xl">Stock Panel</h3>
-            <p className="text-slate-500">Live locker & costume stock status</p>
-          </div>
-        )}
-
-        {tab === 'reports' && (
-          <div className="text-center space-y-2">
-            <h3 className="font-black text-xl">Reports Panel</h3>
-            <p className="text-slate-500">Daily & summary reports</p>
-          </div>
-        )}
-
-      </div>
     </div>
   );
 };
-
-interface TabProps {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}
-
-const TabButton: React.FC<TabProps> = ({ label, active, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`px-6 py-3 rounded-xl font-bold text-sm transition-all border 
-      ${active
-        ? 'bg-emerald-500 text-white border-emerald-500 shadow'
-        : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-100'
-      }`}
-  >
-    {label}
-  </button>
-);
 
 export default AdminLockers;
