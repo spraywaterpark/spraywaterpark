@@ -44,24 +44,29 @@ const StaffPortal: React.FC = () => {
   };
 
 
-  
-  const saveReceipt = (data: LockerReceipt) => {
-    const all: LockerReceipt[] = JSON.parse(localStorage.getItem('swp_receipts') || '[]');
-    all.unshift(data);
-    localStorage.setItem('swp_receipts', JSON.stringify(all));
-  };
 
   
 
+  const saveReceipt = async (data: LockerReceipt) => {
+  try {
+    await fetch(LOCKER_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+  } catch (err) {
+    console.error("Sheet save failed", err);
+  }
 
-
-
-
-  
   const all: LockerReceipt[] = JSON.parse(localStorage.getItem('swp_receipts') || '[]');
   all.unshift(data);
   localStorage.setItem('swp_receipts', JSON.stringify(all));
 };
+
+
+
+
+
 
 
   
