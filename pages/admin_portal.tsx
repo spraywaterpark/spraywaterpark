@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Booking, AdminSettings, BlockedSlot } from '../types';
+import { Booking, AdminSettings, BlockedSlot, ShiftType } from '../types';
 import { cloudSync } from '../services/cloud_sync';
 import { TIME_SLOTS, MASTER_SYNC_ID } from '../constants';
 
@@ -65,22 +65,25 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     }
   };
 
+  // Fixed shift property name and logic
   const addBlackout = () => {
     if (!blkDate) return alert("Select a date");
-    const newSlot: BlockedSlot = { date: blkDate, slot: blkSlot };
+    const currentShift = blkSlot.toLowerCase().includes('morning') ? 'morning' : 'evening';
+    const newSlot: BlockedSlot = { date: blkDate, shift: currentShift as ShiftType };
     const currentBlocked = draft.blockedSlots || [];
 
-    if (currentBlocked.some(s => s.date === blkDate && (s.slot === blkSlot || s.slot === 'Full Day'))) {
+    if (currentBlocked.some(s => s.date === blkDate && (s.shift === currentShift || s.shift === 'all'))) {
         return alert("This slot or full day is already blocked.");
     }
     setDraft({ ...draft, blockedSlots: [...currentBlocked, newSlot] });
   };
 
+  // Fixed full day shift type
   const addFullDayBlackout = () => {
     if (!blkDate) return alert("Select a date");
     const currentBlocked = draft.blockedSlots || [];
     const updatedSlots = currentBlocked.filter(s => s.date !== blkDate);
-    setDraft({ ...draft, blockedSlots: [...updatedSlots, { date: blkDate, slot: 'Full Day' }] });
+    setDraft({ ...draft, blockedSlots: [...updatedSlots, { date: blkDate, shift: 'all' }] });
   };
 
   const removeBlackout = (index: number) => {
@@ -239,7 +242,8 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                       <div key={i} className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200">
                         <div>
                           <p className="text-sm font-black text-slate-900 uppercase">{bs.date}</p>
-                          <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest">{bs.slot.split(':')[0]}</p>
+                          {/* Updated display to use shift property */}
+                          <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest">{bs.shift}</p>
                         </div>
                         <button onClick={() => removeBlackout(i)} className="w-10 h-10 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"><i className="fas fa-trash-alt text-xs"></i></button>
                       </div>
