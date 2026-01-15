@@ -44,7 +44,7 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
     const user = data.loginId.trim();
     const pass = data.password.trim();
 
-    // Requested Credentials: admin/123 and staff/123
+    // Updated Credentials: admin/123 and staff/123
     if (user === 'admin' && pass === '123') {
       onAdminLogin(user, 'admin');
       navigate('/admin');
