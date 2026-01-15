@@ -2,13 +2,11 @@
 import { google } from "googleapis";
 
 export default async function handler(req: any, res: any) {
-  // Prevent caching at the API level
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
   if (!process.env.GOOGLE_CREDENTIALS || !process.env.SHEET_ID) {
-    console.error("CRITICAL: Missing Sheets Config");
     return res.status(500).json({ error: "Server Configuration Error" });
   }
 
@@ -18,10 +16,102 @@ export default async function handler(req: any, res: any) {
   });
 
   const sheets = google.sheets({ version: "v4", auth });
-  const isSettingsRequest = req.query.type === 'settings';
+  const type = req.query.type;
 
-  // Handle SETTINGS Sync
-  if (isSettingsRequest) {
+  // --- RENTALS / LOCKERS SYNC ---
+  if (type === 'rentals') {
+    if (req.method === "GET") {
+      try {
+        const response = await sheets.spreadsheets.values.get({
+          spreadsheetId: process.env.SHEET_ID,
+          range: "Lockers!A2:P2000",
+        });
+        const rows = response.data.values || [];
+        const rentals = rows.map((row: any) => ({
+          receiptNo: row[0],
+          guestName: row[1],
+          guestMobile: row[2],
+          date: row[3],
+          shift: row[4],
+          maleLockers: row[5] ? JSON.parse(row[5]) : [],
+          femaleLockers: row[6] ? JSON.parse(row[6]) : [],
+          maleCostumes: parseInt(row[7]) || 0,
+          femaleCostumes: parseInt(row[8]) || 0,
+          rentAmount: parseInt(row[9]) || 0,
+          securityDeposit: parseInt(row[10]) || 0,
+          totalCollected: parseInt(row[11]) || 0,
+          refundableAmount: parseInt(row[12]) || 0,
+          status: row[13] || 'issued',
+          createdAt: row[14],
+          returnedAt: row[15] || null
+        })).reverse();
+        return res.status(200).json(rentals);
+      } catch (error: any) {
+        return res.status(500).json({ error: error.message });
+      }
+    }
+
+    if (req.method === "POST") {
+      const rental = req.body;
+      const isUpdate = req.query.action === 'update';
+
+      try {
+        if (isUpdate) {
+          // Handle Return Status Update
+          const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: process.env.SHEET_ID,
+            range: "Lockers!A:A",
+          });
+          const rows = response.data.values || [];
+          const rowIndex = rows.findIndex(row => row[0] === rental.receiptNo);
+          
+          if (rowIndex !== -1) {
+            const sheetRow = rowIndex + 1;
+            await sheets.spreadsheets.values.update({
+              spreadsheetId: process.env.SHEET_ID,
+              range: `Lockers!N${sheetRow}:P${sheetRow}`,
+              valueInputOption: "USER_ENTERED",
+              requestBody: { values: [[rental.status, rental.createdAt, rental.returnedAt]] }
+            });
+            return res.status(200).json({ success: true });
+          }
+          return res.status(404).json({ error: "Receipt not found" });
+        } else {
+          // New Issue
+          const values = [[
+            rental.receiptNo,
+            rental.guestName,
+            rental.guestMobile,
+            rental.date,
+            rental.shift,
+            JSON.stringify(rental.maleLockers),
+            JSON.stringify(rental.femaleLockers),
+            rental.maleCostumes,
+            rental.femaleCostumes,
+            rental.rentAmount,
+            rental.securityDeposit,
+            rental.totalCollected,
+            rental.refundableAmount,
+            rental.status,
+            rental.createdAt,
+            ""
+          ]];
+          await sheets.spreadsheets.values.append({
+            spreadsheetId: process.env.SHEET_ID,
+            range: "Lockers!A:P",
+            valueInputOption: "USER_ENTERED",
+            requestBody: { values }
+          });
+          return res.status(200).json({ success: true });
+        }
+      } catch (error: any) {
+        return res.status(500).json({ error: error.message });
+      }
+    }
+  }
+
+  // --- SETTINGS SYNC ---
+  if (type === 'settings') {
     if (req.method === "GET") {
       try {
         const response = await sheets.spreadsheets.values.get({
@@ -34,30 +124,28 @@ export default async function handler(req: any, res: any) {
         return res.status(200).json(null);
       }
     }
-
     if (req.method === "POST") {
       try {
         const settingsJson = JSON.stringify(req.body);
-        const values = [[settingsJson]];
         await sheets.spreadsheets.values.update({
           spreadsheetId: process.env.SHEET_ID,
           range: "Settings!A1",
           valueInputOption: "USER_ENTERED",
-          requestBody: { values }
+          requestBody: { values: [[settingsJson]] }
         });
         return res.status(200).json({ success: true });
       } catch (error: any) {
-        return res.status(500).json({ error: "Cloud Sync Failed", message: error.message });
+        return res.status(500).json({ error: error.message });
       }
     }
   }
 
-  // Handle BOOKINGS Sync
+  // --- BOOKINGS SYNC ---
   if (req.method === "GET") {
     try {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId: process.env.SHEET_ID,
-        range: "A2:J1000", 
+        range: "Sheet1!A2:J1000", 
       });
       const rows = response.data.values || [];
       const bookings = rows.map((row: any, index: number) => ({
@@ -74,58 +162,24 @@ export default async function handler(req: any, res: any) {
       })).reverse();
       return res.status(200).json(bookings);
     } catch (error: any) {
-      return res.status(500).json({ error: "Failed to fetch bookings", details: error.message });
+      return res.status(500).json({ error: error.message });
     }
   }
 
   if (req.method === "POST") {
     const { name, mobile, adults, kids, amount, date, time } = req.body;
-
     try {
-      // --- SERVER SIDE SECURITY CHECK ---
-      const settingsResponse = await sheets.spreadsheets.values.get({
-        spreadsheetId: process.env.SHEET_ID,
-        range: "Settings!A1",
-      });
-      const settingsData = settingsResponse.data.values?.[0]?.[0];
-      if (settingsData) {
-        const currentSettings = JSON.parse(settingsData);
-        const isBlocked = (currentSettings.blockedSlots || []).some((bs: any) => 
-          bs.date === date && (bs.slot === time || bs.slot === 'Full Day')
-        );
-
-        if (isBlocked) {
-          console.error(`BLOCKED BOOKING ATTEMPT: ${date} ${time}`);
-          return res.status(403).json({ 
-            error: "DATE_BLOCKED", 
-            message: "We apologize, but the requested date and time slot have reached full capacity. Please select an alternative day or session for your reservation." 
-          });
-        }
-      }
-      // --- END SECURITY CHECK ---
-
       const timestamp = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-      const values = [[
-        timestamp, 
-        name || "Guest", 
-        mobile || "N/A", 
-        adults || 0, 
-        kids || 0,
-        (adults || 0) + (kids || 0), 
-        amount || 0, 
-        date || "N/A", 
-        time || "N/A", 
-        "PAID"
-      ]];
+      const values = [[timestamp, name, mobile, adults, kids, (adults + kids), amount, date, time, "PAID"]];
       await sheets.spreadsheets.values.append({
         spreadsheetId: process.env.SHEET_ID,
-        range: "A:J",
+        range: "Sheet1!A:J",
         valueInputOption: "USER_ENTERED",
         requestBody: { values }
       });
       return res.status(200).json({ success: true });
     } catch (error: any) {
-      return res.status(500).json({ error: "Failed to log booking", details: error.message });
+      return res.status(500).json({ error: error.message });
     }
   }
 
