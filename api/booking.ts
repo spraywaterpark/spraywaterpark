@@ -77,8 +77,7 @@ export default async function handler(req: any, res: any) {
           return res.status(404).json({ error: "Receipt not found" });
         } 
         else if (action === 'checkout') {
-          // NEW: Shift Checkout Logic
-          // Find all rows where status is 'issued' and set to 'returned'
+          // 1. Bulk return all issued items
           const response = await sheets.spreadsheets.values.get({
             spreadsheetId: process.env.SHEET_ID,
             range: "Lockers!A:N",
@@ -105,10 +104,28 @@ export default async function handler(req: any, res: any) {
               }
             });
           }
+
+          // 2. Update Settings to signal receipt reset to all clients
+          const settingsRes = await sheets.spreadsheets.values.get({
+            spreadsheetId: process.env.SHEET_ID,
+            range: "Settings!A1",
+          });
+          let settings = {};
+          try {
+            settings = JSON.parse(settingsRes.data.values?.[0]?.[0] || "{}");
+          } catch(e) {}
+          
+          const updatedSettings = { ...settings, lastShiftReset: timestamp };
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: process.env.SHEET_ID,
+            range: "Settings!A1",
+            valueInputOption: "USER_ENTERED",
+            requestBody: { values: [[JSON.stringify(updatedSettings)]] }
+          });
+
           return res.status(200).json({ success: true, count: updates.length });
         }
         else {
-          // New Issue
           const values = [[
             rental.receiptNo,
             rental.guestName,
