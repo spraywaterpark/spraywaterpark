@@ -77,7 +77,7 @@ export default async function handler(req: any, res: any) {
           return res.status(404).json({ error: "Receipt not found" });
         } 
         else if (action === 'checkout') {
-          // 1. Bulk return all issued items
+          // 1. Get all locker data to find 'issued' rows
           const response = await sheets.spreadsheets.values.get({
             spreadsheetId: process.env.SHEET_ID,
             range: "Lockers!A:N",
@@ -85,18 +85,18 @@ export default async function handler(req: any, res: any) {
           const rows = response.data.values || [];
           const timestamp = new Date().toISOString();
           
-          const updates = rows.map((row, index) => {
+          const updates: any[] = [];
+          rows.forEach((row, index) => {
             if (row[13] === 'issued') {
-              return {
+              updates.push({
                 range: `Lockers!N${index + 1}:P${index + 1}`,
-                values: [['returned', row[14], timestamp]]
-              };
+                values: [['returned', row[14] || timestamp, timestamp]]
+              });
             }
-            return null;
-          }).filter(u => u !== null);
+          });
 
           if (updates.length > 0) {
-            await sheets.spreadsheets.batchUpdate({
+            await sheets.spreadsheets.values.batchUpdate({
               spreadsheetId: process.env.SHEET_ID,
               requestBody: {
                 valueInputOption: 'USER_ENTERED',
@@ -105,7 +105,7 @@ export default async function handler(req: any, res: any) {
             });
           }
 
-          // 2. Update Settings to signal receipt reset to all clients
+          // 2. Update Settings to trigger receipt reset on all staff apps
           const settingsRes = await sheets.spreadsheets.values.get({
             spreadsheetId: process.env.SHEET_ID,
             range: "Settings!A1",
@@ -158,7 +158,7 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // --- SETTINGS SYNC ---
+  // Settings and Booking logic stays the same...
   if (type === 'settings') {
     if (req.method === "GET") {
       try {
@@ -188,7 +188,6 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // --- BOOKINGS SYNC ---
   if (req.method === "GET") {
     try {
       const response = await sheets.spreadsheets.values.get({
