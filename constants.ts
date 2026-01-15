@@ -1,3 +1,4 @@
+
 /* ===============================
    📜 TERMS & UI CONTENT
 ================================ */
@@ -62,7 +63,6 @@ export const MASTER_SYNC_ID = "1351141753443835904";
 
 /* ===============================
    🧾 STAFF: LOCKER & COSTUME RULES
-   (NEW — NO IMPACT ON EXISTING APP)
 ================================ */
 
 export const LOCKER_RULES = {
@@ -78,7 +78,7 @@ export const LOCKER_RULES = {
 
 export const COSTUME_RULES = {
   MALE_COSTUME_TOTAL: 100,
-  FEMALE_COSTUME_TOTAL: 300,
+  FEMALE_COSTUME_TOTAL: 200, // Updated from 300 to 200
 
   MALE_COSTUME_RENT: 50,
   MALE_COSTUME_DEPOSIT: 50,
