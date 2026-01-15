@@ -1,153 +1,110 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 
-interface IssueEntry {
-  receiptNo: string;
-  name: string;
-  mobile: string;
-  locker: string;
-  costumeQty: number;
-  amount: number;
-  deposit: number;
-  refund: number;
-  time: string;
-  returned?: boolean;
-}
+import React, { useState, useEffect, useMemo } from 'react';
+import { LockerReceipt } from '../types';
+import { cloudSync } from '../services/cloud_sync';
 
 const AdminLockers: React.FC = () => {
+  const [rentals, setRentals] = useState<LockerReceipt[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const navigate = useNavigate();
-
-  const [name, setName] = useState('');
-  const [mobile, setMobile] = useState('');
-  const [locker, setLocker] = useState('');
-  const [costumeQty, setCostumeQty] = useState(0);
-  const [amount, setAmount] = useState(0);
-  const [deposit, setDeposit] = useState(0);
-
-  const [receipt, setReceipt] = useState<IssueEntry | null>(null);
-
-  const [search, setSearch] = useState('');
-  const [records, setRecords] = useState<IssueEntry[]>([]);
+  const fetchLiveRentals = async () => {
+    setIsLoading(true);
+    const data = await cloudSync.fetchRentals();
+    if (data) setRentals(data);
+    setIsLoading(false);
+  };
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('co_lo_data') || '[]');
-    setRecords(saved);
+    fetchLiveRentals();
+    const interval = setInterval(fetchLiveRentals, 15000); // 15s live update
+    return () => clearInterval(interval);
   }, []);
 
-  const generateReceipt = () => {
-    if (!name || !mobile || !locker || amount <= 0) {
-      alert("Fill all fields");
-      return;
-    }
-
-    const entry: IssueEntry = {
-      receiptNo: "R" + Date.now(),
-      name,
-      mobile,
-      locker,
-      costumeQty,
-      amount,
-      deposit,
-      refund: 0,
-      time: new Date().toLocaleString(),
-      returned: false
+  const stats = useMemo(() => {
+    const active = rentals.filter(r => r.status === 'issued');
+    return {
+      activeCount: active.length,
+      securityHeld: active.reduce((s, r) => s + r.refundableAmount, 0),
+      maleBusy: active.flatMap(r => r.maleLockers).length,
+      femaleBusy: active.flatMap(r => r.femaleLockers).length,
     };
-
-    const updated = [entry, ...records];
-    localStorage.setItem('co_lo_data', JSON.stringify(updated));
-    setRecords(updated);
-    setReceipt(entry);
-
-    setName('');
-    setMobile('');
-    setLocker('');
-    setCostumeQty(0);
-    setAmount(0);
-    setDeposit(0);
-  };
-
-  const markReturned = (no: string) => {
-    const updated = records.map(r =>
-      r.receiptNo === no ? { ...r, returned: true, refund: r.deposit } : r
-    );
-    localStorage.setItem('co_lo_data', JSON.stringify(updated));
-    setRecords(updated);
-  };
-
-  const filtered = records.filter(r =>
-    r.receiptNo.includes(search) || r.mobile.includes(search)
-  );
+  }, [rentals]);
 
   return (
-    <div className="space-y-10">
-
-      {/* HEADER */}
+    <div className="p-8 glass-card rounded-3xl border border-white/10 space-y-10 animate-fade">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-black text-white">CO&LO MODULE</h2>
-        <button onClick={() => navigate('/admin')} className="btn-premium h-12 px-6">⬅ Go Back</button>
-      </div>
-
-      {/* ISSUE PANEL */}
-      <div className="bg-white rounded-3xl shadow-xl p-10 max-w-xl mx-auto">
-        <h3 className="text-2xl font-black mb-6 text-center">Issue Locker / Costume</h3>
-
-        <div className="space-y-4">
-          <input className="input-premium w-full" placeholder="Guest Name" value={name} onChange={e=>setName(e.target.value)} />
-          <input className="input-premium w-full" placeholder="Mobile Number" value={mobile} onChange={e=>setMobile(e.target.value)} />
-          <input className="input-premium w-full" placeholder="Locker No" value={locker} onChange={e=>setLocker(e.target.value)} />
-          <input className="input-premium w-full" type="number" placeholder="Costume Quantity" value={costumeQty} onChange={e=>setCostumeQty(Number(e.target.value))} />
-          <input className="input-premium w-full" type="number" placeholder="Amount ₹" value={amount} onChange={e=>setAmount(Number(e.target.value))} />
-          <input className="input-premium w-full" type="number" placeholder="Security Deposit ₹" value={deposit} onChange={e=>setDeposit(Number(e.target.value))} />
-
-          <button onClick={generateReceipt} className="btn-resort w-full h-14 text-lg">
-            Generate Receipt
-          </button>
+        <div>
+          <h2 className="text-2xl font-black text-white uppercase tracking-tight">Locker Management</h2>
+          <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.2em] mt-1">Live Asset Inventory Tracking</p>
         </div>
-
-        {receipt && (
-          <div className="mt-8 p-6 border rounded-xl bg-slate-50 text-center">
-            <p className="font-black text-lg mb-2">Receipt Generated</p>
-            <p>Receipt No: <b>{receipt.receiptNo}</b></p>
-            <p>{receipt.name} | {receipt.mobile}</p>
-            <p>Locker: {receipt.locker}</p>
-            <p>Costumes: {receipt.costumeQty}</p>
-            <p>Amount: ₹{receipt.amount}</p>
-            <p>Deposit: ₹{receipt.deposit}</p>
-            <p className="text-xs text-slate-500 mt-2">{receipt.time}</p>
-          </div>
-        )}
+        <button onClick={fetchLiveRentals} className="bg-white/10 px-6 py-3 rounded-xl text-[10px] font-black uppercase text-white hover:bg-white/20">
+          <i className={`fas fa-sync-alt mr-2 ${isLoading ? 'fa-spin' : ''}`}></i> Refresh
+        </button>
       </div>
 
-      {/* RETURN PANEL */}
-      <div className="bg-white rounded-3xl shadow-xl p-10">
-        <h3 className="text-xl font-black mb-4">Return & History</h3>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <SummaryItem label="Active Receipts" value={stats.activeCount} icon="fa-file-invoice" color="bg-blue-500" />
+        <SummaryItem label="Cash Security Held" value={`₹${stats.securityHeld}`} icon="fa-vault" color="bg-emerald-500" />
+        <SummaryItem label="Male Lockers Busy" value={`${stats.maleBusy}/60`} icon="fa-male" color="bg-indigo-500" />
+        <SummaryItem label="Female Lockers Busy" value={`${stats.femaleBusy}/60`} icon="fa-female" color="bg-pink-500" />
+      </div>
 
-        <input className="input-premium mb-4" placeholder="Search Receipt / Mobile" value={search} onChange={e=>setSearch(e.target.value)} />
-
-        <div className="space-y-2 max-h-[350px] overflow-y-auto">
-          {filtered.map(r => (
-            <div key={r.receiptNo} className="flex justify-between items-center border p-4 rounded-xl">
-              <div>
-                <p className="font-bold">{r.receiptNo}</p>
-                <p className="text-sm">{r.name} | {r.mobile}</p>
-                <p className="text-xs text-slate-500">{r.time}</p>
-              </div>
-
-              {r.returned ? (
-                <span className="text-emerald-600 font-bold">Refund ₹{r.refund}</span>
-              ) : (
-                <button onClick={() => markReturned(r.receiptNo)} className="bg-red-500 text-white px-4 py-2 rounded-lg">
-                  Mark Return
-                </button>
-              )}
-            </div>
-          ))}
+      {/* Table */}
+      <div className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full text-center">
+            <thead className="bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/40">
+              <tr>
+                <th className="p-5 text-left">Receipt</th>
+                <th>Guest</th>
+                <th>Assets</th>
+                <th>Deposit</th>
+                <th>Status</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody className="text-white/80 text-xs">
+              {rentals.length === 0 ? (
+                <tr><td colSpan={6} className="p-20 opacity-30 italic">No records found</td></tr>
+              ) : rentals.map((r, i) => (
+                <tr key={i} className="border-t border-white/5 hover:bg-white/5 transition-colors">
+                  <td className="p-5 text-left font-black">{r.receiptNo}</td>
+                  <td className="text-left py-4">
+                    <p className="font-bold">{r.guestName}</p>
+                    <p className="text-[9px] opacity-40">{r.guestMobile}</p>
+                  </td>
+                  <td className="font-bold">
+                    {r.maleLockers.length + r.femaleLockers.length > 0 && `L: ${[...r.maleLockers, ...r.femaleLockers].join(',')}`}
+                    {(r.maleCostumes + r.femaleCostumes > 0) && ` | C: ${r.maleCostumes + r.femaleCostumes}`}
+                  </td>
+                  <td className="font-black text-emerald-400">₹{r.securityDeposit}</td>
+                  <td>
+                    <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase ${r.status === 'issued' ? 'bg-amber-400 text-black' : 'bg-emerald-400 text-black'}`}>
+                      {r.status}
+                    </span>
+                  </td>
+                  <td className="text-[9px] opacity-50">{new Date(r.createdAt).toLocaleTimeString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
-
     </div>
   );
 };
+
+const SummaryItem = ({ label, value, icon, color }: any) => (
+  <div className="bg-white/5 p-6 rounded-2xl border border-white/10 flex items-center gap-5">
+    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white ${color} shadow-lg shadow-${color}/20`}>
+      <i className={`fas ${icon}`}></i>
+    </div>
+    <div>
+      <p className="text-[8px] font-black uppercase tracking-widest text-white/30">{label}</p>
+      <p className="text-xl font-black text-white">{value}</p>
+    </div>
+  </div>
+);
 
 export default AdminLockers;
