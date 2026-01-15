@@ -31,8 +31,10 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
       // 1. FINAL SECURITY SYNC: Pull latest settings from cloud just before payment
       const latestSettings = await cloudSync.fetchSettings();
       if (latestSettings) {
+        // Updated to use shift property
+        const currentShift = draft.time.toLowerCase().includes('morning') ? 'morning' : 'evening';
         const isBlocked = (latestSettings.blockedSlots || []).some(bs => 
-          bs.date === draft.date && (bs.slot === draft.time || bs.slot === 'Full Day')
+          bs.date === draft.date && (bs.shift === currentShift || bs.shift === 'all')
         );
 
         if (isBlocked) {
