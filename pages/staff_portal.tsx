@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { LockerReceipt, ShiftType } from '../types';
 
 const LOCKER_API_URL =
-  "https://script.google.com/macros/s/AKfycbwbZl5aaELVZLFNAz3Oo7fBHXXJWddNw699MOgyxNwZIrAxOCBNc6KT21J5ST4JLpFvKw/exec";
+  "https://script.google.com/macros/library/d/1ruDjMa6kPxwXKd27kAO-dOsVAuYhH0Jxu0d8yw7AFSKwiWygPsb45Fad/1";
 
 const StaffPortal: React.FC = () => {
 
