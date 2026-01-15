@@ -18,23 +18,19 @@ export default async function handler(req: any, res: any) {
   const sheets = google.sheets({ version: "v4", auth });
   const type = req.query.type;
 
-  // Helper function to safely parse numbers that Sheets might have converted to Dates
   const safeParseInt = (val: any) => {
     if (!val) return 0;
     const str = String(val).trim();
-    // If Sheets turned "2" into "1/2/1900" or "1900-01-02", parseInt might return 1900.
-    // We check if it looks like a date and extract the day part, or just handle clean numbers.
     if (str.includes('/') || str.includes('-')) {
       const date = new Date(str);
       if (!isNaN(date.getTime()) && date.getFullYear() <= 1901) {
-        return date.getDate(); // This gets the actual count (e.g. 2nd day of 1900)
+        return date.getDate();
       }
     }
     const num = parseInt(str);
     return isNaN(num) ? 0 : num;
   };
 
-  // --- RENTALS / LOCKERS SYNC ---
   if (type === 'rentals') {
     if (req.method === "GET") {
       try {
@@ -43,7 +39,6 @@ export default async function handler(req: any, res: any) {
           range: "Lockers!A2:P2000",
         });
         const rows = response.data.values || [];
-        
         const rentals = rows
           .filter(row => row && row[0] && row[0].toString().startsWith('SWP'))
           .map((row: any) => ({
@@ -73,7 +68,6 @@ export default async function handler(req: any, res: any) {
     if (req.method === "POST") {
       const rental = req.body;
       const action = req.query.action;
-
       try {
         if (action === 'update') {
           const response = await sheets.spreadsheets.values.get({
@@ -82,7 +76,6 @@ export default async function handler(req: any, res: any) {
           });
           const rows = response.data.values || [];
           const rowIndex = rows.findIndex(row => row[0] === rental.receiptNo);
-          
           if (rowIndex !== -1) {
             const sheetRow = rowIndex + 1;
             await sheets.spreadsheets.values.update({
@@ -102,7 +95,6 @@ export default async function handler(req: any, res: any) {
           });
           const rows = response.data.values || [];
           const timestamp = new Date().toISOString();
-          
           const updates: any[] = [];
           rows.forEach((row, index) => {
             if (row[13] === 'issued') {
@@ -112,7 +104,6 @@ export default async function handler(req: any, res: any) {
               });
             }
           });
-
           if (updates.length > 0) {
             await sheets.spreadsheets.values.batchUpdate({
               spreadsheetId: process.env.SHEET_ID,
@@ -122,24 +113,19 @@ export default async function handler(req: any, res: any) {
               }
             });
           }
-
           const settingsRes = await sheets.spreadsheets.values.get({
             spreadsheetId: process.env.SHEET_ID,
             range: "Settings!A1",
           });
           let settings = {};
-          try {
-            settings = JSON.parse(settingsRes.data.values?.[0]?.[0] || "{}");
-          } catch(e) {}
-          
+          try { settings = JSON.parse(settingsRes.data.values?.[0]?.[0] || "{}"); } catch(e) {}
           const updatedSettings = { ...settings, lastShiftReset: timestamp };
           await sheets.spreadsheets.values.update({
             spreadsheetId: process.env.SHEET_ID,
             range: "Settings!A1",
-            valueInputOption: "USER_ENTERED",
+            valueInputOption: "RAW",
             requestBody: { values: [[JSON.stringify(updatedSettings)]] }
           });
-
           return res.status(200).json({ success: true, count: updates.length });
         }
         else {
@@ -151,8 +137,8 @@ export default async function handler(req: any, res: any) {
             rental.shift,
             JSON.stringify(rental.maleLockers),
             JSON.stringify(rental.femaleLockers),
-            Number(rental.maleCostumes), // Ensure number
-            Number(rental.femaleCostumes), // Ensure number
+            Number(rental.maleCostumes),
+            Number(rental.femaleCostumes),
             Number(rental.rentAmount),
             Number(rental.securityDeposit),
             Number(rental.totalCollected),
@@ -164,7 +150,7 @@ export default async function handler(req: any, res: any) {
           await sheets.spreadsheets.values.append({
             spreadsheetId: process.env.SHEET_ID,
             range: "Lockers!A:P",
-            valueInputOption: "RAW", // Using RAW prevents Google Sheets from auto-formatting numbers as dates
+            valueInputOption: "RAW",
             requestBody: { values }
           });
           return res.status(200).json({ success: true });
@@ -175,7 +161,6 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // --- SETTINGS SYNC ---
   if (type === 'settings') {
     if (req.method === "GET") {
       try {
@@ -195,7 +180,7 @@ export default async function handler(req: any, res: any) {
         await sheets.spreadsheets.values.update({
           spreadsheetId: process.env.SHEET_ID,
           range: "Settings!A1",
-          valueInputOption: "USER_ENTERED",
+          valueInputOption: "RAW", // Use RAW to ensure JSON string is saved correctly
           requestBody: { values: [[settingsJson]] }
         });
         return res.status(200).json({ success: true });
@@ -205,7 +190,6 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // --- BOOKING LIST GET ---
   if (req.method === "GET" && !type) {
     try {
       const response = await sheets.spreadsheets.values.get({
@@ -231,7 +215,6 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // --- BOOKING SAVE POST ---
   if (req.method === "POST" && !type) {
     const { name, mobile, adults, kids, amount, date, time } = req.body;
     try {
