@@ -25,6 +25,9 @@ const StaffPortal: React.FC = () => {
   // Track Inventory State
   const [activeLockers, setActiveLockers] = useState<{ male: number[]; female: number[] }>({ male: [], female: [] });
   const [costumeStock, setCostumeStock] = useState({ male: COSTUME_RULES.MALE_COSTUME_TOTAL, female: COSTUME_RULES.FEMALE_COSTUME_TOTAL });
+  
+  // Local cache for lockers that are returned but cloud hasn't updated yet
+  const [returnedLockersCache, setReturnedLockersCache] = useState<{ male: number[]; female: number[] }>({ male: [], female: [] });
 
   const refreshActive = async () => {
     // Avoid refreshing if we are in the middle of a transaction
@@ -32,21 +35,33 @@ const StaffPortal: React.FC = () => {
 
     const rentals = await cloudSync.fetchRentals();
     if (rentals) {
+      // 1. Filter only currently 'issued' items
       const active = rentals.filter(r => r.status === 'issued');
       
-      // Update Busy Lockers
+      // 2. Identify busy lockers from cloud
+      let cloudMaleBusy = active.flatMap(r => Array.isArray(r.maleLockers) ? r.maleLockers : []);
+      let cloudFemaleBusy = active.flatMap(r => Array.isArray(r.femaleLockers) ? r.femaleLockers : []);
+
+      // 3. Subtract lockers that we just returned locally (to fix the "reverting to red" bug)
       setActiveLockers({
-        male: active.flatMap(r => Array.isArray(r.maleLockers) ? r.maleLockers : []),
-        female: active.flatMap(r => Array.isArray(r.femaleLockers) ? r.femaleLockers : [])
+        male: cloudMaleBusy.filter(n => !returnedLockersCache.male.includes(n)),
+        female: cloudFemaleBusy.filter(n => !returnedLockersCache.female.includes(n))
       });
 
-      // FIX: Ensure numeric addition using Number() to prevent string concatenation bug (-1799 bug)
-      const issuedMaleCostumes = active.reduce((sum, r) => sum + Number(r.maleCostumes || 0), 0);
-      const issuedFemaleCostumes = active.reduce((sum, r) => sum + Number(r.femaleCostumes || 0), 0);
+      // 4. FIX: Ultra-strict numeric addition to prevent the "-1799" string concatenation bug
+      const issuedMale = active.reduce((sum, r) => {
+        const val = parseInt(String(r.maleCostumes || 0), 10);
+        return Number(sum) + (isNaN(val) ? 0 : val);
+      }, 0);
+
+      const issuedFemale = active.reduce((sum, r) => {
+        const val = parseInt(String(r.femaleCostumes || 0), 10);
+        return Number(sum) + (isNaN(val) ? 0 : val);
+      }, 0);
 
       setCostumeStock({
-        male: Math.max(0, COSTUME_RULES.MALE_COSTUME_TOTAL - issuedMaleCostumes),
-        female: Math.max(0, COSTUME_RULES.FEMALE_COSTUME_TOTAL - issuedFemaleCostumes)
+        male: Math.max(0, COSTUME_RULES.MALE_COSTUME_TOTAL - Number(issuedMale)),
+        female: Math.max(0, COSTUME_RULES.FEMALE_COSTUME_TOTAL - Number(issuedFemale))
       });
     }
 
@@ -59,16 +74,15 @@ const StaffPortal: React.FC = () => {
         const d = new Date();
         const key = `swp_rc_${String(d.getFullYear()).slice(-2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
         localStorage.setItem(key, '0');
-        console.log("Admin Shift Reset Triggered: Counter is now 0001.");
       }
     }
   };
 
   useEffect(() => {
     refreshActive();
-    const interval = setInterval(refreshActive, 25000); 
+    const interval = setInterval(refreshActive, 20000); 
     return () => clearInterval(interval);
-  }, [mode]);
+  }, [mode, returnedLockersCache]);
 
   const generateReceiptNo = () => {
     const d = new Date();
@@ -103,17 +117,17 @@ const StaffPortal: React.FC = () => {
       return alert("Select at least one asset (Locker or Costume)");
     }
 
-    // FINAL STOCK VALIDATION
-    if (maleCostumes > costumeStock.male) {
-      return alert(`Insufficient Stock: Only ${costumeStock.male} Male Costumes available.`);
+    // STRICT STOCK VALIDATION
+    if (Number(maleCostumes) > costumeStock.male) {
+      return alert(`Insufficient Stock: Only ${costumeStock.male} Male Costumes left.`);
     }
-    if (femaleCostumes > costumeStock.female) {
-      return alert(`Insufficient Stock: Only ${costumeStock.female} Female Costumes available.`);
+    if (Number(femaleCostumes) > costumeStock.female) {
+      return alert(`Insufficient Stock: Only ${costumeStock.female} Female Costumes left.`);
     }
 
     const lockersCount = maleLockers.length + femaleLockers.length;
-    const rent = (lockersCount * 100) + (maleCostumes * 50) + (femaleCostumes * 100);
-    const deposit = (lockersCount * 200) + (maleCostumes * 50) + (femaleCostumes * 100);
+    const rent = (lockersCount * 100) + (Number(maleCostumes) * 50) + (Number(femaleCostumes) * 100);
+    const deposit = (lockersCount * 200) + (Number(maleCostumes) * 50) + (Number(femaleCostumes) * 100);
 
     const data: LockerReceipt = {
       receiptNo: generateReceiptNo(),
@@ -123,8 +137,8 @@ const StaffPortal: React.FC = () => {
       shift,
       maleLockers,
       femaleLockers,
-      maleCostumes,
-      femaleCostumes,
+      maleCostumes: Number(maleCostumes),
+      femaleCostumes: Number(femaleCostumes),
       rentAmount: rent,
       securityDeposit: deposit,
       totalCollected: rent + deposit,
@@ -154,7 +168,7 @@ const StaffPortal: React.FC = () => {
       win.close();
     }
     
-    // Immediate Update of local inventory to prevent double booking
+    // Immediate Update of local inventory
     setActiveLockers(prev => ({
       male: [...prev.male, ...receipt.maleLockers],
       female: [...prev.female, ...receipt.femaleLockers]
@@ -169,11 +183,10 @@ const StaffPortal: React.FC = () => {
     if (!searchCode) return alert("Enter receipt suffix (Last 4 digits)");
     setIsSyncing(true);
     const all = await cloudSync.fetchRentals();
-    // Search only for 'issued' receipts to prevent double refund
     const found = all?.find(r => r.receiptNo.endsWith(searchCode) && r.status === 'issued');
     setIsSyncing(false);
     
-    if (!found) return alert("Error: Receipt not found, already returned, or cleared in shift checkout.");
+    if (!found) return alert("Error: Receipt not found, already returned, or cleared.");
     setReturnReceipt(found);
   };
 
@@ -190,7 +203,13 @@ const StaffPortal: React.FC = () => {
     const success = await cloudSync.updateRental(updated);
     
     if (success) {
-      // CRITICAL: Immediate local update to UI colors so they turn green instantly
+      // 1. Add to local return cache to keep color GREEN during cloud lag
+      setReturnedLockersCache(prev => ({
+        male: [...prev.male, ...returnReceipt.maleLockers],
+        female: [...prev.female, ...returnReceipt.femaleLockers]
+      }));
+
+      // 2. Immediate local update to UI colors
       setActiveLockers(prev => ({
         male: prev.male.filter(n => !returnReceipt.maleLockers.includes(n)),
         female: prev.female.filter(n => !returnReceipt.femaleLockers.includes(n))
@@ -200,10 +219,17 @@ const StaffPortal: React.FC = () => {
       setReturnReceipt(null);
       setSearchCode('');
       
-      // Delay cloud refresh slightly so Google Sheets has time to commit the status change
-      setTimeout(refreshActive, 3000);
+      // 3. Clear the cache after 60 seconds (give Google Sheets plenty of time)
+      setTimeout(() => {
+        setReturnedLockersCache(prev => ({
+          male: prev.male.filter(n => !returnReceipt.maleLockers.includes(n)),
+          female: prev.female.filter(n => !returnReceipt.femaleLockers.includes(n))
+        }));
+      }, 60000);
+
+      await refreshActive();
     } else {
-      alert("Error: Update failed. Please check connection and try again.");
+      alert("Error: Update failed. Please check connection.");
     }
     setIsSyncing(false);
   };
@@ -243,20 +269,20 @@ const StaffPortal: React.FC = () => {
       {mode === 'issue' && (
         <div className="bg-white/10 border border-white/20 rounded-[2.5rem] p-8 md:p-12 w-full max-w-5xl space-y-10 shadow-2xl backdrop-blur-xl animate-slide-up">
           {/* Header Inventory Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-6 border-b border-white/10">
-              <div className="bg-slate-900/40 p-4 rounded-2xl border border-white/5 text-center">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-6 border-b border-white/10 text-center">
+              <div className="bg-slate-900/40 p-4 rounded-2xl border border-white/5">
                   <p className="text-[8px] font-bold text-white/40 uppercase tracking-widest mb-1">M-Lockers Avail</p>
                   <p className="text-xl font-black text-blue-400">{60 - activeLockers.male.length}</p>
               </div>
-              <div className="bg-slate-900/40 p-4 rounded-2xl border border-white/5 text-center">
+              <div className="bg-slate-900/40 p-4 rounded-2xl border border-white/5">
                   <p className="text-[8px] font-bold text-white/40 uppercase tracking-widest mb-1">F-Lockers Avail</p>
                   <p className="text-xl font-black text-pink-400">{60 - activeLockers.female.length}</p>
               </div>
-              <div className="bg-slate-900/40 p-4 rounded-2xl border border-white/5 text-center">
+              <div className="bg-slate-900/40 p-4 rounded-2xl border border-white/5">
                   <p className="text-[8px] font-bold text-white/40 uppercase tracking-widest mb-1">M-Costume Stock</p>
                   <p className={`text-xl font-black ${costumeStock.male < 5 ? 'text-red-500' : 'text-emerald-400'}`}>{costumeStock.male}</p>
               </div>
-              <div className="bg-slate-900/40 p-4 rounded-2xl border border-white/5 text-center">
+              <div className="bg-slate-900/40 p-4 rounded-2xl border border-white/5">
                   <p className="text-[8px] font-bold text-white/40 uppercase tracking-widest mb-1">F-Costume Stock</p>
                   <p className={`text-xl font-black ${costumeStock.female < 5 ? 'text-red-500' : 'text-emerald-400'}`}>{costumeStock.female}</p>
               </div>
@@ -296,16 +322,36 @@ const StaffPortal: React.FC = () => {
 
           <div className="grid md:grid-cols-2 gap-6 pt-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-white/40 tracking-[0.2em] ml-1">Male Costume Qty (Max: {costumeStock.male})</label>
-              <input type="number" min={0} className={`input-premium !bg-slate-900/50 !text-white ${maleCostumes > costumeStock.male ? '!border-red-500' : '!border-white/20'}`} value={maleCostumes} onChange={e => setMaleCostumes(Math.max(0, +e.target.value))} />
+              <label className="text-[10px] font-black uppercase text-white/40 tracking-[0.2em] ml-1">Male Costume Qty (Avail: {costumeStock.male})</label>
+              <input 
+                type="number" 
+                min={0} 
+                max={costumeStock.male}
+                className={`input-premium !bg-slate-900/50 !text-white ${Number(maleCostumes) > costumeStock.male ? '!border-red-500' : '!border-white/20'}`} 
+                value={maleCostumes} 
+                onChange={e => {
+                    const val = parseInt(e.target.value, 10);
+                    setMaleCostumes(isNaN(val) ? 0 : val);
+                }} 
+              />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-white/40 tracking-[0.2em] ml-1">Female Costume Qty (Max: {costumeStock.female})</label>
-              <input type="number" min={0} className={`input-premium !bg-slate-900/50 !text-white ${femaleCostumes > costumeStock.female ? '!border-red-500' : '!border-white/20'}`} value={femaleCostumes} onChange={e => setFemaleCostumes(Math.max(0, +e.target.value))} />
+              <label className="text-[10px] font-black uppercase text-white/40 tracking-[0.2em] ml-1">Female Costume Qty (Avail: {costumeStock.female})</label>
+              <input 
+                type="number" 
+                min={0} 
+                max={costumeStock.female}
+                className={`input-premium !bg-slate-900/50 !text-white ${Number(femaleCostumes) > costumeStock.female ? '!border-red-500' : '!border-white/20'}`} 
+                value={femaleCostumes} 
+                onChange={e => {
+                    const val = parseInt(e.target.value, 10);
+                    setFemaleCostumes(isNaN(val) ? 0 : val);
+                }} 
+              />
             </div>
           </div>
 
-          <button onClick={generateReceipt} className="btn-resort w-full h-16 shadow-2xl !bg-emerald-500 !text-slate-900 text-sm font-black">Generate & Review Receipt</button>
+          <button onClick={generateReceipt} className="btn-resort w-full h-16 shadow-2xl !bg-emerald-500 !text-slate-900 text-sm font-black uppercase tracking-[0.1em]">Verify Assets & Generate Receipt</button>
           
           {receipt && (
             <div ref={printRef} className="bg-white text-slate-900 rounded-[2rem] p-8 space-y-6 shadow-2xl border-4 border-slate-900 animate-slide-up">
