@@ -1,13 +1,10 @@
-import React, { useState, useRef } from 'react';
-import { LockerReceipt, ShiftType } from '../types';
 
-const LOCKER_API_URL =
-  "https://script.google.com/macros/library/d/1ruDjMa6kPxwXKd27kAO-dOsVAuYhH0Jxu0d8yw7AFSKwiWygPsb45Fad/1";
+import React, { useState, useRef, useEffect } from 'react';
+import { LockerReceipt, ShiftType } from '../types';
+import { cloudSync } from '../services/cloud_sync';
 
 const StaffPortal: React.FC = () => {
-
   const [mode, setMode] = useState<'issue' | 'return'>('issue');
-
   const [guestName, setGuestName] = useState('');
   const [guestMobile, setGuestMobile] = useState('');
   const [shift, setShift] = useState<ShiftType>('morning');
@@ -18,32 +15,27 @@ const StaffPortal: React.FC = () => {
   const [femaleCostumes, setFemaleCostumes] = useState(0);
 
   const [receipt, setReceipt] = useState<LockerReceipt | null>(null);
-
   const [searchCode, setSearchCode] = useState('');
   const [returnReceipt, setReturnReceipt] = useState<LockerReceipt | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const printRef = useRef<HTMLDivElement>(null);
+  const [activeLockers, setActiveLockers] = useState<{ male: number[]; female: number[] }>({ male: [], female: [] });
 
-  const [activeLockers, setActiveLockers] = useState<{ male: number[]; female: number[] }>(() => {
-    const saved = localStorage.getItem('swp_active_lockers');
-    return saved ? JSON.parse(saved) : { male: [], female: [] };
-  });
-
-  /* ================= GOOGLE SHEET ================= */
-
-  const saveToSheet = async (data: LockerReceipt) => {
-    try {
-      await fetch(LOCKER_API_URL, {
-        method: 'POST',
-        body: JSON.stringify(data),
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } catch (err) {
-      console.error("Sheet error", err);
-    }
-  };
-
-  /* ================= HELPERS ================= */
+  // Load active lockers from cloud on start
+  useEffect(() => {
+    const refreshActive = async () => {
+      const rentals = await cloudSync.fetchRentals();
+      if (rentals) {
+        const active = rentals.filter(r => r.status === 'issued');
+        setActiveLockers({
+          male: active.flatMap(r => r.maleLockers),
+          female: active.flatMap(r => r.femaleLockers)
+        });
+      }
+    };
+    refreshActive();
+  }, [mode]);
 
   const generateReceiptNo = () => {
     const d = new Date();
@@ -51,17 +43,9 @@ const StaffPortal: React.FC = () => {
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     const key = `swp_rc_${yy}${mm}${dd}`;
-
     const count = Number(localStorage.getItem(key) || 0) + 1;
     localStorage.setItem(key, String(count));
-
     return `SWP-${yy}${mm}${dd}-${String(count).padStart(4, '0')}`;
-  };
-
-  const saveReceipt = (data: LockerReceipt) => {
-    const all: LockerReceipt[] = JSON.parse(localStorage.getItem('swp_receipts') || '[]');
-    all.unshift(data);
-    localStorage.setItem('swp_receipts', JSON.stringify(all));
   };
 
   const resetForm = () => {
@@ -74,8 +58,6 @@ const StaffPortal: React.FC = () => {
     setReceipt(null);
   };
 
-  /* ================= CORE ================= */
-
   const toggleLocker = (num: number, gender: 'male' | 'female') => {
     const list = gender === 'male' ? maleLockers : femaleLockers;
     const setList = gender === 'male' ? setMaleLockers : setFemaleLockers;
@@ -86,6 +68,7 @@ const StaffPortal: React.FC = () => {
     if (!guestName || !guestMobile) return alert("Enter guest details");
 
     const lockers = maleLockers.length + femaleLockers.length;
+    // Basic Pricing: Adjust as per requirements
     const rent = lockers * 100 + maleCostumes * 50 + femaleCostumes * 100;
     const deposit = lockers * 200 + maleCostumes * 50 + femaleCostumes * 100;
 
@@ -106,80 +89,138 @@ const StaffPortal: React.FC = () => {
       status: 'issued',
       createdAt: new Date().toISOString()
     };
-
     setReceipt(data);
   };
 
   const printReceipt = async () => {
     if (!receipt || !printRef.current) return;
+    setIsSyncing(true);
 
-    await saveToSheet(receipt);   // Google Sheet
-    saveReceipt(receipt);         // Local
-
-    const updated = {
-      male: [...activeLockers.male, ...receipt.maleLockers],
-      female: [...activeLockers.female, ...receipt.femaleLockers]
-    };
-
-    setActiveLockers(updated);
-    localStorage.setItem('swp_active_lockers', JSON.stringify(updated));
+    const success = await cloudSync.saveRental(receipt);
+    if (!success) {
+      alert("Cloud Sync Failed. Check Connection.");
+      setIsSyncing(false);
+      return;
+    }
 
     const win = window.open('', '', 'width=800,height=900');
-    if (!win) return;
-
-    win.document.write(`<html><body>${printRef.current.innerHTML}</body></html>`);
-    win.document.close();
-    win.print();
-    win.close();
-
+    if (win) {
+      win.document.write(`<html><body>${printRef.current.innerHTML}</body></html>`);
+      win.document.close();
+      win.print();
+      win.close();
+    }
+    
+    setIsSyncing(false);
     resetForm();
   };
 
-  /* ================= UI ================= */
+  const findReturn = async () => {
+    setIsSyncing(true);
+    const all = await cloudSync.fetchRentals();
+    const found = all?.find(r => r.receiptNo.endsWith(searchCode) && r.status === 'issued');
+    setIsSyncing(false);
+    
+    if (!found) return alert("Receipt not found or already returned");
+    setReturnReceipt(found);
+  };
+
+  const confirmReturn = async () => {
+    if (!returnReceipt) return;
+    setIsSyncing(true);
+
+    const updated = {
+      ...returnReceipt,
+      status: 'returned' as const,
+      returnedAt: new Date().toISOString()
+    };
+
+    const success = await cloudSync.updateRental(updated);
+    setIsSyncing(false);
+
+    if (success) {
+      alert("Return Completed Successfully");
+      setReturnReceipt(null);
+      setSearchCode('');
+    } else {
+      alert("Update failed. Please try again.");
+    }
+  };
+
+  const renderLockers = (gender: 'male' | 'female') =>
+    Array.from({ length: 60 }, (_, i) => i + 1).map(num => {
+      const selected = gender === 'male' ? maleLockers : femaleLockers;
+      const isBusy = activeLockers[gender].includes(num);
+      return (
+        <button
+          key={num}
+          disabled={isBusy}
+          onClick={() => toggleLocker(num, gender)}
+          className={`w-10 h-10 rounded-lg text-xs font-bold border 
+          ${isBusy ? 'bg-red-500/60 text-white cursor-not-allowed'
+          : selected.includes(num) ? 'bg-emerald-500 text-white'
+          : 'bg-white/10 text-white'}`}
+        >
+          {num}
+        </button>
+      );
+    });
 
   return (
     <div className="w-full flex flex-col items-center py-10 text-white">
-
       <div className="flex mb-8 bg-white/10 rounded-full p-1">
-        <button onClick={() => setMode('issue')}
-          className={`px-8 py-2 rounded-full font-bold ${mode === 'issue' ? 'bg-emerald-500 text-black' : 'text-white/70'}`}>
-          ISSUE
-        </button>
-        <button onClick={() => setMode('return')}
-          className={`px-8 py-2 rounded-full font-bold ${mode === 'return' ? 'bg-emerald-500 text-black' : 'text-white/70'}`}>
-          RETURN
-        </button>
+        <button onClick={() => setMode('issue')} className={`px-8 py-2 rounded-full font-bold ${mode === 'issue' ? 'bg-emerald-500 text-black' : 'text-white/70'}`}>ISSUE</button>
+        <button onClick={() => setMode('return')} className={`px-8 py-2 rounded-full font-bold ${mode === 'return' ? 'bg-emerald-500 text-black' : 'text-white/70'}`}>RETURN</button>
       </div>
 
       {mode === 'issue' && (
         <div className="bg-white/10 border border-white/20 rounded-3xl p-8 w-full max-w-5xl space-y-6">
-
           <div className="grid md:grid-cols-2 gap-4">
             <input className="input-premium" placeholder="Guest Name" value={guestName} onChange={e => setGuestName(e.target.value)} />
             <input className="input-premium" placeholder="Mobile Number" value={guestMobile} onChange={e => setGuestMobile(e.target.value)} />
           </div>
-
           <div className="flex gap-4">
-            <button onClick={() => setShift('morning')} className={`btn-premium ${shift === 'morning' && 'bg-emerald-500'}`}>Morning</button>
-            <button onClick={() => setShift('evening')} className={`btn-premium ${shift === 'evening' && 'bg-emerald-500'}`}>Evening</button>
+            <button onClick={() => setShift('morning')} className={`btn-premium px-6 py-2 rounded-xl font-bold ${shift === 'morning' ? 'bg-emerald-500 text-black' : 'bg-white/10'}`}>Morning</button>
+            <button onClick={() => setShift('evening')} className={`btn-premium px-6 py-2 rounded-xl font-bold ${shift === 'evening' ? 'bg-emerald-500 text-black' : 'bg-white/10'}`}>Evening</button>
           </div>
-
+          <div><p className="font-bold mb-2">Male Lockers</p><div className="grid grid-cols-10 gap-2">{renderLockers('male')}</div></div>
+          <div><p className="font-bold mb-2">Female Lockers</p><div className="grid grid-cols-10 gap-2">{renderLockers('female')}</div></div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <input type="number" min={0} className="input-premium" placeholder="Male Costumes" value={maleCostumes} onChange={e => setMaleCostumes(+e.target.value)} />
+            <input type="number" min={0} className="input-premium" placeholder="Female Costumes" value={femaleCostumes} onChange={e => setFemaleCostumes(+e.target.value)} />
+          </div>
           <button onClick={generateReceipt} className="btn-resort w-full h-14">Generate Receipt</button>
-
           {receipt && (
             <div ref={printRef} className="bg-white text-black rounded-xl p-6 space-y-1">
               <h2 className="font-black text-xl">Receipt {receipt.receiptNo}</h2>
               <p><b>Guest:</b> {receipt.guestName} ({receipt.guestMobile})</p>
+              <p><b>Male Lockers:</b> {receipt.maleLockers.join(', ') || '-'}</p>
+              <p><b>Female Lockers:</b> {receipt.femaleLockers.join(', ') || '-'}</p>
+              <p><b>Male Costumes:</b> {receipt.maleCostumes}</p>
+              <p><b>Female Costumes:</b> {receipt.femaleCostumes}</p>
               <p><b>Total:</b> ₹{receipt.totalCollected}</p>
               <p className="text-emerald-600 font-bold"><b>Refundable:</b> ₹{receipt.refundableAmount}</p>
-
-              <button onClick={printReceipt} className="btn-premium mt-4 w-full">Print Final Receipt</button>
+              <button onClick={printReceipt} disabled={isSyncing} className="btn-resort mt-4 w-full">{isSyncing ? 'Syncing...' : 'Print Final Receipt'}</button>
             </div>
           )}
-
         </div>
       )}
 
+      {mode === 'return' && (
+        <div className="bg-white/10 border border-white/20 rounded-3xl p-8 w-full max-w-xl space-y-6">
+          <input placeholder="Last 4 digits of receipt" className="input-premium" value={searchCode} onChange={e => setSearchCode(e.target.value)} />
+          <button onClick={findReturn} disabled={isSyncing} className="btn-resort w-full">{isSyncing ? 'Searching...' : 'Find Receipt'}</button>
+          {returnReceipt && (
+            <div className="bg-white text-black rounded-xl p-6 space-y-2">
+              <p><b>Receipt:</b> {returnReceipt.receiptNo}</p>
+              <p><b>Male Lockers:</b> {returnReceipt.maleLockers.join(', ') || '-'}</p>
+              <p><b>Female Lockers:</b> {returnReceipt.femaleLockers.join(', ') || '-'}</p>
+              <p className="text-emerald-600 font-bold"><b>Refund:</b> ₹{returnReceipt.refundableAmount}</p>
+              <button onClick={confirmReturn} disabled={isSyncing} className="btn-resort w-full">{isSyncing ? 'Updating Cloud...' : 'Confirm Return'}</button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
