@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import LoginGate from './pages/login_gate';
@@ -135,7 +136,8 @@ const AppContent: React.FC = () => {
             <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} /> : <Navigate to="/" />} />
             <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
 
-            <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={setSettings} syncId={syncId} onSyncSetup={setSyncId} /> : <Navigate to="/" />} />
+            {/* Fixed missing onLogout prop */}
+            <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={setSettings} syncId={syncId} onSyncSetup={setSyncId} onLogout={logout} /> : <Navigate to="/" />} />
 
             <Route path="/admin-lockers" element={auth.role === 'admin' ? <AdminLockers /> : <Navigate to="/" />} />
             
