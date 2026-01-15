@@ -27,24 +27,28 @@ export default async function handler(req: any, res: any) {
           range: "Lockers!A2:P2000",
         });
         const rows = response.data.values || [];
-        const rentals = rows.map((row: any) => ({
-          receiptNo: row[0],
-          guestName: row[1],
-          guestMobile: row[2],
-          date: row[3],
-          shift: row[4],
-          maleLockers: row[5] ? JSON.parse(row[5]) : [],
-          femaleLockers: row[6] ? JSON.parse(row[6]) : [],
-          maleCostumes: parseInt(row[7]) || 0,
-          femaleCostumes: parseInt(row[8]) || 0,
-          rentAmount: parseInt(row[9]) || 0,
-          securityDeposit: parseInt(row[10]) || 0,
-          totalCollected: parseInt(row[11]) || 0,
-          refundableAmount: parseInt(row[12]) || 0,
-          status: row[13] || 'issued',
-          createdAt: row[14],
-          returnedAt: row[15] || null
-        })).reverse();
+        
+        // Filter out empty rows and map to objects
+        const rentals = rows
+          .filter(row => row && row[0] && row[0].toString().startsWith('SWP'))
+          .map((row: any) => ({
+            receiptNo: row[0],
+            guestName: row[1],
+            guestMobile: row[2],
+            date: row[3],
+            shift: row[4],
+            maleLockers: row[5] ? JSON.parse(row[5]) : [],
+            femaleLockers: row[6] ? JSON.parse(row[6]) : [],
+            maleCostumes: parseInt(row[7]) || 0,
+            femaleCostumes: parseInt(row[8]) || 0,
+            rentAmount: parseInt(row[9]) || 0,
+            securityDeposit: parseInt(row[10]) || 0,
+            totalCollected: parseInt(row[11]) || 0,
+            refundableAmount: parseInt(row[12]) || 0,
+            status: row[13] || 'issued',
+            createdAt: row[14],
+            returnedAt: row[15] || null
+          })).reverse();
         return res.status(200).json(rentals);
       } catch (error: any) {
         return res.status(500).json({ error: error.message });
@@ -77,7 +81,6 @@ export default async function handler(req: any, res: any) {
           return res.status(404).json({ error: "Receipt not found" });
         } 
         else if (action === 'checkout') {
-          // 1. Get all locker data to find 'issued' rows
           const response = await sheets.spreadsheets.values.get({
             spreadsheetId: process.env.SHEET_ID,
             range: "Lockers!A:N",
@@ -105,7 +108,6 @@ export default async function handler(req: any, res: any) {
             });
           }
 
-          // 2. Update Settings to trigger receipt reset on all staff apps
           const settingsRes = await sheets.spreadsheets.values.get({
             spreadsheetId: process.env.SHEET_ID,
             range: "Settings!A1",
@@ -158,7 +160,7 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // Settings and Booking logic stays the same...
+  // --- SETTINGS SYNC ---
   if (type === 'settings') {
     if (req.method === "GET") {
       try {
@@ -188,7 +190,8 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  if (req.method === "GET") {
+  // --- BOOKING LIST GET ---
+  if (req.method === "GET" && !type) {
     try {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId: process.env.SHEET_ID,
@@ -213,7 +216,8 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  if (req.method === "POST") {
+  // --- BOOKING SAVE POST ---
+  if (req.method === "POST" && !type) {
     const { name, mobile, adults, kids, amount, date, time } = req.body;
     try {
       const timestamp = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
