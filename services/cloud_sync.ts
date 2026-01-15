@@ -1,5 +1,5 @@
 
-import { Booking, AdminSettings } from "../types";
+import { Booking, AdminSettings, LockerReceipt } from "../types";
 
 export const cloudSync = {
   saveBooking: async (booking: Booking): Promise<boolean> => {
@@ -27,11 +27,8 @@ export const cloudSync = {
 
   fetchData: async (syncId: string): Promise<Booking[] | null> => {
     try {
-      // Add timestamp to prevent caching of booking data
       const response = await fetch(`/api/booking?_t=${Date.now()}`);
-      if (response.ok) {
-        return await response.json();
-      }
+      if (response.ok) return await response.json();
       return null;
     } catch (e) {
       return null;
@@ -40,15 +37,10 @@ export const cloudSync = {
 
   fetchSettings: async (): Promise<AdminSettings | null> => {
     try {
-      // CRITICAL: Added timestamp _t to URL to bypass browser cache on mobile/laptops
       const response = await fetch(`/api/booking?type=settings&_t=${Date.now()}`);
-      if (response.ok) {
-        const data = await response.json();
-        return data;
-      }
+      if (response.ok) return await response.json();
       return null;
     } catch (e) {
-      console.error("Cloud settings fetch error:", e);
       return null;
     }
   },
@@ -62,7 +54,44 @@ export const cloudSync = {
       });
       return response.ok;
     } catch (e) {
-      console.error("Cloud settings save error:", e);
+      return false;
+    }
+  },
+
+  // --- NEW RENTAL SYNC METHODS ---
+
+  fetchRentals: async (): Promise<LockerReceipt[] | null> => {
+    try {
+      const response = await fetch(`/api/booking?type=rentals&_t=${Date.now()}`);
+      if (response.ok) return await response.json();
+      return null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  saveRental: async (rental: LockerReceipt): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/booking?type=rentals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(rental)
+      });
+      return response.ok;
+    } catch (e) {
+      return false;
+    }
+  },
+
+  updateRental: async (rental: LockerReceipt): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/booking?type=rentals&action=update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(rental)
+      });
+      return response.ok;
+    } catch (e) {
       return false;
     }
   },
