@@ -49,13 +49,13 @@ const StaffPortal: React.FC = () => {
         female: cloudFemaleBusy.filter(n => !returnedLockersCache.female.includes(n))
       });
 
-      // 3. EXACT SAME LOGIC FOR BOTH MALE AND FEMALE
-      const issuedMale = active.reduce((sum, r) => sum + (Number(r.maleCostumes) || 0), 0);
-      const issuedFemale = active.reduce((sum, r) => sum + (Number(r.femaleCostumes) || 0), 0);
+      // 3. EXACT SAME SIMPLE LOGIC FOR BOTH GENDERS
+      const totalIssuedMale = active.reduce((acc, r) => acc + (Number(r.maleCostumes) || 0), 0);
+      const totalIssuedFemale = active.reduce((acc, r) => acc + (Number(r.femaleCostumes) || 0), 0);
 
       setCostumeStock({
-        male: Math.max(0, COSTUME_RULES.MALE_COSTUME_TOTAL - issuedMale),
-        female: Math.max(0, COSTUME_RULES.FEMALE_COSTUME_TOTAL - issuedFemale)
+        male: Math.max(0, COSTUME_RULES.MALE_COSTUME_TOTAL - totalIssuedMale),
+        female: Math.max(0, COSTUME_RULES.FEMALE_COSTUME_TOTAL - totalIssuedFemale)
       });
     }
 
