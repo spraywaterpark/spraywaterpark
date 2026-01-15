@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { LockerReceipt, ShiftType } from '../types';
 import { cloudSync } from '../services/cloud_sync';
+import { COSTUME_RULES, LOCKER_RULES } from '../constants';
 
 const StaffPortal: React.FC = () => {
   const [mode, setMode] = useState<'issue' | 'return'>('issue');
@@ -20,16 +21,30 @@ const StaffPortal: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
 
   const printRef = useRef<HTMLDivElement>(null);
+  
+  // Track Inventory State
   const [activeLockers, setActiveLockers] = useState<{ male: number[]; female: number[] }>({ male: [], female: [] });
+  const [costumeStock, setCostumeStock] = useState({ male: COSTUME_RULES.MALE_COSTUME_TOTAL, female: COSTUME_RULES.FEMALE_COSTUME_TOTAL });
 
   const refreshActive = async () => {
     setIsSyncing(true);
     const rentals = await cloudSync.fetchRentals();
     if (rentals) {
       const active = rentals.filter(r => r.status === 'issued');
+      
+      // Update Busy Lockers
       setActiveLockers({
         male: active.flatMap(r => r.maleLockers),
         female: active.flatMap(r => r.femaleLockers)
+      });
+
+      // Calculate Remaining Costume Stock
+      const issuedMaleCostumes = active.reduce((sum, r) => sum + (r.maleCostumes || 0), 0);
+      const issuedFemaleCostumes = active.reduce((sum, r) => sum + (r.femaleCostumes || 0), 0);
+
+      setCostumeStock({
+        male: COSTUME_RULES.MALE_COSTUME_TOTAL - issuedMaleCostumes,
+        female: COSTUME_RULES.FEMALE_COSTUME_TOTAL - issuedFemaleCostumes
       });
     }
 
@@ -41,8 +56,8 @@ const StaffPortal: React.FC = () => {
         localStorage.setItem('swp_last_shift_reset', settings.lastShiftReset);
         const d = new Date();
         const key = `swp_rc_${String(d.getFullYear()).slice(-2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-        localStorage.setItem(key, '0'); // Hard Reset to 0001
-        console.log("Admin Triggered Shift Reset. Receipt Counter is now 0001.");
+        localStorage.setItem(key, '0');
+        console.log("Admin Reset detected. Counter is 0001.");
       }
     }
     setIsSyncing(false);
@@ -50,7 +65,7 @@ const StaffPortal: React.FC = () => {
 
   useEffect(() => {
     refreshActive();
-    const interval = setInterval(refreshActive, 30000); 
+    const interval = setInterval(refreshActive, 20000); 
     return () => clearInterval(interval);
   }, [mode]);
 
@@ -84,12 +99,20 @@ const StaffPortal: React.FC = () => {
   const generateReceipt = () => {
     if (!guestName || !guestMobile) return alert("Enter guest details");
     if (maleLockers.length === 0 && femaleLockers.length === 0 && maleCostumes === 0 && femaleCostumes === 0) {
-      return alert("Select at least one asset (Locker or Costume)");
+      return alert("Select at least one asset");
     }
 
-    const lockers = maleLockers.length + femaleLockers.length;
-    const rent = lockers * 100 + maleCostumes * 50 + femaleCostumes * 100;
-    const deposit = lockers * 200 + maleCostumes * 50 + femaleCostumes * 100;
+    // INVENTORY VALIDATION
+    if (maleCostumes > costumeStock.male) {
+      return alert(`Error: Only ${costumeStock.male} Male Costumes left in stock.`);
+    }
+    if (femaleCostumes > costumeStock.female) {
+      return alert(`Error: Only ${costumeStock.female} Female Costumes left in stock.`);
+    }
+
+    const lockersCount = maleLockers.length + femaleLockers.length;
+    const rent = lockersCount * 100 + maleCostumes * 50 + femaleCostumes * 100;
+    const deposit = lockersCount * 200 + maleCostumes * 50 + femaleCostumes * 100;
 
     const data: LockerReceipt = {
       receiptNo: generateReceiptNo(),
@@ -139,7 +162,6 @@ const StaffPortal: React.FC = () => {
     if (!searchCode) return alert("Enter receipt suffix");
     setIsSyncing(true);
     const all = await cloudSync.fetchRentals();
-    // CRITICAL: Filter by status to ensure already returned items can't be returned twice
     const found = all?.find(r => r.receiptNo.endsWith(searchCode) && r.status === 'issued');
     setIsSyncing(false);
     
@@ -160,10 +182,16 @@ const StaffPortal: React.FC = () => {
     const success = await cloudSync.updateRental(updated);
     
     if (success) {
-      alert("Refund Successful! Assets are now released and available.");
+      // IMMEDIATE UI UPDATE: Remove from active lockers before next sync
+      setActiveLockers(prev => ({
+        male: prev.male.filter(n => !returnReceipt.maleLockers.includes(n)),
+        female: prev.female.filter(n => !returnReceipt.femaleLockers.includes(n))
+      }));
+      
+      alert("Refund Successful! Assets are now released.");
       setReturnReceipt(null);
       setSearchCode('');
-      await refreshActive(); // Immediately update UI colors
+      await refreshActive(); // Final sync to update everything else
     } else {
       alert("Update failed. Please check internet connection.");
     }
@@ -204,6 +232,26 @@ const StaffPortal: React.FC = () => {
 
       {mode === 'issue' && (
         <div className="bg-white/10 border border-white/20 rounded-[2.5rem] p-8 md:p-12 w-full max-w-5xl space-y-10 shadow-2xl backdrop-blur-xl animate-slide-up">
+          {/* Header Inventory Info */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-4 border-b border-white/10">
+              <div className="text-center">
+                  <p className="text-[8px] font-bold text-white/40 uppercase tracking-widest">Available M-Lockers</p>
+                  <p className="text-xl font-black text-blue-400">{60 - activeLockers.male.length}</p>
+              </div>
+              <div className="text-center">
+                  <p className="text-[8px] font-bold text-white/40 uppercase tracking-widest">Available F-Lockers</p>
+                  <p className="text-xl font-black text-pink-400">{60 - activeLockers.female.length}</p>
+              </div>
+              <div className="text-center">
+                  <p className="text-[8px] font-bold text-white/40 uppercase tracking-widest">Available M-Costumes</p>
+                  <p className={`text-xl font-black ${costumeStock.male < 10 ? 'text-red-500' : 'text-emerald-400'}`}>{costumeStock.male}</p>
+              </div>
+              <div className="text-center">
+                  <p className="text-[8px] font-bold text-white/40 uppercase tracking-widest">Available F-Costumes</p>
+                  <p className={`text-xl font-black ${costumeStock.female < 10 ? 'text-red-500' : 'text-emerald-400'}`}>{costumeStock.female}</p>
+              </div>
+          </div>
+
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-white/40 tracking-[0.2em] ml-1">Guest Details</label>
@@ -238,16 +286,16 @@ const StaffPortal: React.FC = () => {
 
           <div className="grid md:grid-cols-2 gap-6 pt-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-white/40 tracking-[0.2em] ml-1">Male Costume Qty</label>
-              <input type="number" min={0} className="input-premium !bg-slate-900/50 !text-white !border-white/20" value={maleCostumes} onChange={e => setMaleCostumes(+e.target.value)} />
+              <label className="text-[10px] font-black uppercase text-white/40 tracking-[0.2em] ml-1">Male Costume Qty (Stock: {costumeStock.male})</label>
+              <input type="number" min={0} className={`input-premium !bg-slate-900/50 !text-white ${maleCostumes > costumeStock.male ? '!border-red-500' : '!border-white/20'}`} value={maleCostumes} onChange={e => setMaleCostumes(+e.target.value)} />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-white/40 tracking-[0.2em] ml-1">Female Costume Qty</label>
-              <input type="number" min={0} className="input-premium !bg-slate-900/50 !text-white !border-white/20" value={femaleCostumes} onChange={e => setFemaleCostumes(+e.target.value)} />
+              <label className="text-[10px] font-black uppercase text-white/40 tracking-[0.2em] ml-1">Female Costume Qty (Stock: {costumeStock.female})</label>
+              <input type="number" min={0} className={`input-premium !bg-slate-900/50 !text-white ${femaleCostumes > costumeStock.female ? '!border-red-500' : '!border-white/20'}`} value={femaleCostumes} onChange={e => setFemaleCostumes(+e.target.value)} />
             </div>
           </div>
 
-          <button onClick={generateReceipt} className="btn-resort w-full h-16 shadow-2xl !bg-emerald-500 !text-slate-900 text-sm">Review & Generate Receipt</button>
+          <button onClick={generateReceipt} className="btn-resort w-full h-16 shadow-2xl !bg-emerald-500 !text-slate-900 text-sm font-black">Verify & Generate Receipt</button>
           
           {receipt && (
             <div ref={printRef} className="bg-white text-slate-900 rounded-[2rem] p-8 space-y-6 shadow-2xl border-4 border-slate-900 animate-slide-up">
@@ -301,7 +349,7 @@ const StaffPortal: React.FC = () => {
                   <div className="flex justify-between text-xs font-bold border-t border-slate-200 pt-3"><span className="text-slate-600 uppercase text-[10px]">Security Refund Due:</span><span className="text-emerald-600 text-xl font-black">₹{returnReceipt.refundableAmount}</span></div>
               </div>
               <button onClick={confirmReturn} disabled={isSyncing} className="btn-resort w-full h-16 !bg-emerald-500 !text-slate-900 font-black shadow-xl">
-                 {isSyncing ? 'Updating Inventory...' : 'Confirm Return & Refund Done'}
+                 {isSyncing ? 'Releasing Assets...' : 'Confirm Return & Refund Done'}
               </button>
             </div>
           )}
