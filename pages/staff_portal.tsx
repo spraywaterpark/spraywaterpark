@@ -29,7 +29,7 @@ const StaffPortal: React.FC = () => {
     female: COSTUME_RULES.FEMALE_COSTUME_TOTAL 
   });
   
-  // Local cache for lockers that are returned but cloud hasn't updated yet
+  // Local cache for recently returned lockers
   const [returnedLockersCache, setReturnedLockersCache] = useState<{ male: number[]; female: number[] }>({ male: [], female: [] });
 
   const refreshActive = async () => {
@@ -37,10 +37,10 @@ const StaffPortal: React.FC = () => {
 
     const rentals = await cloudSync.fetchRentals();
     if (rentals) {
-      // 1. Get Issued records
+      // 1. Get ONLY active 'issued' records
       const active = rentals.filter(r => r.status === 'issued' && r.receiptNo);
       
-      // 2. Locker Logic
+      // 2. Process Busy Lockers
       let cloudMaleBusy = active.flatMap(r => Array.isArray(r.maleLockers) ? r.maleLockers : []);
       let cloudFemaleBusy = active.flatMap(r => Array.isArray(r.femaleLockers) ? r.femaleLockers : []);
 
@@ -49,17 +49,18 @@ const StaffPortal: React.FC = () => {
         female: cloudFemaleBusy.filter(n => !returnedLockersCache.female.includes(n))
       });
 
-      // 3. EXACT SAME SIMPLE LOGIC FOR BOTH GENDERS
-      const totalIssuedMale = active.reduce((acc, r) => acc + (Number(r.maleCostumes) || 0), 0);
-      const totalIssuedFemale = active.reduce((acc, r) => acc + (Number(r.femaleCostumes) || 0), 0);
+      // 3. IDENTICAL LOGIC FOR MALE AND FEMALE COSTUMES
+      // Directly copy the female logic that works perfectly
+      const issuedMale = active.reduce((sum, r) => sum + (Number(r.maleCostumes) || 0), 0);
+      const issuedFemale = active.reduce((sum, r) => sum + (Number(r.femaleCostumes) || 0), 0);
 
       setCostumeStock({
-        male: Math.max(0, COSTUME_RULES.MALE_COSTUME_TOTAL - totalIssuedMale),
-        female: Math.max(0, COSTUME_RULES.FEMALE_COSTUME_TOTAL - totalIssuedFemale)
+        male: Math.max(0, COSTUME_RULES.MALE_COSTUME_TOTAL - issuedMale),
+        female: Math.max(0, COSTUME_RULES.FEMALE_COSTUME_TOTAL - issuedFemale)
       });
     }
 
-    // Receipt Counter Reset Detection
+    // Handle shift reset trigger from admin
     const settings = await cloudSync.fetchSettings();
     if (settings?.lastShiftReset) {
       const localLastReset = localStorage.getItem('swp_last_shift_reset');
@@ -74,7 +75,7 @@ const StaffPortal: React.FC = () => {
 
   useEffect(() => {
     refreshActive();
-    const interval = setInterval(refreshActive, 15000); 
+    const interval = setInterval(refreshActive, 10000); // More frequent sync
     return () => clearInterval(interval);
   }, [mode, returnedLockersCache]);
 
@@ -114,8 +115,9 @@ const StaffPortal: React.FC = () => {
     const mQty = Number(maleCostumes) || 0;
     const fQty = Number(femaleCostumes) || 0;
 
-    if (mQty > costumeStock.male) return alert(`Not enough Male Costumes! Only ${costumeStock.male} left.`);
-    if (fQty > costumeStock.female) return alert(`Not enough Female Costumes! Only ${costumeStock.female} left.`);
+    // Direct check against state
+    if (mQty > costumeStock.male) return alert(`Not enough Male Costumes! Left: ${costumeStock.male}`);
+    if (fQty > costumeStock.female) return alert(`Not enough Female Costumes! Left: ${costumeStock.female}`);
 
     const lockersCount = maleLockers.length + femaleLockers.length;
     const rent = (lockersCount * 100) + (mQty * 50) + (fQty * 100);
@@ -146,11 +148,12 @@ const StaffPortal: React.FC = () => {
 
     const success = await cloudSync.saveRental(receipt);
     if (!success) {
-      alert("Cloud Sync Failed!");
+      alert("Error: Cloud Sync Failed!");
       setIsSyncing(false);
       return;
     }
 
+    // Print
     const win = window.open('', '', 'width=800,height=900');
     if (win) {
       win.document.write(`<html><head><title>Receipt</title></head><body>${printRef.current.innerHTML}</body></html>`);
@@ -159,7 +162,7 @@ const StaffPortal: React.FC = () => {
       win.close();
     }
     
-    // Immediate Local Update for UI snappiness
+    // Immediate state update for snappy UI
     setActiveLockers(prev => ({
       male: [...prev.male, ...receipt.maleLockers],
       female: [...prev.female, ...receipt.femaleLockers]
@@ -170,7 +173,7 @@ const StaffPortal: React.FC = () => {
       female: prev.female - receipt.femaleCostumes
     }));
 
-    setTimeout(refreshActive, 2000); 
+    setTimeout(refreshActive, 1000); 
     setIsSyncing(false);
     resetForm();
   };
@@ -192,20 +195,30 @@ const StaffPortal: React.FC = () => {
     const success = await cloudSync.updateRental(updated);
     
     if (success) {
+      // Mark as returned in local cache to keep colors correct until cloud syncs
       setReturnedLockersCache(prev => ({
         male: [...prev.male, ...returnReceipt.maleLockers],
         female: [...prev.female, ...returnReceipt.femaleLockers]
       }));
       
+      // Update local stock immediately
+      setCostumeStock(prev => ({
+        male: prev.male + returnReceipt.maleCostumes,
+        female: prev.female + returnReceipt.femaleCostumes
+      }));
+
       alert("Return Successful!");
       setReturnReceipt(null);
       setSearchCode('');
+      
+      // Clear cache after a minute to allow background sync to take over
       setTimeout(() => {
         setReturnedLockersCache(prev => ({
           male: prev.male.filter(n => !returnReceipt.maleLockers.includes(n)),
           female: prev.female.filter(n => !returnReceipt.femaleLockers.includes(n))
         }));
       }, 60000);
+      
       await refreshActive();
     }
     setIsSyncing(false);
@@ -294,7 +307,7 @@ const StaffPortal: React.FC = () => {
             </div>
           </div>
 
-          <button onClick={generateReceipt} className="btn-resort w-full h-16 !bg-emerald-500 !text-slate-900 text-sm font-black">Generate Receipt</button>
+          <button onClick={generateReceipt} className="btn-resort w-full h-16 !bg-emerald-500 !text-slate-900 text-sm font-black uppercase">Generate Receipt</button>
           
           {receipt && (
             <div ref={printRef} className="bg-white text-slate-900 rounded-[2rem] p-8 space-y-6 shadow-2xl border-4 border-slate-900">
