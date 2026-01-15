@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { LockerReceipt, ShiftType } from '../types';
+import { LockerReceipt, ShiftType, AdminSettings } from '../types';
 import { cloudSync } from '../services/cloud_sync';
 
 const StaffPortal: React.FC = () => {
@@ -32,11 +32,27 @@ const StaffPortal: React.FC = () => {
         female: active.flatMap(r => r.femaleLockers)
       });
     }
+
+    // Check for shift reset to restart receipt count
+    const settings = await cloudSync.fetchSettings();
+    if (settings?.lastShiftReset) {
+      const localLastReset = localStorage.getItem('swp_last_shift_reset');
+      if (settings.lastShiftReset !== localLastReset) {
+        // Shift has been reset by Admin!
+        localStorage.setItem('swp_last_shift_reset', settings.lastShiftReset);
+        const d = new Date();
+        const key = `swp_rc_${String(d.getFullYear()).slice(-2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+        localStorage.setItem(key, '0'); // Reset counter
+        console.log("Shift reset detected. Receipt counter set to 0001.");
+      }
+    }
     setIsSyncing(false);
   };
 
   useEffect(() => {
     refreshActive();
+    const interval = setInterval(refreshActive, 20000); // Polling for updates
+    return () => clearInterval(interval);
   }, [mode]);
 
   const generateReceiptNo = () => {
@@ -73,7 +89,6 @@ const StaffPortal: React.FC = () => {
     }
 
     const lockers = maleLockers.length + femaleLockers.length;
-    // Pricing logic
     const rent = lockers * 100 + maleCostumes * 50 + femaleCostumes * 100;
     const deposit = lockers * 200 + maleCostumes * 50 + femaleCostumes * 100;
 
@@ -116,7 +131,7 @@ const StaffPortal: React.FC = () => {
       win.close();
     }
     
-    await refreshActive(); // Refresh locked items immediately
+    await refreshActive(); 
     setIsSyncing(false);
     resetForm();
   };
@@ -147,23 +162,9 @@ const StaffPortal: React.FC = () => {
       alert("Refund Done! Assets are now back in stock.");
       setReturnReceipt(null);
       setSearchCode('');
-      await refreshActive(); // Immediately unlock the lockers in UI
-    } else {
-      alert("Update failed. Please try again.");
-    }
-    setIsSyncing(false);
-  };
-
-  const handleShiftCheckout = async () => {
-    if (!confirm("Caution: This will mark ALL currently issued lockers as 'Returned'. Use this only at the end of your shift when all items are back. Proceed?")) return;
-    
-    setIsSyncing(true);
-    const success = await cloudSync.checkoutShift();
-    if (success) {
-      alert("Shift Checkout Complete! All lockers reset for the next shift.");
       await refreshActive();
     } else {
-      alert("Checkout failed. Please check your cloud connection.");
+      alert("Update failed. Please try again.");
     }
     setIsSyncing(false);
   };
@@ -189,21 +190,15 @@ const StaffPortal: React.FC = () => {
 
   return (
     <div className="w-full flex flex-col items-center py-6 text-white min-h-[90vh]">
-      {/* Header with Refresh & End Shift */}
       <div className="w-full max-w-5xl flex justify-between items-center mb-8 px-4">
           <div className="flex bg-white/10 rounded-full p-1 border border-white/10">
             <button onClick={() => setMode('issue')} className={`px-8 py-2 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'issue' ? 'bg-emerald-500 text-slate-900' : 'text-white/70 hover:text-white'}`}>ISSUE</button>
             <button onClick={() => setMode('return')} className={`px-8 py-2 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'return' ? 'bg-emerald-500 text-slate-900' : 'text-white/70 hover:text-white'}`}>RETURN</button>
           </div>
           
-          <div className="flex gap-4">
-            <button onClick={refreshActive} disabled={isSyncing} className="bg-white/10 p-3 rounded-full hover:bg-white/20 transition-all border border-white/10">
-               <i className={`fas fa-sync-alt ${isSyncing ? 'fa-spin' : ''}`}></i>
-            </button>
-            <button onClick={handleShiftCheckout} disabled={isSyncing} className="bg-red-600/20 text-red-400 border border-red-500/30 px-6 py-2 rounded-full font-black text-[9px] uppercase tracking-[0.2em] hover:bg-red-600 hover:text-white transition-all">
-               Shift Checkout <i className="fas fa-sign-out-alt ml-1"></i>
-            </button>
-          </div>
+          <button onClick={refreshActive} disabled={isSyncing} className="bg-white/10 p-3 rounded-full hover:bg-white/20 transition-all border border-white/10">
+             <i className={`fas fa-sync-alt ${isSyncing ? 'fa-spin' : ''}`}></i>
+          </button>
       </div>
 
       {mode === 'issue' && (
