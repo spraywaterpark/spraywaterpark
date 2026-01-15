@@ -55,8 +55,9 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const manualRefresh = async () => {
     setIsSyncing(true);
     try {
+      const remoteSettings = await cloudSync.fetchSettings();
+      if (remoteSettings) onUpdateSettings(remoteSettings);
       await cloudSync.fetchData(syncId || MASTER_SYNC_ID);
-      await cloudSync.fetchSettings();
       setLastUpdated(new Date().toLocaleTimeString());
     } catch (e) {
       console.error("Manual refresh failed", e);
@@ -65,7 +66,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     }
   };
 
-  // Fixed shift property name and logic
   const addBlackout = () => {
     if (!blkDate) return alert("Select a date");
     const currentShift = blkSlot.toLowerCase().includes('morning') ? 'morning' : 'evening';
@@ -78,7 +78,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     setDraft({ ...draft, blockedSlots: [...currentBlocked, newSlot] });
   };
 
-  // Fixed full day shift type
   const addFullDayBlackout = () => {
     if (!blkDate) return alert("Select a date");
     const currentBlocked = draft.blockedSlots || [];
@@ -91,11 +90,21 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     setDraft({ ...draft, blockedSlots: updated });
   };
 
+  // CRITICAL FIX: Actually push to Google Sheets
   const handleSaveSettings = async () => {
+    if (isSaving) return;
     setIsSaving(true);
     try {
-      await onUpdateSettings(draft);
-      setActiveTab('bookings');
+      const success = await cloudSync.saveSettings(draft);
+      if (success) {
+        onUpdateSettings(draft); // Update parent state
+        alert("Success: Resort settings synced to cloud!");
+        setActiveTab('bookings');
+      } else {
+        alert("Error: Cloud Sync failed. Check your connection and try again.");
+      }
+    } catch (err) {
+      alert("An unexpected error occurred while saving settings.");
     } finally {
       setIsSaving(false);
     }
@@ -173,14 +182,12 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         </button>
 
         <button
-  onClick={() => window.location.hash = '#/admin-lockers'}
-  className="btn-resort !px-8 h-14 !bg-emerald-600 hover:!bg-emerald-700"
->
-  <i className="fas fa-box mr-2 text-xs"></i>
-  CO&LO LOGIN
-</button>
-
-      
+          onClick={() => window.location.hash = '#/admin-lockers'}
+          className="btn-resort !px-8 h-14 !bg-emerald-600 hover:!bg-emerald-700"
+        >
+          <i className="fas fa-box mr-2 text-xs"></i>
+          CO&LO LOGIN
+        </button>
       </div>
 
       {/* SETTINGS MODAL */}
@@ -242,7 +249,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                       <div key={i} className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200">
                         <div>
                           <p className="text-sm font-black text-slate-900 uppercase">{bs.date}</p>
-                          {/* Updated display to use shift property */}
                           <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest">{bs.shift}</p>
                         </div>
                         <button onClick={() => removeBlackout(i)} className="w-10 h-10 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"><i className="fas fa-trash-alt text-xs"></i></button>
