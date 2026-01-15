@@ -1,13 +1,20 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LockerReceipt } from '../types';
+import { LockerReceipt, ShiftType } from '../types';
 import { cloudSync } from '../services/cloud_sync';
 
 const AdminLockers: React.FC = () => {
   const navigate = useNavigate();
   const [rentals, setRentals] = useState<LockerReceipt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showSummary, setShowSummary] = useState(false);
+  
+  // Summary Filters
+  const [summaryDate, setSummaryDate] = useState(new Date().toISOString().split('T')[0]);
+  const [summaryShift, setSummaryShift] = useState<ShiftType | 'all'>('all');
+
+  const reportPrintRef = useRef<HTMLDivElement>(null);
 
   const fetchLiveRentals = async () => {
     setIsLoading(true);
@@ -46,6 +53,71 @@ const AdminLockers: React.FC = () => {
     };
   }, [rentals]);
 
+  // SHIFT REPORT CALCULATION
+  const shiftReport = useMemo(() => {
+    const filtered = rentals.filter(r => {
+      const matchDate = r.date === summaryDate;
+      const matchShift = summaryShift === 'all' || r.shift === summaryShift;
+      return matchDate && matchShift;
+    });
+
+    const lockersIssued = filtered.reduce((sum, r) => sum + (r.maleLockers?.length || 0) + (r.femaleLockers?.length || 0), 0);
+    const maleCostumes = filtered.reduce((sum, r) => sum + (Number(r.maleCostumes) || 0), 0);
+    const femaleCostumes = filtered.reduce((sum, r) => sum + (Number(r.femaleCostumes) || 0), 0);
+    
+    const totalCollection = filtered.reduce((sum, r) => sum + (Number(r.totalCollected) || 0), 0);
+    const totalRefund = filtered.filter(r => r.status === 'returned').reduce((sum, r) => sum + (Number(r.refundableAmount) || 0), 0);
+    const netCollection = totalCollection - totalRefund;
+
+    return {
+      count: filtered.length,
+      lockersIssued,
+      maleCostumes,
+      femaleCostumes,
+      totalCollection,
+      totalRefund,
+      netCollection
+    };
+  }, [rentals, summaryDate, summaryShift]);
+
+  const printReport = () => {
+    const content = reportPrintRef.current?.innerHTML;
+    const win = window.open('', '', 'width=900,height=1000');
+    if (win) {
+      win.document.write(`
+        <html>
+          <head>
+            <title>Shift Summary Report - Spray Aqua Resort</title>
+            <style>
+              body { font-family: sans-serif; padding: 40px; color: #333; line-height: 1.6; }
+              .header { text-align: center; border-bottom: 3px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
+              .header h1 { margin: 0; text-transform: uppercase; font-size: 28px; }
+              .header p { margin: 5px 0; font-weight: bold; font-size: 14px; letter-spacing: 2px; color: #666; }
+              .meta-grid { display: grid; grid-cols: 2; gap: 20px; margin-bottom: 30px; background: #f9f9f9; padding: 20px; border-radius: 8px; }
+              .report-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+              .report-table th, .report-table td { border: 1px solid #ddd; padding: 15px; text-align: left; }
+              .report-table th { background: #f2f2f2; font-size: 12px; text-transform: uppercase; color: #555; }
+              .report-table td { font-size: 16px; font-weight: bold; }
+              .total-row { background: #eee; font-size: 18px; }
+              .footer { margin-top: 60px; display: flex; justify-content: space-between; }
+              .sign-box { border-top: 1px solid #000; width: 200px; text-align: center; padding-top: 10px; font-size: 12px; font-weight: bold; }
+              .highlight { color: #0284c7; }
+              @media print { .no-print { display: none; } }
+            </style>
+          </head>
+          <body>
+            ${content}
+          </body>
+        </html>
+      `);
+      win.document.close();
+      setTimeout(() => {
+        win.print();
+        win.close();
+      }, 500);
+    }
+  };
+
   return (
     <div className="p-4 sm:p-10 glass-card rounded-[2.5rem] border border-white/30 space-y-12 animate-fade max-w-7xl mx-auto my-6 backdrop-blur-3xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)]">
       
@@ -61,7 +133,10 @@ const AdminLockers: React.FC = () => {
            </div>
         </div>
         
-        <div className="flex gap-4 w-full md:w-auto">
+        <div className="flex gap-4 w-full md:w-auto flex-wrap">
+            <button onClick={() => setShowSummary(true)} className="flex-1 md:flex-none bg-emerald-500 text-slate-900 px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-emerald-400 transition-all border border-emerald-400">
+               <i className="fas fa-file-invoice mr-2"></i> Shift Summary
+            </button>
             <button onClick={handleShiftCheckout} disabled={isLoading} className="flex-1 md:flex-none bg-red-600/90 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl hover:bg-red-700 transition-all border border-red-500">
                <i className="fas fa-sign-out-alt mr-2"></i> End Shift & Reset
             </button>
@@ -142,6 +217,108 @@ const AdminLockers: React.FC = () => {
               <i className="fas fa-cloud text-white"></i>
           </div>
       </div>
+
+      {/* SHIFT SUMMARY MODAL */}
+      {showSummary && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-6 z-[1000] animate-fade">
+          <div className="bg-white rounded-[3rem] w-full max-w-2xl overflow-hidden shadow-2xl animate-slide-up">
+            <div className="p-8 border-b bg-slate-50 flex justify-between items-center">
+               <div>
+                  <h3 className="text-2xl font-black text-slate-900 uppercase">Shift Summary Report</h3>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Configure parameters for report</p>
+               </div>
+               <button onClick={() => setShowSummary(false)} className="w-10 h-10 rounded-full bg-slate-200 hover:bg-slate-300 transition-colors">
+                  <i className="fas fa-times"></i>
+               </button>
+            </div>
+
+            <div className="p-10 space-y-8">
+               <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Date</label>
+                     <input type="date" className="input-premium border-2 border-slate-200" value={summaryDate} onChange={e => setSummaryDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Shift</label>
+                     <select className="input-premium border-2 border-slate-200" value={summaryShift} onChange={e => setSummaryShift(e.target.value as any)}>
+                        <option value="all">Full Day (All Shifts)</option>
+                        <option value="morning">Morning Shift</option>
+                        <option value="evening">Evening Shift</option>
+                     </select>
+                  </div>
+               </div>
+
+               {/* Hidden Report Content for Print */}
+               <div ref={reportPrintRef} className="hidden print:block">
+                  <div className="header">
+                      <h1>Spray Aqua Resort</h1>
+                      <p>SHIFT RECONCILIATION REPORT</p>
+                  </div>
+
+                  <div className="meta-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+                      <div>
+                          <p><span style={{color: '#888'}}>Report Date:</span> ${summaryDate}</p>
+                          <p><span style={{color: '#888'}}>Shift Name:</span> ${summaryShift === 'all' ? 'FULL DAY' : summaryShift.toUpperCase()}</p>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                          <p><span style={{color: '#888'}}>Records Found:</span> ${shiftReport.count}</p>
+                          <p><span style={{color: '#888'}}>Generated At:</span> ${new Date().toLocaleString()}</p>
+                      </div>
+                  </div>
+
+                  <table className="report-table">
+                      <thead>
+                        <tr><th>Category</th><th>Quantity / Value</th></tr>
+                      </thead>
+                      <tbody>
+                        <tr><td>Lockers Issued</td><td>${shiftReport.lockersIssued} Units</td></tr>
+                        <tr><td>Male Costumes Issued</td><td>${shiftReport.maleCostumes} Units</td></tr>
+                        <tr><td>Female Costumes Issued</td><td>${shiftReport.femaleCostumes} Units</td></tr>
+                        <tr><td>Total Gross Collection (Rent + Security)</td><td>₹${shiftReport.totalCollection.toLocaleString()}</td></tr>
+                        <tr><td>Total Security Refunded</td><td>₹${shiftReport.totalRefund.toLocaleString()}</td></tr>
+                        <tr className="total-row"><td>NET REVENUE COLLECTION</td><td>₹${shiftReport.netCollection.toLocaleString()}</td></tr>
+                      </tbody>
+                  </table>
+
+                  <div className="footer">
+                      <div className="sign-box">SHIFT MANAGER SIGNATURE</div>
+                      <div className="sign-box">AUDITOR / ACCOUNTS DEPT</div>
+                  </div>
+               </div>
+
+               {/* Visual Preview for UI */}
+               <div className="bg-slate-50 border-2 border-slate-100 rounded-3xl p-8 space-y-4">
+                  <div className="flex justify-between items-center text-sm">
+                      <span className="font-bold text-slate-500 uppercase text-[10px]">Lockers Issued:</span>
+                      <span className="font-black text-slate-900">{shiftReport.lockersIssued}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                      <span className="font-bold text-slate-500 uppercase text-[10px]">Total Costumes:</span>
+                      <span className="font-black text-slate-900">{shiftReport.maleCostumes + shiftReport.femaleCostumes}</span>
+                  </div>
+                  <div className="pt-4 border-t-2 border-dashed border-slate-200">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-bold text-slate-500 uppercase text-[10px]">Gross Collection:</span>
+                        <span className="font-bold text-slate-900">₹{shiftReport.totalCollection}</span>
+                      </div>
+                      <div className="flex justify-between items-center mb-4">
+                        <span className="font-bold text-slate-500 uppercase text-[10px]">Total Refunds:</span>
+                        <span className="font-bold text-red-600">₹{shiftReport.totalRefund}</span>
+                      </div>
+                      <div className="flex justify-between items-center bg-emerald-500 text-white p-4 rounded-xl shadow-lg">
+                        <span className="font-black uppercase text-xs">Net Cash Collection:</span>
+                        <span className="font-black text-2xl tracking-tighter">₹{shiftReport.netCollection}</span>
+                      </div>
+                  </div>
+               </div>
+
+               <button onClick={printReport} className="w-full btn-resort h-16 shadow-2xl !bg-slate-900 text-white font-black">
+                  <i className="fas fa-print mr-2"></i> Print Official Report
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
