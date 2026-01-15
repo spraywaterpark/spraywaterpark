@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { LockerReceipt, ShiftType, AdminSettings } from '../types';
+import { LockerReceipt, ShiftType } from '../types';
 import { cloudSync } from '../services/cloud_sync';
 
 const StaffPortal: React.FC = () => {
@@ -33,17 +33,16 @@ const StaffPortal: React.FC = () => {
       });
     }
 
-    // Check for shift reset to restart receipt count
+    // Receipt Counter Reset Detection
     const settings = await cloudSync.fetchSettings();
     if (settings?.lastShiftReset) {
       const localLastReset = localStorage.getItem('swp_last_shift_reset');
       if (settings.lastShiftReset !== localLastReset) {
-        // Shift has been reset by Admin!
         localStorage.setItem('swp_last_shift_reset', settings.lastShiftReset);
         const d = new Date();
         const key = `swp_rc_${String(d.getFullYear()).slice(-2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-        localStorage.setItem(key, '0'); // Reset counter
-        console.log("Shift reset detected. Receipt counter set to 0001.");
+        localStorage.setItem(key, '0'); // Hard Reset to 0001
+        console.log("Admin Triggered Shift Reset. Receipt Counter is now 0001.");
       }
     }
     setIsSyncing(false);
@@ -51,7 +50,7 @@ const StaffPortal: React.FC = () => {
 
   useEffect(() => {
     refreshActive();
-    const interval = setInterval(refreshActive, 20000); // Polling for updates
+    const interval = setInterval(refreshActive, 30000); 
     return () => clearInterval(interval);
   }, [mode]);
 
@@ -137,12 +136,14 @@ const StaffPortal: React.FC = () => {
   };
 
   const findReturn = async () => {
+    if (!searchCode) return alert("Enter receipt suffix");
     setIsSyncing(true);
     const all = await cloudSync.fetchRentals();
+    // CRITICAL: Filter by status to ensure already returned items can't be returned twice
     const found = all?.find(r => r.receiptNo.endsWith(searchCode) && r.status === 'issued');
     setIsSyncing(false);
     
-    if (!found) return alert("Receipt not found or already returned");
+    if (!found) return alert("Receipt not found or already returned / checked out.");
     setReturnReceipt(found);
   };
 
@@ -159,12 +160,12 @@ const StaffPortal: React.FC = () => {
     const success = await cloudSync.updateRental(updated);
     
     if (success) {
-      alert("Refund Done! Assets are now back in stock.");
+      alert("Refund Successful! Assets are now released and available.");
       setReturnReceipt(null);
       setSearchCode('');
-      await refreshActive();
+      await refreshActive(); // Immediately update UI colors
     } else {
-      alert("Update failed. Please try again.");
+      alert("Update failed. Please check internet connection.");
     }
     setIsSyncing(false);
   };
