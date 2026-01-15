@@ -38,25 +38,29 @@ const StaffPortal: React.FC = () => {
     const rentals = await cloudSync.fetchRentals();
     if (rentals) {
       // 1. Get ONLY active 'issued' records
-      const active = rentals.filter(r => r.status === 'issued' && r.receiptNo);
+      const activeRecords = rentals.filter(r => r.status === 'issued' && r.receiptNo);
       
       // 2. Process Busy Lockers
-      let cloudMaleBusy = active.flatMap(r => Array.isArray(r.maleLockers) ? r.maleLockers : []);
-      let cloudFemaleBusy = active.flatMap(r => Array.isArray(r.femaleLockers) ? r.femaleLockers : []);
+      let cloudMaleBusy = activeRecords.flatMap(r => Array.isArray(r.maleLockers) ? r.maleLockers : []);
+      let cloudFemaleBusy = activeRecords.flatMap(r => Array.isArray(r.femaleLockers) ? r.femaleLockers : []);
 
       setActiveLockers({
         male: cloudMaleBusy.filter(n => !returnedLockersCache.male.includes(n)),
         female: cloudFemaleBusy.filter(n => !returnedLockersCache.female.includes(n))
       });
 
-      // 3. IDENTICAL LOGIC FOR MALE AND FEMALE COSTUMES
-      // Directly copy the female logic that works perfectly
-      const issuedMale = active.reduce((sum, r) => sum + (Number(r.maleCostumes) || 0), 0);
-      const issuedFemale = active.reduce((sum, r) => sum + (Number(r.femaleCostumes) || 0), 0);
+      // 3. NEW ROBUST INVENTORY LOGIC (SAME FOR BOTH GENDERS)
+      let issuedMaleCount = 0;
+      let issuedFemaleCount = 0;
+
+      activeRecords.forEach(r => {
+        issuedMaleCount += (Number(r.maleCostumes) || 0);
+        issuedFemaleCount += (Number(r.femaleCostumes) || 0);
+      });
 
       setCostumeStock({
-        male: Math.max(0, COSTUME_RULES.MALE_COSTUME_TOTAL - issuedMale),
-        female: Math.max(0, COSTUME_RULES.FEMALE_COSTUME_TOTAL - issuedFemale)
+        male: Math.max(0, COSTUME_RULES.MALE_COSTUME_TOTAL - issuedMaleCount),
+        female: Math.max(0, COSTUME_RULES.FEMALE_COSTUME_TOTAL - issuedFemaleCount)
       });
     }
 
@@ -75,7 +79,7 @@ const StaffPortal: React.FC = () => {
 
   useEffect(() => {
     refreshActive();
-    const interval = setInterval(refreshActive, 10000); // More frequent sync
+    const interval = setInterval(refreshActive, 8000); // Fast sync
     return () => clearInterval(interval);
   }, [mode, returnedLockersCache]);
 
@@ -115,9 +119,9 @@ const StaffPortal: React.FC = () => {
     const mQty = Number(maleCostumes) || 0;
     const fQty = Number(femaleCostumes) || 0;
 
-    // Direct check against state
-    if (mQty > costumeStock.male) return alert(`Not enough Male Costumes! Left: ${costumeStock.male}`);
-    if (fQty > costumeStock.female) return alert(`Not enough Female Costumes! Left: ${costumeStock.female}`);
+    // Direct check against current stock
+    if (mQty > costumeStock.male) return alert(`Not enough Male Costumes! Available: ${costumeStock.male}`);
+    if (fQty > costumeStock.female) return alert(`Not enough Female Costumes! Available: ${costumeStock.female}`);
 
     const lockersCount = maleLockers.length + femaleLockers.length;
     const rent = (lockersCount * 100) + (mQty * 50) + (fQty * 100);
@@ -148,12 +152,12 @@ const StaffPortal: React.FC = () => {
 
     const success = await cloudSync.saveRental(receipt);
     if (!success) {
-      alert("Error: Cloud Sync Failed!");
+      alert("Error: Cloud Sync Failed! Check Internet.");
       setIsSyncing(false);
       return;
     }
 
-    // Print
+    // Print Logic
     const win = window.open('', '', 'width=800,height=900');
     if (win) {
       win.document.write(`<html><head><title>Receipt</title></head><body>${printRef.current.innerHTML}</body></html>`);
@@ -162,18 +166,8 @@ const StaffPortal: React.FC = () => {
       win.close();
     }
     
-    // Immediate state update for snappy UI
-    setActiveLockers(prev => ({
-      male: [...prev.male, ...receipt.maleLockers],
-      female: [...prev.female, ...receipt.femaleLockers]
-    }));
-    
-    setCostumeStock(prev => ({
-      male: prev.male - receipt.maleCostumes,
-      female: prev.female - receipt.femaleCostumes
-    }));
-
-    setTimeout(refreshActive, 1000); 
+    // Immediate state refresh
+    await refreshActive();
     setIsSyncing(false);
     resetForm();
   };
@@ -184,7 +178,7 @@ const StaffPortal: React.FC = () => {
     const all = await cloudSync.fetchRentals();
     const found = all?.find(r => r.receiptNo.endsWith(searchCode) && r.status === 'issued');
     setIsSyncing(false);
-    if (!found) return alert("Active record not found.");
+    if (!found) return alert("Record not found or already returned.");
     setReturnReceipt(found);
   };
 
@@ -195,31 +189,23 @@ const StaffPortal: React.FC = () => {
     const success = await cloudSync.updateRental(updated);
     
     if (success) {
-      // Mark as returned in local cache to keep colors correct until cloud syncs
+      // Immediate Stock Update
+      setCostumeStock(prev => ({
+        male: prev.male + (Number(returnReceipt.maleCostumes) || 0),
+        female: prev.female + (Number(returnReceipt.femaleCostumes) || 0)
+      }));
+
+      // Cache lockers for a moment to prevent visual glitches
       setReturnedLockersCache(prev => ({
         male: [...prev.male, ...returnReceipt.maleLockers],
         female: [...prev.female, ...returnReceipt.femaleLockers]
-      }));
-      
-      // Update local stock immediately
-      setCostumeStock(prev => ({
-        male: prev.male + returnReceipt.maleCostumes,
-        female: prev.female + returnReceipt.femaleCostumes
       }));
 
       alert("Return Successful!");
       setReturnReceipt(null);
       setSearchCode('');
       
-      // Clear cache after a minute to allow background sync to take over
-      setTimeout(() => {
-        setReturnedLockersCache(prev => ({
-          male: prev.male.filter(n => !returnReceipt.maleLockers.includes(n)),
-          female: prev.female.filter(n => !returnReceipt.femaleLockers.includes(n))
-        }));
-      }, 60000);
-      
-      await refreshActive();
+      setTimeout(refreshActive, 2000);
     }
     setIsSyncing(false);
   };
@@ -234,7 +220,7 @@ const StaffPortal: React.FC = () => {
           disabled={isBusy}
           onClick={() => toggleLocker(num, gender)}
           className={`w-10 h-10 rounded-lg text-xs font-black border transition-all
-          ${isBusy ? 'bg-red-600 text-white/40 cursor-not-allowed border-red-900'
+          ${isBusy ? 'bg-red-600 text-white/40 cursor-not-allowed border-red-900 shadow-inner'
           : selected.includes(num) ? 'bg-emerald-500 text-white border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.5)]'
           : 'bg-white/10 text-white/80 border-white/20 hover:border-white/50'}`}
         >
@@ -246,31 +232,32 @@ const StaffPortal: React.FC = () => {
   return (
     <div className="w-full flex flex-col items-center py-6 text-white min-h-[90vh]">
       <div className="w-full max-w-5xl flex justify-between items-center mb-8 px-4">
-          <div className="flex bg-white/10 rounded-full p-1 border border-white/10">
-            <button onClick={() => setMode('issue')} className={`px-8 py-2 rounded-full font-black text-[10px] uppercase tracking-widest ${mode === 'issue' ? 'bg-emerald-500 text-slate-900' : 'text-white/70'}`}>ISSUE</button>
-            <button onClick={() => setMode('return')} className={`px-8 py-2 rounded-full font-black text-[10px] uppercase tracking-widest ${mode === 'return' ? 'bg-emerald-500 text-slate-900' : 'text-white/70'}`}>RETURN</button>
+          <div className="flex bg-white/10 rounded-full p-1 border border-white/10 shadow-lg">
+            <button onClick={() => setMode('issue')} className={`px-8 py-2 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'issue' ? 'bg-emerald-500 text-slate-900' : 'text-white/70 hover:text-white'}`}>ISSUE</button>
+            <button onClick={() => setMode('return')} className={`px-8 py-2 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'return' ? 'bg-emerald-500 text-slate-900' : 'text-white/70 hover:text-white'}`}>RETURN</button>
           </div>
-          <button onClick={refreshActive} disabled={isSyncing} className="bg-white/10 p-3 rounded-full border border-white/10">
-             <i className={`fas fa-sync-alt ${isSyncing ? 'fa-spin' : ''}`}></i>
+          <button onClick={refreshActive} disabled={isSyncing} className="bg-white/10 p-3 rounded-full border border-white/10 hover:bg-white/20 transition-all">
+             <i className={`fas fa-sync-alt ${isSyncing ? 'fa-spin text-emerald-400' : ''}`}></i>
           </button>
       </div>
 
       {mode === 'issue' && (
         <div className="bg-white/10 border border-white/20 rounded-[2.5rem] p-8 md:p-12 w-full max-w-5xl space-y-10 shadow-2xl backdrop-blur-xl animate-slide-up">
+          {/* Inventory Dashboard */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-6 border-b border-white/10 text-center">
-              <div className="bg-slate-900/40 p-4 rounded-2xl">
+              <div className="bg-slate-900/40 p-4 rounded-2xl border border-white/5">
                   <p className="text-[8px] font-bold text-white/40 uppercase tracking-widest">M-Lockers</p>
                   <p className="text-xl font-black text-blue-400">{60 - activeLockers.male.length}</p>
               </div>
-              <div className="bg-slate-900/40 p-4 rounded-2xl">
+              <div className="bg-slate-900/40 p-4 rounded-2xl border border-white/5">
                   <p className="text-[8px] font-bold text-white/40 uppercase tracking-widest">F-Lockers</p>
                   <p className="text-xl font-black text-pink-400">{60 - activeLockers.female.length}</p>
               </div>
-              <div className="bg-slate-900/40 p-4 rounded-2xl">
+              <div className="bg-slate-900/40 p-4 rounded-2xl border border-white/5">
                   <p className="text-[8px] font-bold text-white/40 uppercase tracking-widest">M-Costume</p>
                   <p className={`text-xl font-black ${costumeStock.male < 10 ? 'text-red-500' : 'text-emerald-400'}`}>{costumeStock.male}</p>
               </div>
-              <div className="bg-slate-900/40 p-4 rounded-2xl">
+              <div className="bg-slate-900/40 p-4 rounded-2xl border border-white/5">
                   <p className="text-[8px] font-bold text-white/40 uppercase tracking-widest">F-Costume</p>
                   <p className={`text-xl font-black ${costumeStock.female < 10 ? 'text-red-500' : 'text-emerald-400'}`}>{costumeStock.female}</p>
               </div>
@@ -282,17 +269,17 @@ const StaffPortal: React.FC = () => {
           </div>
 
           <div className="flex gap-4">
-            <button onClick={() => setShift('morning')} className={`flex-1 py-4 rounded-2xl font-black text-[10px] uppercase border ${shift === 'morning' ? 'bg-white text-slate-900' : 'bg-white/5'}`}>Morning</button>
-            <button onClick={() => setShift('evening')} className={`flex-1 py-4 rounded-2xl font-black text-[10px] uppercase border ${shift === 'evening' ? 'bg-white text-slate-900' : 'bg-white/5'}`}>Evening</button>
+            <button onClick={() => setShift('morning')} className={`flex-1 py-4 rounded-2xl font-black text-[10px] uppercase border transition-all ${shift === 'morning' ? 'bg-white text-slate-900 border-white shadow-xl' : 'bg-white/5 border-white/10'}`}>Morning</button>
+            <button onClick={() => setShift('evening')} className={`flex-1 py-4 rounded-2xl font-black text-[10px] uppercase border transition-all ${shift === 'evening' ? 'bg-white text-slate-900 border-white shadow-xl' : 'bg-white/5 border-white/10'}`}>Evening</button>
           </div>
 
           <div className="space-y-6">
-            <p className="font-black text-xs uppercase tracking-widest text-blue-400">Male Lockers</p>
+            <p className="font-black text-xs uppercase tracking-widest text-blue-400 flex items-center gap-2"><i className="fas fa-male"></i> Male Lockers</p>
             <div className="grid grid-cols-5 sm:grid-cols-10 gap-3">{renderLockers('male')}</div>
           </div>
 
           <div className="space-y-6">
-            <p className="font-black text-xs uppercase tracking-widest text-pink-400">Female Lockers</p>
+            <p className="font-black text-xs uppercase tracking-widest text-pink-400 flex items-center gap-2"><i className="fas fa-female"></i> Female Lockers</p>
             <div className="grid grid-cols-5 sm:grid-cols-10 gap-3">{renderLockers('female')}</div>
           </div>
 
@@ -307,10 +294,10 @@ const StaffPortal: React.FC = () => {
             </div>
           </div>
 
-          <button onClick={generateReceipt} className="btn-resort w-full h-16 !bg-emerald-500 !text-slate-900 text-sm font-black uppercase">Generate Receipt</button>
+          <button onClick={generateReceipt} className="btn-resort w-full h-16 !bg-emerald-500 !text-slate-900 text-sm font-black uppercase shadow-[0_10px_30px_rgba(16,185,129,0.3)] hover:scale-[1.01]">Generate Receipt</button>
           
           {receipt && (
-            <div ref={printRef} className="bg-white text-slate-900 rounded-[2rem] p-8 space-y-6 shadow-2xl border-4 border-slate-900">
+            <div ref={printRef} className="bg-white text-slate-900 rounded-[2rem] p-8 space-y-6 shadow-2xl border-4 border-slate-900 animate-slide-up">
               <div className="text-center border-b-2 border-slate-900 pb-4">
                   <h2 className="font-black text-xl uppercase">Spray Aqua Resort</h2>
                   <p className="text-[9px] font-bold uppercase tracking-widest">Inventory Voucher</p>
@@ -334,17 +321,17 @@ const StaffPortal: React.FC = () => {
       {mode === 'return' && (
         <div className="bg-white/10 border border-white/20 rounded-[2.5rem] p-10 w-full max-w-xl space-y-8 shadow-2xl backdrop-blur-xl animate-slide-up text-center">
           <input placeholder="Receipt Last 4 Digits" className="input-premium text-center !bg-slate-900/50 !text-white text-2xl font-black" value={searchCode} onChange={e => setSearchCode(e.target.value)} />
-          <button onClick={findReturn} disabled={isSyncing} className="btn-resort w-full h-16 !bg-blue-600 !text-white text-sm">{isSyncing ? 'Searching...' : 'Search Receipt'}</button>
+          <button onClick={findReturn} disabled={isSyncing} className="btn-resort w-full h-16 !bg-blue-600 !text-white text-sm shadow-xl">{isSyncing ? 'Searching...' : 'Search Receipt'}</button>
           
           {returnReceipt && (
-            <div className="bg-white text-slate-900 rounded-[2rem] p-8 space-y-6 text-left shadow-2xl border-4 border-emerald-500">
+            <div className="bg-white text-slate-900 rounded-[2rem] p-8 space-y-6 text-left shadow-2xl border-4 border-emerald-500 animate-slide-up">
               <h4 className="font-black text-lg uppercase">{returnReceipt.guestName}</h4>
               <div className="space-y-3 bg-slate-50 p-5 rounded-xl text-xs font-bold">
                   <div className="flex justify-between"><span>Lockers:</span><span>{ [...returnReceipt.maleLockers, ...returnReceipt.femaleLockers].join(',') || 'None' }</span></div>
                   <div className="flex justify-between"><span>Costumes:</span><span>M:{returnReceipt.maleCostumes} F:{returnReceipt.femaleCostumes}</span></div>
                   <div className="flex justify-between pt-3 border-t text-emerald-600 font-black text-lg"><span>Refund:</span><span>₹{returnReceipt.refundableAmount}</span></div>
               </div>
-              <button onClick={confirmReturn} disabled={isSyncing} className="btn-resort w-full h-16 !bg-emerald-500 !text-slate-900 font-black uppercase">Complete Return</button>
+              <button onClick={confirmReturn} disabled={isSyncing} className="btn-resort w-full h-16 !bg-emerald-500 !text-slate-900 font-black uppercase shadow-xl">Complete Return</button>
             </div>
           )}
         </div>
