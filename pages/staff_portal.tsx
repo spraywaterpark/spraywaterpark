@@ -49,18 +49,19 @@ const StaffPortal: React.FC = () => {
         female: cloudFemaleBusy.filter(n => !returnedLockersCache.female.includes(n))
       });
 
-      // 3. NEW ROBUST INVENTORY LOGIC (SAME FOR BOTH GENDERS)
-      let issuedMaleCount = 0;
-      let issuedFemaleCount = 0;
+      // 3. IDENTICAL LOGIC FOR BOTH GENDERS
+      // We calculate issued counts by summing up all active records
+      let mIssued = 0;
+      let fIssued = 0;
 
       activeRecords.forEach(r => {
-        issuedMaleCount += (Number(r.maleCostumes) || 0);
-        issuedFemaleCount += (Number(r.femaleCostumes) || 0);
+        mIssued += (Number(r.maleCostumes) || 0);
+        fIssued += (Number(r.femaleCostumes) || 0);
       });
 
       setCostumeStock({
-        male: Math.max(0, COSTUME_RULES.MALE_COSTUME_TOTAL - issuedMaleCount),
-        female: Math.max(0, COSTUME_RULES.FEMALE_COSTUME_TOTAL - issuedFemaleCount)
+        male: Math.max(0, COSTUME_RULES.MALE_COSTUME_TOTAL - mIssued),
+        female: Math.max(0, COSTUME_RULES.FEMALE_COSTUME_TOTAL - fIssued)
       });
     }
 
@@ -79,7 +80,7 @@ const StaffPortal: React.FC = () => {
 
   useEffect(() => {
     refreshActive();
-    const interval = setInterval(refreshActive, 8000); // Fast sync
+    const interval = setInterval(refreshActive, 8000); 
     return () => clearInterval(interval);
   }, [mode, returnedLockersCache]);
 
@@ -119,7 +120,6 @@ const StaffPortal: React.FC = () => {
     const mQty = Number(maleCostumes) || 0;
     const fQty = Number(femaleCostumes) || 0;
 
-    // Direct check against current stock
     if (mQty > costumeStock.male) return alert(`Not enough Male Costumes! Available: ${costumeStock.male}`);
     if (fQty > costumeStock.female) return alert(`Not enough Female Costumes! Available: ${costumeStock.female}`);
 
@@ -157,7 +157,6 @@ const StaffPortal: React.FC = () => {
       return;
     }
 
-    // Print Logic
     const win = window.open('', '', 'width=800,height=900');
     if (win) {
       win.document.write(`<html><head><title>Receipt</title></head><body>${printRef.current.innerHTML}</body></html>`);
@@ -166,7 +165,6 @@ const StaffPortal: React.FC = () => {
       win.close();
     }
     
-    // Immediate state refresh
     await refreshActive();
     setIsSyncing(false);
     resetForm();
@@ -189,13 +187,11 @@ const StaffPortal: React.FC = () => {
     const success = await cloudSync.updateRental(updated);
     
     if (success) {
-      // Immediate Stock Update
       setCostumeStock(prev => ({
         male: prev.male + (Number(returnReceipt.maleCostumes) || 0),
         female: prev.female + (Number(returnReceipt.femaleCostumes) || 0)
       }));
 
-      // Cache lockers for a moment to prevent visual glitches
       setReturnedLockersCache(prev => ({
         male: [...prev.male, ...returnReceipt.maleLockers],
         female: [...prev.female, ...returnReceipt.femaleLockers]
@@ -204,7 +200,6 @@ const StaffPortal: React.FC = () => {
       alert("Return Successful!");
       setReturnReceipt(null);
       setSearchCode('');
-      
       setTimeout(refreshActive, 2000);
     }
     setIsSyncing(false);
@@ -243,7 +238,6 @@ const StaffPortal: React.FC = () => {
 
       {mode === 'issue' && (
         <div className="bg-white/10 border border-white/20 rounded-[2.5rem] p-8 md:p-12 w-full max-w-5xl space-y-10 shadow-2xl backdrop-blur-xl animate-slide-up">
-          {/* Inventory Dashboard */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-6 border-b border-white/10 text-center">
               <div className="bg-slate-900/40 p-4 rounded-2xl border border-white/5">
                   <p className="text-[8px] font-bold text-white/40 uppercase tracking-widest">M-Lockers</p>
