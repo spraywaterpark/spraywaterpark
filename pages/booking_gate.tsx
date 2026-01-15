@@ -59,9 +59,10 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
       return alert("Bookings are only allowed up to 7 days in advance. Please select a closer date.");
     }
 
-    // Check if the current slot is blocked
+    // Check if the current shift is blocked
+    const currentShift = slot.toLowerCase().includes('morning') ? 'morning' : 'evening';
     const isBlocked = (settings.blockedSlots || []).some(bs => 
-        bs.date === date && (bs.slot === slot || bs.slot === 'Full Day')
+        bs.date === date && (bs.shift === currentShift || bs.shift === 'all')
     );
 
     if (isBlocked) {
@@ -125,8 +126,9 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                 <div className="space-y-3">
                   {TIME_SLOTS.map(s => {
                     const isActive = slot === s;
+                    const currentShiftLabel = s.toLowerCase().includes('morning') ? 'morning' : 'evening';
                     const isBlocked = date && (settings.blockedSlots || []).some(bs => 
-                        bs.date === date && (bs.slot === s || bs.slot === 'Full Day')
+                        bs.date === date && (bs.shift === currentShiftLabel || bs.shift === 'all')
                     );
 
                     return (
