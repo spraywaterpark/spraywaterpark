@@ -1,3 +1,4 @@
+
 export type UserRole = 'guest' | 'admin' | 'staff' | null;
 
 /* ===============================
@@ -90,3 +91,6 @@ export interface LockerReceipt {
   createdAt: string;
   returnedAt?: string;
 }
+
+// Added alias to fix import errors in App.tsx
+export type LockerIssue = LockerReceipt;
