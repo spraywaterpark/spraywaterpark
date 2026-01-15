@@ -22,6 +22,20 @@ const AdminLockers: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const handleShiftCheckout = async () => {
+    if (!confirm("Caution: This will mark ALL currently issued lockers as 'Returned' and RESET receipt counter to 0001 for all staff members. Proceed?")) return;
+    
+    setIsLoading(true);
+    const success = await cloudSync.checkoutShift();
+    if (success) {
+      alert("Shift Checkout Complete! All lockers reset and receipt counters cleared.");
+      await fetchLiveRentals();
+    } else {
+      alert("Checkout failed. Please check your cloud connection.");
+    }
+    setIsLoading(false);
+  };
+
   const stats = useMemo(() => {
     const active = rentals.filter(r => r.status === 'issued');
     return {
@@ -33,79 +47,84 @@ const AdminLockers: React.FC = () => {
   }, [rentals]);
 
   return (
-    <div className="p-4 sm:p-10 glass-card rounded-[2.5rem] border border-white/20 space-y-12 animate-fade max-w-7xl mx-auto my-6 backdrop-blur-3xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)]">
+    <div className="p-4 sm:p-10 glass-card rounded-[2.5rem] border border-white/30 space-y-12 animate-fade max-w-7xl mx-auto my-6 backdrop-blur-3xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)]">
       
       {/* Navigation Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="flex items-center gap-4">
-           <button onClick={() => navigate('/admin')} className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all border border-white/10">
+           <button onClick={() => navigate('/admin')} className="w-12 h-12 rounded-2xl bg-white/20 hover:bg-white/40 flex items-center justify-center text-white transition-all border border-white/20">
               <i className="fas fa-chevron-left"></i>
            </button>
            <div>
               <h2 className="text-3xl font-black text-white uppercase tracking-tighter leading-none">Locker Analytics</h2>
-              <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Inventory Management Terminal</p>
+              <p className="text-blue-300 text-[11px] font-black uppercase tracking-[0.4em] mt-2 shadow-sm">Real-time Asset Control</p>
            </div>
         </div>
         
-        <button onClick={fetchLiveRentals} className="bg-blue-600 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-blue-700 transition-all border border-blue-400/50">
-          <i className={`fas fa-sync-alt mr-2 ${isLoading ? 'fa-spin' : ''}`}></i> Live Sync Refresh
-        </button>
+        <div className="flex gap-4 w-full md:w-auto">
+            <button onClick={handleShiftCheckout} disabled={isLoading} className="flex-1 md:flex-none bg-red-600/90 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl hover:bg-red-700 transition-all border border-red-500">
+               <i className="fas fa-sign-out-alt mr-2"></i> End Shift & Reset
+            </button>
+            <button onClick={fetchLiveRentals} className="flex-1 md:flex-none bg-blue-600 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-blue-700 transition-all border border-blue-400">
+              <i className={`fas fa-sync-alt mr-2 ${isLoading ? 'fa-spin' : ''}`}></i> Refresh Data
+            </button>
+        </div>
       </div>
 
       {/* High Visibility Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <SummaryItem label="Active Guest Sessions" value={stats.activeCount} icon="fa-user-tag" color="bg-blue-500" />
-        <SummaryItem label="Total Cash Security" value={`₹${stats.securityHeld.toLocaleString()}`} icon="fa-money-bill-wave" color="bg-emerald-500" />
-        <SummaryItem label="Male Lockers In-Use" value={`${stats.maleBusy} / 60`} icon="fa-male" color="bg-indigo-600" />
-        <SummaryItem label="Female Lockers In-Use" value={`${stats.femaleBusy} / 60`} icon="fa-female" color="bg-pink-600" />
+        <SummaryItem label="Active Sessions" value={stats.activeCount} icon="fa-user-tag" color="bg-blue-500" />
+        <SummaryItem label="Cash Security Held" value={`₹${stats.securityHeld.toLocaleString()}`} icon="fa-vault" color="bg-emerald-500" />
+        <SummaryItem label="Male Lockers Busy" value={`${stats.maleBusy} / 60`} icon="fa-male" color="bg-indigo-600" />
+        <SummaryItem label="Female Lockers Busy" value={`${stats.femaleBusy} / 60`} icon="fa-female" color="bg-pink-600" />
       </div>
 
       {/* Main Data Table */}
-      <div className="bg-slate-900/50 border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl">
-        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-slate-900/30">
-           <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/70">Rental Transaction Stream</h4>
+      <div className="bg-slate-900/80 border border-white/20 rounded-[2rem] overflow-hidden shadow-2xl">
+        <div className="p-6 border-b border-white/20 flex justify-between items-center bg-slate-900/50">
+           <h4 className="text-[11px] font-black uppercase tracking-[0.4em] text-white">Live Transaction Stream</h4>
            <div className="flex gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="text-[8px] font-black uppercase text-emerald-500 tracking-widest">Live Cloud Data</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_#10b981]"></span>
+              <span className="text-[9px] font-black uppercase text-emerald-400 tracking-widest">Active Syncing</span>
            </div>
         </div>
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-center border-collapse">
-            <thead className="bg-slate-900/80 text-[10px] font-black uppercase tracking-widest text-blue-400 border-b border-white/5">
+            <thead className="bg-slate-900 text-[11px] font-black uppercase tracking-widest text-blue-300 border-b border-white/10">
               <tr>
-                <th className="p-6 text-left">Ticket ID</th>
-                <th className="text-left">Guest / Contact</th>
-                <th>Asset Allocation</th>
+                <th className="p-6 text-left">Receipt ID</th>
+                <th className="text-left">Guest Info</th>
+                <th>Assets Assigned</th>
                 <th>Shift</th>
                 <th>Deposit</th>
-                <th>Action Status</th>
+                <th>Live Status</th>
               </tr>
             </thead>
-            <tbody className="text-white text-xs divide-y divide-white/5">
+            <tbody className="text-white text-xs divide-y divide-white/10 font-medium">
               {rentals.length === 0 ? (
-                <tr><td colSpan={6} className="p-24 opacity-40 font-black uppercase tracking-widest text-sm">No rental records available in cloud</td></tr>
+                <tr><td colSpan={6} className="p-24 opacity-60 font-black uppercase tracking-widest text-sm text-white">No rental records available in cloud</td></tr>
               ) : rentals.map((r, i) => (
-                <tr key={i} className={`hover:bg-white/5 transition-all ${r.status === 'issued' ? 'bg-blue-500/5' : ''}`}>
-                  <td className="p-6 text-left font-black text-blue-300">{r.receiptNo}</td>
+                <tr key={i} className={`hover:bg-white/10 transition-all ${r.status === 'issued' ? 'bg-blue-500/10' : ''}`}>
+                  <td className="p-6 text-left font-black text-blue-300 text-sm">{r.receiptNo}</td>
                   <td className="text-left py-6">
-                    <p className="font-black uppercase tracking-tight text-white">{r.guestName}</p>
-                    <p className="text-[9px] font-bold text-white/50">{r.guestMobile}</p>
+                    <p className="font-black uppercase tracking-tight text-white text-sm">{r.guestName}</p>
+                    <p className="text-[10px] font-bold text-white/60">{r.guestMobile}</p>
                   </td>
                   <td className="font-bold text-[11px]">
                     <div className="space-y-1">
-                      {r.maleLockers.length > 0 && <span className="block text-indigo-400">M-Lockers: {r.maleLockers.join(',')}</span>}
-                      {r.femaleLockers.length > 0 && <span className="block text-pink-400">F-Lockers: {r.femaleLockers.join(',')}</span>}
-                      {(r.maleCostumes + r.femaleCostumes > 0) && <span className="block text-emerald-400">Costumes: {r.maleCostumes + r.femaleCostumes}</span>}
+                      {r.maleLockers.length > 0 && <span className="block text-indigo-300">Male Lockers: {r.maleLockers.join(',')}</span>}
+                      {r.femaleLockers.length > 0 && <span className="block text-pink-300">Female Lockers: {r.femaleLockers.join(',')}</span>}
+                      {(r.maleCostumes + r.femaleCostumes > 0) && <span className="block text-emerald-300">Costumes: {r.maleCostumes + r.femaleCostumes}</span>}
                     </div>
                   </td>
-                  <td className="font-black uppercase text-[10px] text-white/60">{r.shift}</td>
-                  <td className="font-black text-sm text-emerald-400">₹{r.securityDeposit}</td>
+                  <td className="font-black uppercase text-[11px] text-white/80">{r.shift}</td>
+                  <td className="font-black text-base text-emerald-400">₹{r.securityDeposit}</td>
                   <td className="p-6">
-                    <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${r.status === 'issued' ? 'bg-amber-400 text-slate-900 shadow-[0_0_15px_rgba(251,191,36,0.3)]' : 'bg-emerald-500 text-slate-900'}`}>
+                    <span className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest ${r.status === 'issued' ? 'bg-amber-400 text-slate-950 shadow-[0_0_20px_rgba(251,191,36,0.4)]' : 'bg-emerald-500 text-slate-950'}`}>
                       {r.status}
                     </span>
                     {r.returnedAt && (
-                      <p className="text-[8px] font-bold text-white/30 mt-2">Ret: {new Date(r.returnedAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
+                      <p className="text-[9px] font-bold text-white/40 mt-2">Closed: {new Date(r.returnedAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
                     )}
                   </td>
                 </tr>
@@ -116,11 +135,11 @@ const AdminLockers: React.FC = () => {
       </div>
       
       {/* Footer Branding */}
-      <div className="flex justify-between items-center opacity-30 px-4">
-          <p className="text-[8px] font-black uppercase tracking-[0.4em] text-white">Spray Aqua Resort Operations</p>
-          <div className="flex gap-4">
-              <i className="fas fa-shield-alt text-lg text-white"></i>
-              <i className="fas fa-database text-lg text-white"></i>
+      <div className="flex justify-between items-center opacity-40 px-4">
+          <p className="text-[9px] font-black uppercase tracking-[0.5em] text-white">Spray Aqua Resort Systems</p>
+          <div className="flex gap-5">
+              <i className="fas fa-lock text-white"></i>
+              <i className="fas fa-cloud text-white"></i>
           </div>
       </div>
     </div>
@@ -128,12 +147,12 @@ const AdminLockers: React.FC = () => {
 };
 
 const SummaryItem = ({ label, value, icon, color }: any) => (
-  <div className="bg-slate-900/60 p-6 rounded-[2rem] border border-white/10 flex items-center gap-6 shadow-xl hover:border-white/30 transition-all group">
+  <div className="bg-slate-900/80 p-6 rounded-[2rem] border border-white/20 flex items-center gap-6 shadow-2xl hover:border-white/50 transition-all group">
     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white ${color} shadow-2xl transition-transform group-hover:scale-110`}>
       <i className={`fas ${icon} text-xl`}></i>
     </div>
     <div>
-      <p className="text-[8px] font-black uppercase tracking-[0.3em] text-white/40 mb-1">{label}</p>
+      <p className="text-[9px] font-black uppercase tracking-[0.3em] text-white/50 mb-1">{label}</p>
       <p className="text-2xl font-black text-white tracking-tighter">{value}</p>
     </div>
   </div>
