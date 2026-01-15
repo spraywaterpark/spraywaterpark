@@ -44,6 +44,7 @@ export interface AdminSettings {
   extraDiscountPercent: number;
 
   blockedSlots: BlockedSlot[];
+  lastShiftReset?: string; // New: Timestamp to trigger receipt reset on staff devices
 }
 
 /* ===============================
@@ -61,36 +62,27 @@ export interface AuthState {
 
 /* ===============================
    🧾 STAFF: LOCKER / COSTUME SYSTEM
-   (Independent Receipt Engine)
 ================================ */
 
 export type GenderType = 'male' | 'female';
 
 export interface LockerReceipt {
   receiptNo: string;
-
   guestName: string;
   guestMobile: string;
-
   date: string;
   shift: ShiftType;
-
   maleLockers: number[];
   femaleLockers: number[];
-
   maleCostumes: number;
   femaleCostumes: number;
-
   rentAmount: number;
   securityDeposit: number;
   totalCollected: number;
   refundableAmount: number;
-
   status: 'issued' | 'returned';
-
   createdAt: string;
   returnedAt?: string;
 }
 
-// Added alias to fix import errors in App.tsx
 export type LockerIssue = LockerReceipt;
