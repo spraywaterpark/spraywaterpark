@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -11,7 +12,7 @@ interface LoginPageProps {
 const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => {
   const navigate = useNavigate();
   const [view, setView] = useState<'landing' | 'admin'>('landing');
-  const [data, setData] = useState({ name: '', mobile: '', email: '', password: '' });
+  const [data, setData] = useState({ name: '', mobile: '', loginId: '', password: '' });
   const [errors, setErrors] = useState({ name: '', mobile: '' });
 
   const validateName = (name: string) => {
@@ -44,19 +45,20 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
   const handleAdmin = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const email = data.email.trim();
+    const user = data.loginId.trim();
     const pass = data.password.trim();
 
-    if (email === 'admin@spraywaterpark.com' && pass === 'admin123') {
-      onAdminLogin(email, 'admin');
+    // Updated Credentials as per user request
+    if (user === 'admin' && pass === '123') {
+      onAdminLogin(user, 'admin');
       navigate('/admin');
     }
-    else if (email === 'staff@spraywaterpark.com' && pass === 'staff123') {
-      onAdminLogin(email, 'staff');
+    else if (user === 'staff' && pass === '123') {
+      onAdminLogin(user, 'staff');
       navigate('/staff');
     }
     else {
-      alert("Invalid credentials.");
+      alert("Invalid ID or Password.");
     }
   };
 
@@ -101,8 +103,8 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
               </>
             ) : (
               <>
-                <input placeholder="Email" className="input-premium" value={data.email}
-                  onChange={e => setData({ ...data, email: e.target.value })} />
+                <input placeholder="Login ID" className="input-premium" value={data.loginId}
+                  onChange={e => setData({ ...data, loginId: e.target.value })} />
                 <input type="password" placeholder="Password" className="input-premium" value={data.password}
                   onChange={e => setData({ ...data, password: e.target.value })} />
               </>
