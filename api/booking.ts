@@ -53,11 +53,10 @@ export default async function handler(req: any, res: any) {
 
     if (req.method === "POST") {
       const rental = req.body;
-      const isUpdate = req.query.action === 'update';
+      const action = req.query.action;
 
       try {
-        if (isUpdate) {
-          // Handle Return Status Update
+        if (action === 'update') {
           const response = await sheets.spreadsheets.values.get({
             spreadsheetId: process.env.SHEET_ID,
             range: "Lockers!A:A",
@@ -76,7 +75,39 @@ export default async function handler(req: any, res: any) {
             return res.status(200).json({ success: true });
           }
           return res.status(404).json({ error: "Receipt not found" });
-        } else {
+        } 
+        else if (action === 'checkout') {
+          // NEW: Shift Checkout Logic
+          // Find all rows where status is 'issued' and set to 'returned'
+          const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: process.env.SHEET_ID,
+            range: "Lockers!A:N",
+          });
+          const rows = response.data.values || [];
+          const timestamp = new Date().toISOString();
+          
+          const updates = rows.map((row, index) => {
+            if (row[13] === 'issued') {
+              return {
+                range: `Lockers!N${index + 1}:P${index + 1}`,
+                values: [['returned', row[14], timestamp]]
+              };
+            }
+            return null;
+          }).filter(u => u !== null);
+
+          if (updates.length > 0) {
+            await sheets.spreadsheets.batchUpdate({
+              spreadsheetId: process.env.SHEET_ID,
+              requestBody: {
+                valueInputOption: 'USER_ENTERED',
+                data: updates
+              }
+            });
+          }
+          return res.status(200).json({ success: true, count: updates.length });
+        }
+        else {
           // New Issue
           const values = [[
             rental.receiptNo,
