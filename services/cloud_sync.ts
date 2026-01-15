@@ -58,7 +58,7 @@ export const cloudSync = {
     }
   },
 
-  // --- NEW RENTAL SYNC METHODS ---
+  // --- RENTAL SYNC METHODS ---
 
   fetchRentals: async (): Promise<LockerReceipt[] | null> => {
     try {
@@ -89,6 +89,18 @@ export const cloudSync = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(rental)
+      });
+      return response.ok;
+    } catch (e) {
+      return false;
+    }
+  },
+
+  checkoutShift: async (): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/booking?type=rentals&action=checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
       });
       return response.ok;
     } catch (e) {
