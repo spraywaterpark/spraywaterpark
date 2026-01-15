@@ -18,6 +18,22 @@ export default async function handler(req: any, res: any) {
   const sheets = google.sheets({ version: "v4", auth });
   const type = req.query.type;
 
+  // Helper function to safely parse numbers that Sheets might have converted to Dates
+  const safeParseInt = (val: any) => {
+    if (!val) return 0;
+    const str = String(val).trim();
+    // If Sheets turned "2" into "1/2/1900" or "1900-01-02", parseInt might return 1900.
+    // We check if it looks like a date and extract the day part, or just handle clean numbers.
+    if (str.includes('/') || str.includes('-')) {
+      const date = new Date(str);
+      if (!isNaN(date.getTime()) && date.getFullYear() <= 1901) {
+        return date.getDate(); // This gets the actual count (e.g. 2nd day of 1900)
+      }
+    }
+    const num = parseInt(str);
+    return isNaN(num) ? 0 : num;
+  };
+
   // --- RENTALS / LOCKERS SYNC ---
   if (type === 'rentals') {
     if (req.method === "GET") {
@@ -28,7 +44,6 @@ export default async function handler(req: any, res: any) {
         });
         const rows = response.data.values || [];
         
-        // Filter out empty rows and map to objects
         const rentals = rows
           .filter(row => row && row[0] && row[0].toString().startsWith('SWP'))
           .map((row: any) => ({
@@ -39,12 +54,12 @@ export default async function handler(req: any, res: any) {
             shift: row[4],
             maleLockers: row[5] ? JSON.parse(row[5]) : [],
             femaleLockers: row[6] ? JSON.parse(row[6]) : [],
-            maleCostumes: parseInt(row[7]) || 0,
-            femaleCostumes: parseInt(row[8]) || 0,
-            rentAmount: parseInt(row[9]) || 0,
-            securityDeposit: parseInt(row[10]) || 0,
-            totalCollected: parseInt(row[11]) || 0,
-            refundableAmount: parseInt(row[12]) || 0,
+            maleCostumes: safeParseInt(row[7]),
+            femaleCostumes: safeParseInt(row[8]),
+            rentAmount: safeParseInt(row[9]),
+            securityDeposit: safeParseInt(row[10]),
+            totalCollected: safeParseInt(row[11]),
+            refundableAmount: safeParseInt(row[12]),
             status: row[13] || 'issued',
             createdAt: row[14],
             returnedAt: row[15] || null
@@ -136,12 +151,12 @@ export default async function handler(req: any, res: any) {
             rental.shift,
             JSON.stringify(rental.maleLockers),
             JSON.stringify(rental.femaleLockers),
-            rental.maleCostumes,
-            rental.femaleCostumes,
-            rental.rentAmount,
-            rental.securityDeposit,
-            rental.totalCollected,
-            rental.refundableAmount,
+            Number(rental.maleCostumes), // Ensure number
+            Number(rental.femaleCostumes), // Ensure number
+            Number(rental.rentAmount),
+            Number(rental.securityDeposit),
+            Number(rental.totalCollected),
+            Number(rental.refundableAmount),
             rental.status,
             rental.createdAt,
             ""
@@ -149,7 +164,7 @@ export default async function handler(req: any, res: any) {
           await sheets.spreadsheets.values.append({
             spreadsheetId: process.env.SHEET_ID,
             range: "Lockers!A:P",
-            valueInputOption: "USER_ENTERED",
+            valueInputOption: "RAW", // Using RAW prevents Google Sheets from auto-formatting numbers as dates
             requestBody: { values }
           });
           return res.status(200).json({ success: true });
@@ -202,9 +217,9 @@ export default async function handler(req: any, res: any) {
         id: row[0] ? `SYNC-${index}` : `ID-${Math.random()}`,
         name: row[1] || "Guest",
         mobile: row[2] || "",
-        adults: parseInt(row[3]) || 0,
-        kids: parseInt(row[4]) || 0,
-        totalAmount: parseInt(row[6]) || 0,
+        adults: safeParseInt(row[3]),
+        kids: safeParseInt(row[4]),
+        totalAmount: safeParseInt(row[6]),
         date: row[7] || "",
         time: row[8] || "",
         status: row[9] === "PAID" ? "confirmed" : "pending",
