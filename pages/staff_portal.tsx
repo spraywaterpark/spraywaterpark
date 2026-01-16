@@ -50,7 +50,6 @@ const StaffPortal: React.FC = () => {
       });
 
       // 3. IDENTICAL LOGIC FOR BOTH GENDERS
-      // We calculate issued counts by summing up all active records
       let mIssued = 0;
       let fIssued = 0;
 
@@ -112,7 +111,14 @@ const StaffPortal: React.FC = () => {
   };
 
   const generateReceipt = () => {
-    if (!guestName || !guestMobile) return alert("Enter guest details");
+    if (!guestName) return alert("Enter guest name");
+    
+    // STRICT MOBILE VALIDATION
+    const mobileRegex = /^[789]\d{9}$/;
+    if (!mobileRegex.test(guestMobile)) {
+        return alert("Please enter a valid 10-digit mobile number starting with 7, 8, or 9.");
+    }
+
     if (maleLockers.length === 0 && femaleLockers.length === 0 && maleCostumes === 0 && femaleCostumes === 0) {
       return alert("Select at least one asset");
     }
@@ -259,7 +265,13 @@ const StaffPortal: React.FC = () => {
 
           <div className="grid md:grid-cols-2 gap-6">
             <input className="input-premium !bg-slate-900/50 !text-white" placeholder="Guest Name" value={guestName} onChange={e => setGuestName(e.target.value)} />
-            <input className="input-premium !bg-slate-900/50 !text-white" placeholder="Mobile Number" value={guestMobile} onChange={e => setGuestMobile(e.target.value.replace(/\D/g,''))} />
+            <input 
+              className="input-premium !bg-slate-900/50 !text-white" 
+              placeholder="Mobile Number" 
+              value={guestMobile} 
+              maxLength={10}
+              onChange={e => setGuestMobile(e.target.value.replace(/\D/g,''))} 
+            />
           </div>
 
           <div className="flex gap-4">
