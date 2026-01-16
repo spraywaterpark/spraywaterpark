@@ -23,7 +23,10 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
   };
 
   const validateMobile = (mobile: string) => {
-    if (!/^[6-9]\d{9}$/.test(mobile)) return "Enter valid 10-digit mobile.";
+    // Condition: Exactly 10 digits, starts with 7, 8, or 9
+    if (!/^[789]\d{9}$/.test(mobile)) {
+      return "Enter a valid 10-digit mobile starting with 7, 8, or 9.";
+    }
     return "";
   };
 
@@ -33,7 +36,7 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
     const mobileErr = validateMobile(data.mobile);
     if (nameErr || mobileErr) {
       setErrors({ name: nameErr, mobile: mobileErr });
-      return alert("Please correct the highlighted fields.");
+      return alert(nameErr || mobileErr);
     }
     onGuestLogin(data.name.trim(), data.mobile.trim());
     navigate('/book');
@@ -76,10 +79,21 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
           <form onSubmit={view === 'landing' ? handleGuest : handleAdmin} className="w-full max-sm space-y-6">
             {view === 'landing' ? (
               <>
-                <input placeholder="Full Name" className="input-premium" value={data.name} onChange={e => setData({ ...data, name: e.target.value })} />
-                {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
-                <input placeholder="Mobile Number" className="input-premium" value={data.mobile} onChange={e => setData({ ...data, mobile: e.target.value })} />
-                {errors.mobile && <p className="text-xs text-red-500">{errors.mobile}</p>}
+                <input 
+                  placeholder="Full Name" 
+                  className="input-premium" 
+                  value={data.name} 
+                  onChange={e => setData({ ...data, name: e.target.value })} 
+                />
+                {errors.name && <p className="text-xs text-red-500 font-bold">{errors.name}</p>}
+                <input 
+                  placeholder="Mobile Number" 
+                  className="input-premium" 
+                  value={data.mobile} 
+                  maxLength={10}
+                  onChange={e => setData({ ...data, mobile: e.target.value.replace(/\D/g, '') })} 
+                />
+                {errors.mobile && <p className="text-xs text-red-500 font-bold">{errors.mobile}</p>}
               </>
             ) : (
               <>
