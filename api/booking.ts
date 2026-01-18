@@ -31,6 +31,43 @@ export default async function handler(req: any, res: any) {
     return isNaN(num) ? 0 : num;
   };
 
+  // --- OFFICIAL WHATSAPP INTEGRATION ---
+  if (type === 'whatsapp' && req.method === 'POST') {
+    const { mobile, message } = req.body;
+    const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN; 
+    const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_ID;
+
+    if (!WHATSAPP_TOKEN || !PHONE_NUMBER_ID) {
+      console.warn("WhatsApp Credentials missing in Env. Falling back to local log.");
+      return res.status(200).json({ success: true, mode: 'local_log' });
+    }
+
+    try {
+      const waResponse = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: mobile.startsWith('91') ? mobile : `91${mobile}`,
+          type: "text",
+          text: { body: message }
+        })
+      });
+
+      const waData = await waResponse.json();
+      if (!waResponse.ok) throw new Error(waData.error?.message || "WA API Error");
+
+      return res.status(200).json({ success: true, wa_id: waData.messages?.[0]?.id });
+    } catch (error: any) {
+      console.error("WhatsApp Send Error:", error.message);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
   if (type === 'rentals') {
     if (req.method === "GET") {
       try {
@@ -180,7 +217,7 @@ export default async function handler(req: any, res: any) {
         await sheets.spreadsheets.values.update({
           spreadsheetId: process.env.SHEET_ID,
           range: "Settings!A1",
-          valueInputOption: "RAW", // Use RAW to ensure JSON string is saved correctly
+          valueInputOption: "RAW", 
           requestBody: { values: [[settingsJson]] }
         });
         return res.status(200).json({ success: true });
