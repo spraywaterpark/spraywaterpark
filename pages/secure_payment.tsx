@@ -144,7 +144,7 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
                       Meta has rejected this message because your business account is missing a valid Payment Method. 
                       Since the app is LIVE, Meta requires a card to be linked to your WhatsApp API.
                     </p>
-                    <p className="text-[9px] text-yellow-500 font-bold">Go to: WhatsApp Manager -> Settings -> Payment Settings</p>
+                    <p className="text-[9px] text-yellow-500 font-bold">Go to: WhatsApp Manager {" -> "} Settings {" -> "} Payment Settings</p>
                  </div>
                )}
 
