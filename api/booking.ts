@@ -2,34 +2,66 @@
 import { google } from "googleapis";
 
 // DETERMINISTIC TEMPLATE: "Pathar ki Lakeer"
+// Reverting to the exact format requested by the user.
 function generateOfficialTemplate(booking: any) {
   const isMorning = booking.time.toLowerCase().includes('morning');
   const guestName = booking.name || 'Guest';
 
+  // Exact rules as provided by user with precise spacing
   const rules = `
 🚫 *Group Policy:* To maintain a family-friendly environment, single males or "only males" groups are strictly not allowed. (अकेले पुरुष या केवल पुरुषों के समूह को प्रवेश की अनुमति नहीं है।)
 
-Smoking and alcohol are strictly prohibited. Costumes mandatory for pool entry. Management not responsible for lost items. (शराब, धूम्रपान वर्जित है। पूल के लिए कॉस्ट्यूम अनिवार्य है। सामान की जिम्मेदारी प्रबंधन की नहीं है।)`;
+🚭 *Clean Environment:* Alcohol and smoking are strictly prohibited on the premises. (परिसर के भीतर शराब का सेवन और धूम्रपान पूरी तरह से वर्जित है।)
 
-  const shiftDetails = isMorning 
-    ? { slot: "10:00 AM - 03:00 PM (Morning)", pool: "10am-2pm", food: "1pm-3pm", offer: "FREE Snacks / Chole Bhature included! 🍛" }
-    : { slot: "04:00 PM onwards (Evening)", pool: "4pm-8pm", food: "7pm-10pm", offer: "FREE Grand Buffet Dinner included! 🍽️" };
+🩱 *Pool Access:* Proper swimming costumes are mandatory. Guests without appropriate swimwear will not be allowed past the changing rooms into the pool area. (पूल में प्रवेश के लिए उचित स्विमवियर अनिवार्य है। बिना कॉस्ट्यूम के चेंजिंग रूम से आगे जाना वर्जित है।)
 
-  return `Hello *${guestName}*! 🌊
+🔒 *Safety:* Please look after your belongings. While we provide paid locker facilities for your convenience, the resort is not responsible for any lost items. (निजी सामान के खोने के लिए प्रबंधन जिम्मेदार नहीं है। सशुल्क लॉकर सुविधा उपलब्ध है।)`;
 
-Booking Confirmed at *Spray Aqua Resort!* 🏊‍♂️
+  if (isMorning) {
+    return `Hello ${guestName}! 😊
 
-*Details:*
+We are absolutely thrilled to confirm your booking at *Spray Aqua Resort!* Get ready for an unforgettable morning of fun, splashes, and relaxation. 🌊
+
+*Your Booking Details:*
 📅 *Date:* ${booking.date}
-⏰ *Slot:* ${shiftDetails.slot}
-        (pool: ${shiftDetails.pool}, food: ${shiftDetails.food})
-💰 *Paid:* ₹${booking.totalAmount}
-🎁 *OFFER:* ${shiftDetails.offer}
+⏰ *Slot:* 10:00 AM to 03:00 PM (Morning Shift)
+        (pool time 10am to 2pm and snacks time 1pm to 3pm)
+💰 *Total Amount Paid:* ₹${booking.totalAmount}
+🎁 *SPECIAL OFFER INCLUDED:* Your booking comes with a *FREE Snacks / Chole Bhature* for all guests! 🥟🍛
 
-*Rules:*
+To ensure you have the best experience, please take a moment to review our house rules:
 ${rules}
 
-Please find your QR Ticket attached below. Scan it at the entrance! 🎫`;
+We can't wait to welcome you! If you have any questions, feel free to message us.
+
+See you soon for some fun in the sun! ☀️🌴
+
+Warm regards,
+*The Manager*
+*Spray Aqua Resort* 🏨`;
+  } else {
+    return `Hello ${guestName}! 😊
+
+We are absolutely thrilled to confirm your booking at *Spray Aqua Resort!* Get ready for an unforgettable evening of fun, splashes, and relaxation. 🌊
+
+*Your Booking Details:*
+📅 *Date:* ${booking.date}
+⏰ *Slot:* 04:00 PM onwards (Evening Shift)
+        (pool time 4pm to 8pm and dinner time 7pm to 10pm)
+💰 *Total Amount Paid:* ₹${booking.totalAmount}
+🎁 *SPECIAL OFFER INCLUDED:* Your booking comes with a *FREE Grand Buffet Dinner* for all guests! 🍽️🥘
+
+To ensure you have the best experience, please take a moment to review our house rules:
+${rules}
+
+We can't wait to welcome you! If you have any questions, feel free to message us.
+
+See you soon for some fun in the sun! ☀️🌴
+
+Warm regards,
+*The Manager*
+*Spray Aqua Resort* 🏨`;
+  }
 }
 
 export default async function handler(req: any, res: any) {
@@ -60,7 +92,7 @@ export default async function handler(req: any, res: any) {
 
     try {
       // 1. Send Text Message
-      const textRes = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
+      await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -83,7 +115,7 @@ export default async function handler(req: any, res: any) {
         })
       });
 
-      return res.status(200).json({ success: true });
+      return res.status(200).json({ success: true, ai_message: messageText });
     } catch (error: any) {
       return res.status(500).json({ success: false, error: "WHATSAPP_FAILED" });
     }
