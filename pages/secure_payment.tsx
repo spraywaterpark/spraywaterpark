@@ -63,19 +63,20 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
       setWaStatus('sending');
       const waRes = await notificationService.sendWhatsAppTicket(final);
       
+      addBooking(final);
+      sessionStorage.removeItem('swp_draft_booking');
+
       if (waRes.success) {
         setWaStatus('sent');
+        // Only redirect automatically if message was sent successfully
+        setTimeout(() => {
+          navigate('/my-bookings');
+        }, 4000);
       } else {
         setWaStatus('failed');
         setWaError(waRes);
+        setIsPaying(false); // Re-enable UI so they can see error and manual continue
       }
-
-      addBooking(final);
-      sessionStorage.removeItem('swp_draft_booking');
-      
-      setTimeout(() => {
-        navigate('/my-bookings');
-      }, 4000);
 
     } catch (err: any) {
       console.error("Payment Process Error:", err);
@@ -152,15 +153,18 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
 
                <div className="pt-2 border-t border-white/10 space-y-2">
                   <p className="text-[9px] text-red-100 font-bold uppercase tracking-widest flex items-center gap-2">
-                     <i className="fas fa-tools"></i> How to fix "Installed Apps" blank:
+                     <i className="fas fa-tools"></i> Please Check these in Meta Dashboard:
                   </p>
                   <ul className="text-[9px] text-white/50 space-y-2 list-disc ml-4 font-medium italic">
-                     <li>In <b>System Users</b>, select Admin and click <b>Add Assets</b> button.</li>
-                     <li>Select <b>Apps</b>, pick your app, and toggle <b>Full Control</b>.</li>
-                     <li>Check if the App now appears in <b>Installed Apps</b> tab.</li>
-                     <li><b>IMPORTANT:</b> After fixing, you MUST generate a NEW token and update it.</li>
+                     <li>Check if your <b>System User</b> has "Apps" assets added.</li>
+                     <li>Ensure the <b>Phone Number ID</b> is exactly from the "API Setup" tab.</li>
+                     <li><b>IMPORTANT:</b> If it's a new Meta account, you can only send messages to verified test numbers first.</li>
                   </ul>
                </div>
+
+               <button onClick={() => navigate('/my-bookings')} className="w-full bg-white/10 hover:bg-white/20 border border-white/20 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                  Continue to My Tickets Anyway
+               </button>
             </div>
           )}
           
@@ -196,10 +200,10 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
 
           <button
             onClick={processPayment}
-            disabled={isPaying}
+            disabled={isPaying || waStatus === 'sending' || waStatus === 'sent'}
             className="w-full py-5 rounded-xl bg-blue-600 text-white text-lg font-black uppercase tracking-widest shadow-xl hover:bg-blue-700 transition disabled:opacity-60"
           >
-            {isPaying ? (
+            {isPaying || waStatus === 'sending' ? (
               <span className="flex items-center justify-center gap-3">
                 <i className="fas fa-circle-notch fa-spin"></i> Processing...
               </span>
