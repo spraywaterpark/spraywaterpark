@@ -1,4 +1,3 @@
-
 import { google } from "googleapis";
 
 // This function is now a fallback or for sessions where the user has already replied.
@@ -41,8 +40,8 @@ export default async function handler(req: any, res: any) {
           to: cleanMobile,
           type: "template",
           template: { 
-            name: "booked_ticket", // USING YOUR NEW APPROVED TEMPLATE
-            language: { code: "en_US" } // Ensure this matches the language you chose in Meta
+            name: "booked_ticket", 
+            language: { code: "en_US" } 
           }
         })
       });
@@ -56,10 +55,13 @@ export default async function handler(req: any, res: any) {
           message_id: data.messages?.[0]?.id 
         });
       } else {
+        // Log more details for debugging
+        console.error("[META API ERROR]", data);
         return res.status(waRes.status).json({ 
           success: false, 
           details: data.error?.message || "Meta API Rejected",
           code: data.error?.code,
+          subcode: data.error?.error_subcode,
           fb_trace_id: data.error?.fbtrace_id
         });
       }
@@ -106,7 +108,8 @@ export default async function handler(req: any, res: any) {
         });
       }
 
-      // Step 2: Send the QR Code Image
+      // Step 2: Send the QR Code Image (Only works if user has messaged us first OR if part of a template with media)
+      // Since 'booked_ticket' is probably just text, we send QR as a separate image message.
       await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
