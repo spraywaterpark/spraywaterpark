@@ -10,6 +10,7 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
   const [draft, setDraft] = useState<any>(null);
   const [isPaying, setIsPaying] = useState(false);
   const [waStatus, setWaStatus] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
+  const [waError, setWaError] = useState<any>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,9 +28,9 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
     if (isPaying) return;
     setIsPaying(true);
     setSyncError(null);
+    setWaError(null);
 
     try {
-      // 1. FINAL SECURITY SYNC
       const latestSettings = await cloudSync.fetchSettings();
       if (latestSettings) {
         const currentShift = draft.time.toLowerCase().includes('morning') ? 'morning' : 'evening';
@@ -46,7 +47,6 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
         }
       }
 
-      // 2. Simulated Payment delay
       await new Promise(res => setTimeout(res, 1500));
 
       const bookingId = 'SWP-' + Math.floor(100000 + Math.random() * 900000);
@@ -57,23 +57,25 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
         createdAt: new Date().toISOString()
       };
 
-      // 3. Save to Cloud
       const success = await cloudSync.saveBooking(final);
       if (!success) throw new Error("SERVER_REJECTED");
 
-      // 4. AUTOMATIC OFFICIAL WHATSAPP SENDING
       setWaStatus('sending');
-      const waSuccess = await notificationService.sendWhatsAppTicket(final);
-      setWaStatus(waSuccess ? 'sent' : 'failed');
+      const waRes = await notificationService.sendWhatsAppTicket(final);
+      
+      if (waRes.success) {
+        setWaStatus('sent');
+      } else {
+        setWaStatus('failed');
+        setWaError(waRes);
+      }
 
-      // 5. Finalize
       addBooking(final);
       sessionStorage.removeItem('swp_draft_booking');
       
-      // Short delay so they see the "Sent" status before redirect
       setTimeout(() => {
         navigate('/my-bookings');
-      }, 1500);
+      }, 4000);
 
     } catch (err: any) {
       console.error("Payment Process Error:", err);
@@ -122,6 +124,45 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-200">Ticket Sent Successfully!</p>
             </div>
           )}
+
+          {waStatus === 'failed' && (
+            <div className="bg-red-500/20 border border-red-500/30 p-6 rounded-2xl space-y-4 animate-fade">
+               <div className="flex items-center gap-4">
+                  <i className="fas fa-exclamation-triangle text-red-400 text-xl"></i>
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-widest text-red-200">Meta API Diagnostic Error</p>
+                    <p className="text-[10px] text-white/70 font-bold leading-tight">{waError?.details}</p>
+                  </div>
+               </div>
+               
+               <div className="bg-black/20 p-4 rounded-xl space-y-2 border border-white/5">
+                  <div className="flex justify-between text-[9px] font-black uppercase">
+                     <span className="text-white/40">FB Trace ID:</span>
+                     <span className="text-white/80">{waError?.fb_trace_id || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between text-[9px] font-black uppercase">
+                     <span className="text-white/40">Meta Code:</span>
+                     <span className="text-red-400">{waError?.meta_code || '---'}</span>
+                  </div>
+                  <div className="flex justify-between text-[9px] font-black uppercase">
+                     <span className="text-white/40">Subcode:</span>
+                     <span className="text-red-400 font-bold">{waError?.meta_subcode || '---'}</span>
+                  </div>
+               </div>
+
+               <div className="pt-2 border-t border-white/10 space-y-2">
+                  <p className="text-[9px] text-red-100 font-bold uppercase tracking-widest flex items-center gap-2">
+                     <i className="fas fa-tools"></i> How to fix "Installed Apps" blank:
+                  </p>
+                  <ul className="text-[9px] text-white/50 space-y-2 list-disc ml-4 font-medium italic">
+                     <li>In <b>System Users</b>, select Admin and click <b>Add Assets</b> button.</li>
+                     <li>Select <b>Apps</b>, pick your app, and toggle <b>Full Control</b>.</li>
+                     <li>Check if the App now appears in <b>Installed Apps</b> tab.</li>
+                     <li><b>IMPORTANT:</b> After fixing, you MUST generate a NEW token and update it.</li>
+                  </ul>
+               </div>
+            </div>
+          )}
           
           {syncError && (
             <div className="bg-red-500/20 border border-red-500/50 p-6 rounded-2xl text-red-100 text-[11px] font-black uppercase tracking-widest leading-relaxed">
@@ -131,7 +172,6 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
         </div>
 
         <div className="bg-white rounded-3xl p-10 sm:p-14 shadow-2xl border border-gray-100 text-center space-y-8">
-
           <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto">
             <i className="fas fa-lock"></i>
           </div>
@@ -167,11 +207,6 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
               <>Complete Reservation</>
             )}
           </button>
-
-          <p className="text-[10px] text-gray-400 font-bold uppercase italic">
-            Official Ticket will be sent to your WhatsApp automatically
-          </p>
-
         </div>
       </div>
     </div>
