@@ -2,12 +2,10 @@
 import { google } from "googleapis";
 
 // DETERMINISTIC TEMPLATE: "Pathar ki Lakeer"
-// Reverting to the exact format requested by the user.
 function generateOfficialTemplate(booking: any) {
   const isMorning = booking.time.toLowerCase().includes('morning');
   const guestName = booking.name || 'Guest';
 
-  // Exact rules as provided by user with precise spacing
   const rules = `
 🚫 *Group Policy:* To maintain a family-friendly environment, single males or "only males" groups are strictly not allowed. (अकेले पुरुष या केवल पुरुषों के समूह को प्रवेश की अनुमति नहीं है।)
 
@@ -79,7 +77,7 @@ export default async function handler(req: any, res: any) {
 
   if (req.query.type === 'whatsapp' && req.method === 'POST') {
     const { mobile, booking } = req.body;
-    const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN; 
+    const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
     const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_ID;
 
     if (!WHATSAPP_TOKEN || !PHONE_NUMBER_ID) {
@@ -91,7 +89,7 @@ export default async function handler(req: any, res: any) {
     const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking.id}`;
 
     try {
-      // 1. Send Text Message
+      // 1. Text message
       await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
@@ -103,7 +101,7 @@ export default async function handler(req: any, res: any) {
         })
       });
 
-      // 2. Send QR Code Image
+      // 2. QR Image
       await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
@@ -126,7 +124,6 @@ export default async function handler(req: any, res: any) {
   const auth = new google.auth.GoogleAuth({ credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS), scopes: ["https://www.googleapis.com/auth/spreadsheets"] });
   const sheets = google.sheets({ version: "v4", auth });
   const type = req.query.type;
-
   const safeParseInt = (val: any) => { if (!val) return 0; const n = parseInt(String(val).trim()); return isNaN(n) ? 0 : n; };
 
   if (type === 'rentals') {
