@@ -26,7 +26,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const [testMobile, setTestMobile] = useState('');
   const [diagStatus, setDiagStatus] = useState<'idle' | 'loading' | 'success' | 'fail'>('idle');
   const [diagInfo, setDiagInfo] = useState<any>(null);
-  const [apiHealth, setApiHealth] = useState<any>({ token: false, phone: false });
 
   // Marketing States
   const [broadcastMsg, setBroadcastMsg] = useState('');
@@ -34,20 +33,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
   useEffect(() => {
     setDraft(settings);
-    checkApiHealth();
   }, [settings]);
-
-  const checkApiHealth = async () => {
-    try {
-      const res = await fetch('/api/booking?type=health');
-      if (res.ok) {
-        const data = await res.json();
-        setApiHealth(data);
-      }
-    } catch (e) {
-      console.error("Health check failed");
-    }
-  };
 
   const runDiagnostic = async () => {
     if (!testToken || !testPhoneId || !testMobile) return alert("Please fill Token, Phone ID and a Mobile number to test.");
@@ -84,7 +70,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         body: JSON.stringify({ targets, message: broadcastMsg })
       });
       if (res.ok) alert("Broadcast sent successfully!");
-      else alert("Broadcast failed. Check API balance/settings.");
+      else alert("Broadcast failed.");
     } catch (e) {
       alert("Error sending broadcast.");
     } finally {
@@ -120,7 +106,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
       {activeTab === 'bookings' && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-           {/* Fix: StatCard component is defined at the bottom of the file */}
            <StatCard label="Total Tickets" value={stats.tickets} color="text-blue-600" />
            <StatCard label="Adults" value={stats.adults} color="text-indigo-600" />
            <StatCard label="Children" value={stats.kids} color="text-pink-600" />
@@ -133,7 +118,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
            <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-8">
               <div>
                  <h3 className="text-2xl font-black uppercase text-slate-900">Direct API Test</h3>
-                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Testing Template: <strong>booked_ticket</strong></p>
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Template: <strong>booked_ticket</strong></p>
               </div>
 
               <div className="space-y-4">
@@ -146,55 +131,77 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                     <input value={testPhoneId} onChange={e => setTestPhoneId(e.target.value)} placeholder="138..." className="input-premium text-xs" />
                  </div>
                  <div className="space-y-2">
-                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Test Number (WhatsApp)</label>
+                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Test Number</label>
                     <input value={testMobile} onChange={e => setTestMobile(e.target.value)} placeholder="91..." className="input-premium text-xs" />
                  </div>
 
                  <button onClick={runDiagnostic} disabled={diagStatus === 'loading'} className="w-full btn-resort h-16 !bg-blue-600 shadow-xl">
                     {diagStatus === 'loading' ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-paper-plane mr-2"></i>}
-                    Send Template "booked_ticket"
+                    Send "booked_ticket"
                  </button>
 
                  {diagStatus === 'fail' && diagInfo && (
                    <div className="p-6 bg-red-50 border border-red-200 rounded-3xl space-y-4">
-                      <p className="text-[11px] font-black uppercase text-red-600 tracking-widest">Meta API Error Log:</p>
-                      <div className="text-[10px] font-bold text-red-800 space-y-1">
-                         <p>Reason: {diagInfo.details}</p>
-                         <p>Code: {diagInfo.code} / Subcode: {diagInfo.subcode}</p>
-                         <p className="mt-2 text-[9px] opacity-60">Trace ID: {diagInfo.fb_trace_id}</p>
+                      <p className="text-[11px] font-black uppercase text-red-600 tracking-widest underline decoration-2">🚨 Error 200 Detected: Permission Denied</p>
+                      <div className="text-[10px] font-bold text-red-800 space-y-2 leading-relaxed">
+                         <p>Bhai, Meta Business Settings mein jaaiye:</p>
+                         <ol className="list-decimal ml-4 space-y-1">
+                            <li>Business Settings {">"} Users {">"} <strong>System Users</strong></li>
+                            <li>Apne System User ko select karein</li>
+                            <li><strong>"Add Assets"</strong> button par click karein</li>
+                            <li><strong>"WhatsApp Business Account"</strong> select karein</li>
+                            <li>Apne Resort ke account ko select karke <strong>Sari Permissions ON</strong> karke Save karein.</li>
+                         </ol>
+                         <p className="mt-4 pt-2 border-t border-red-200 text-[9px] opacity-60 italic">Trace ID: {diagInfo.fb_trace_id}</p>
                       </div>
-
-                      {diagInfo.code === 200 && (
-                        <div className="pt-3 border-t border-red-200">
-                           <p className="text-[10px] font-black text-red-700 uppercase">CRITICAL FIX FOR CODE 200: Ensure your business account has a valid payment method linked in WhatsApp Manager settings.</p>
-                        </div>
-                      )}
+                   </div>
+                 )}
+                 
+                 {diagStatus === 'success' && (
+                   <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-3xl space-y-4">
+                      <div className="flex items-center gap-3">
+                        <i className="fas fa-check-circle text-emerald-600 text-xl"></i>
+                        <p className="text-[11px] font-black uppercase tracking-widest text-emerald-900">Success!</p>
+                      </div>
+                      <p className="text-[9px] text-emerald-700 font-bold">Aapke number par 'booked_ticket' message pahunch gaya hai.</p>
                    </div>
                  )}
               </div>
+           </div>
+
+           <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white space-y-8 shadow-2xl border border-white/10">
+                <div className="flex items-center gap-4">
+                    <i className="fas fa-tools text-blue-400 text-2xl"></i>
+                    <h3 className="text-xl font-black uppercase tracking-tight">Technical Checklist</h3>
+                </div>
+                
+                <div className="space-y-6">
+                    <div className="p-5 bg-white/5 rounded-2xl border border-white/10 space-y-2">
+                        <p className="text-[9px] font-black uppercase text-blue-400">Template Logic</p>
+                        <p className="text-xs font-medium text-slate-300 leading-relaxed">
+                          Agar aapka template <strong>"booked_ticket"</strong> parameters (variables) use kar raha hai (jaise Name ya Date), toh Meta usse block kar sakta hai jab tak variable data na bheja jaye. 
+                        </p>
+                    </div>
+                    <div className="p-5 bg-white/5 rounded-2xl border border-white/10 space-y-2">
+                        <p className="text-[9px] font-black uppercase text-blue-400">Wait Time</p>
+                        <p className="text-xs font-medium text-slate-300 leading-relaxed">
+                          Asset assign karne ke baad kabhi kabhi 1-2 minute ka delay hota hai Meta ke server par reflect hone mein.
+                        </p>
+                    </div>
+                </div>
            </div>
         </div>
       )}
 
       {activeTab === 'marketing' && (
-        <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-8 animate-slide-up">
-           <div>
+        <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-8 animate-slide-up max-w-2xl mx-auto">
+           <div className="text-center">
               <h3 className="text-2xl font-black uppercase text-slate-900">Broadcast Message</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Send a WhatsApp message to all customers</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Direct Outreach</p>
            </div>
-           <textarea 
-             value={broadcastMsg} 
-             onChange={e => setBroadcastMsg(e.target.value)} 
-             placeholder="Enter your message here..." 
-             className="input-premium h-32"
-           />
-           <button 
-             onClick={handleBroadcast} 
-             disabled={isBroadcasting} 
-             className="w-full btn-resort h-16 !bg-indigo-600 shadow-xl"
-           >
-              {isBroadcasting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-bullhorn mr-2"></i>}
-              Send Broadcast to {Array.from(new Set(bookings.map(b => b.mobile))).length} Customers
+           <textarea value={broadcastMsg} onChange={e => setBroadcastMsg(e.target.value)} placeholder="Type message..." className="input-premium h-32" />
+           <button onClick={handleBroadcast} disabled={isBroadcasting} className="w-full btn-resort h-16 !bg-indigo-600 shadow-xl">
+              {isBroadcasting ? 'Sending...' : 'Start Broadcast'}
            </button>
         </div>
       )}
@@ -202,7 +209,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   );
 };
 
-// Fix: Defined StatCard component which was missing in the original file
 const StatCard: React.FC<{ label: string; value: string | number; color: string }> = ({ label, value, color }) => (
   <div className="bg-white p-8 rounded-[2rem] shadow-xl border border-slate-100 flex flex-col items-center justify-center text-center">
     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">{label}</p>
@@ -210,5 +216,4 @@ const StatCard: React.FC<{ label: string; value: string | number; color: string 
   </div>
 );
 
-// Fix: Added missing default export for AdminPortal to satisfy HashRouter routing in App.tsx
 export default AdminPortal;
