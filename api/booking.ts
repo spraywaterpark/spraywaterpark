@@ -26,11 +26,12 @@ export default async function handler(req: any, res: any) {
       type: "template",
       template: { 
         name: templateName || "booked_ticket", 
-        language: { code: langCode || "en_GB" } 
+        language: { code: langCode || "en" } 
       }
     };
 
-    if (variables && Array.isArray(variables)) {
+    // CRITICAL: If plain text template (0 variables), DO NOT include components at all
+    if (variables && Array.isArray(variables) && variables.length > 0) {
       payload.template.components = [{
         type: "body",
         parameters: variables.map(v => ({ type: "text", text: String(v) }))
@@ -63,7 +64,7 @@ export default async function handler(req: any, res: any) {
 
   // --- TICKETING LOGIC ---
   if (req.query.type === 'whatsapp' && req.method === 'POST') {
-    const { mobile, booking, templateName, langCode } = req.body;
+    const { mobile, booking, templateName, langCode, hasVariables } = req.body;
     if (!WHATSAPP_TOKEN || !PHONE_NUMBER_ID) return res.status(400).json({ error: "CREDENTIALS_MISSING" });
 
     let cleanMobile = mobile.replace(/\D/g, '');
@@ -72,25 +73,28 @@ export default async function handler(req: any, res: any) {
     const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking.id}`;
 
     try {
+      const templatePayload: any = {
+        messaging_product: "whatsapp",
+        to: cleanMobile,
+        type: "template",
+        template: { 
+          name: templateName || "booked_ticket", 
+          language: { code: langCode || "en" }
+        }
+      };
+
+      // Only add components if explicitly requested in settings
+      if (hasVariables) {
+        templatePayload.template.components = [{
+          type: "body",
+          parameters: [{ type: "text", text: booking.name || "Guest" }]
+        }];
+      }
+
       const templateRes = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          to: cleanMobile,
-          type: "template",
-          template: { 
-            name: templateName || "booked_ticket", 
-            language: { code: langCode || "en_GB" },
-            components: [{
-              type: "body",
-              parameters: [
-                // ONLY ONE VARIABLE based on user screenshot showing "Variable: Name"
-                { type: "text", text: booking.name || "Guest" }
-              ]
-            }]
-          }
-        })
+        body: JSON.stringify(templatePayload)
       });
       
       const templateData = await templateRes.json();
@@ -104,7 +108,7 @@ export default async function handler(req: any, res: any) {
         });
       }
 
-      // QR Image
+      // QR Image (Separate message)
       await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
