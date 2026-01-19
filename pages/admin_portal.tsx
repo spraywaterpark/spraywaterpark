@@ -168,7 +168,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                         <div className="pt-3 border-t border-red-200">
                            <p className="text-[10px] font-black text-red-700 uppercase">🔥 CRITICAL FIX FOR CODE 200:</p>
                            <p className="text-[9px] text-red-600 font-bold leading-relaxed mt-1">
-                             Bhai, Meta Business Suite mein jaao -> <strong>System Users</strong> -> Select User -> <strong>Add Assets</strong> dabao. Wahan "WhatsApp Business Account" select karke permission ON karke Save karo. Uske bina message nahi jayega.
+                             Bhai, Meta Business Suite mein jaao &rarr; <strong>System Users</strong> &rarr; Select User &rarr; <strong>Add Assets</strong> dabao. Wahan "WhatsApp Business Account" select karke permission ON karke Save karo. Uske bina message nahi jayega.
                            </p>
                         </div>
                       )}
@@ -196,8 +196,11 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                        <span><strong>Template 'booked_ticket':</strong> Humne ise test ke liye set kar diya hai.</span>
                     </p>
                     <p className="flex items-start gap-3">
+                       <i className="fas fa-cog text-blue-400 mt-0.5"></i>
+                       <span><strong>1. Assets:</strong> Meta Business Settings &rarr; System Users &rarr; Select User &rarr; <strong>Add Assets</strong>. WhatsApp Account select karein aur Manage Permissions ON karein.</span>
+                    </p>
+                    <p className="flex items-start gap-3">
                        <i className="fas fa-info-circle text-blue-400 mt-0.5"></i>
-                       {/* Fix: Wrapped literal double curly braces in strings within JSX expression to avoid object literal parsing errors */}
                        <span><strong>Parameters ({"{{1}}"}, {"{{2}}"}):</strong> Agar aapne template mein variables dale hain, toh mujhe batayein, hum code mein unhe pass kar denge. Abhi hum simple message bhej rahe hain.</span>
                     </p>
                  </div>
