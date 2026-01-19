@@ -68,14 +68,13 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
 
       if (waRes.success) {
         setWaStatus('sent');
-        // Only redirect automatically if message was sent successfully
         setTimeout(() => {
           navigate('/my-bookings');
         }, 4000);
       } else {
         setWaStatus('failed');
         setWaError(waRes);
-        setIsPaying(false); // Re-enable UI so they can see error and manual continue
+        setIsPaying(false); 
       }
 
     } catch (err: any) {
@@ -131,11 +130,24 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
                <div className="flex items-center gap-4">
                   <i className="fas fa-exclamation-triangle text-red-400 text-xl"></i>
                   <div>
-                    <p className="text-[11px] font-black uppercase tracking-widest text-red-200">Meta API Diagnostic Error</p>
+                    <p className="text-[11px] font-black uppercase tracking-widest text-red-200">
+                      {waError?.error === 'BILLING_REQUIRED' ? '⚠️ BILLING ISSUE DETECTED' : 'Meta API Diagnostic Error'}
+                    </p>
                     <p className="text-[10px] text-white/70 font-bold leading-tight">{waError?.details}</p>
                   </div>
                </div>
                
+               {waError?.error === 'BILLING_REQUIRED' && (
+                 <div className="bg-yellow-500/10 border border-yellow-500/30 p-5 rounded-xl space-y-3">
+                    <p className="text-[10px] text-yellow-200 font-black uppercase tracking-widest">Action Required:</p>
+                    <p className="text-[9px] text-white/80 leading-relaxed font-medium">
+                      Meta has rejected this message because your business account is missing a valid Payment Method. 
+                      Since the app is LIVE, Meta requires a card to be linked to your WhatsApp API.
+                    </p>
+                    <p className="text-[9px] text-yellow-500 font-bold">Go to: WhatsApp Manager -> Settings -> Payment Settings</p>
+                 </div>
+               )}
+
                <div className="bg-black/20 p-4 rounded-xl space-y-2 border border-white/5">
                   <div className="flex justify-between text-[9px] font-black uppercase">
                      <span className="text-white/40">FB Trace ID:</span>
@@ -145,21 +157,6 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
                      <span className="text-white/40">Meta Code:</span>
                      <span className="text-red-400">{waError?.meta_code || '---'}</span>
                   </div>
-                  <div className="flex justify-between text-[9px] font-black uppercase">
-                     <span className="text-white/40">Subcode:</span>
-                     <span className="text-red-400 font-bold">{waError?.meta_subcode || '---'}</span>
-                  </div>
-               </div>
-
-               <div className="pt-2 border-t border-white/10 space-y-2">
-                  <p className="text-[9px] text-red-100 font-bold uppercase tracking-widest flex items-center gap-2">
-                     <i className="fas fa-tools"></i> Please Check these in Meta Dashboard:
-                  </p>
-                  <ul className="text-[9px] text-white/50 space-y-2 list-disc ml-4 font-medium italic">
-                     <li>Check if your <b>System User</b> has "Apps" assets added.</li>
-                     <li>Ensure the <b>Phone Number ID</b> is exactly from the "API Setup" tab.</li>
-                     <li><b>IMPORTANT:</b> If it's a new Meta account, you can only send messages to verified test numbers first.</li>
-                  </ul>
                </div>
 
                <button onClick={() => navigate('/my-bookings')} className="w-full bg-white/10 hover:bg-white/20 border border-white/20 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest">
