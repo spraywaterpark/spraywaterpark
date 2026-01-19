@@ -15,7 +15,7 @@ export const PRICING = {
 
 export const OFFERS = {
   MORNING: "FREE Chole Bhature (2:00 PM - 3:00 PM only)",
-  EVENING: "FREE Buffet Dinner (8:00 PM - 10:00 PM)"
+  EVENING: "FREE Grand Buffet Dinner (8:00 PM - 10:00 PM)"
 };
 
 export const DEFAULT_ADMIN_SETTINGS = {
@@ -29,7 +29,7 @@ export const DEFAULT_ADMIN_SETTINGS = {
 
   blockedSlots: [],
   waTemplateName: 'booked_ticket',
-  waLangCode: 'en'
+  waLangCode: 'en_GB'
 };
 
 export const TIME_SLOTS = [
