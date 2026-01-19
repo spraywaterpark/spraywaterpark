@@ -1,5 +1,5 @@
-
-import { Booking } from "../types";
+import { Booking, AdminSettings } from "../types";
+import { DEFAULT_ADMIN_SETTINGS } from "../constants";
 
 export interface WhatsAppResponse {
   success: boolean;
@@ -12,17 +12,28 @@ export interface WhatsAppResponse {
 
 export const notificationService = {
   sendWhatsAppTicket: async (booking: Booking): Promise<WhatsAppResponse> => {
-    console.log(`[Backend-AI WA] Requesting ticket for: ${booking.mobile}`);
+    // Attempt to get saved settings for template config
+    let templateName = 'booked_ticket';
+    let langCode = 'en_US';
     
     try {
-      // We no longer call generateConfirmationMessage here.
-      // The backend /api/booking?type=whatsapp will do it.
+      const saved = localStorage.getItem('swp_settings');
+      if (saved) {
+        const settings = JSON.parse(saved);
+        templateName = settings.waTemplateName || templateName;
+        langCode = settings.waLangCode || langCode;
+      }
+    } catch (e) {}
+
+    try {
       const response = await fetch('/api/booking?type=whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mobile: booking.mobile,
-          booking: booking // Send the full object, server will generate text
+          booking: booking,
+          templateName,
+          langCode
         })
       });
 
@@ -34,19 +45,13 @@ export const notificationService = {
           error: data.error || "SERVER_ERROR",
           details: data.details || "Meta API rejected the message.",
           fb_trace_id: data.fb_trace_id,
-          meta_code: data.meta_code,
+          meta_code: data.meta_code || data.code,
           meta_subcode: data.meta_subcode
         };
       }
 
-      // Store the generated message for the 'Get on WhatsApp' button fallback
-      if (data.ai_message) {
-        sessionStorage.setItem('last_ai_message', data.ai_message);
-      }
-
       return { success: true };
     } catch (error: any) {
-      console.error("Official WhatsApp Error:", error);
       return {
         success: false,
         error: "NETWORK_ERROR",
