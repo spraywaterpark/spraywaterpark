@@ -1,15 +1,5 @@
 import { google } from "googleapis";
 
-// This function is now a fallback or for sessions where the user has already replied.
-// In LIVE mode, we primarily use Templates for the first message.
-function generateFallbackText(booking: any) {
-  const isMorning = booking.time.toLowerCase().includes('morning');
-  const guestName = booking.name || 'Guest';
-  const rules = `🚫 Group Policy: No single/only male groups. Smoking/Alcohol prohibited. Nylon swimwear mandatory.`;
-
-  return `Hello ${guestName}! Confirmed for Spray Aqua Resort! 🌊\nDate: ${booking.date}\nSlot: ${booking.time}\nAmount: ₹${booking.totalAmount}\nRules: ${rules}`;
-}
-
 export default async function handler(req: any, res: any) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
@@ -24,14 +14,13 @@ export default async function handler(req: any, res: any) {
     });
   }
 
-  // --- CONFIG DIAGNOSTIC TEST (USING YOUR APPROVED TEMPLATE) ---
+  // --- CONFIG DIAGNOSTIC TEST ---
   if (req.query.type === 'test_config' && req.method === 'POST') {
-    const { token, phoneId, mobile } = req.body;
+    const { token, phoneId, mobile, templateName, langCode } = req.body;
     let cleanMobile = mobile.replace(/\D/g, '');
     if (cleanMobile.length === 10) cleanMobile = `91${cleanMobile}`;
 
     try {
-      // Using your approved template 'booked_ticket'
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -40,8 +29,8 @@ export default async function handler(req: any, res: any) {
           to: cleanMobile,
           type: "template",
           template: { 
-            name: "booked_ticket", 
-            language: { code: "en_US" } 
+            name: templateName || "booked_ticket", 
+            language: { code: langCode || "en_US" } 
           }
         })
       });
@@ -49,19 +38,12 @@ export default async function handler(req: any, res: any) {
       const data = await waRes.json();
       
       if (waRes.ok) {
-        return res.status(200).json({ 
-          success: true, 
-          msg: "Template 'booked_ticket' sent successfully!",
-          message_id: data.messages?.[0]?.id 
-        });
+        return res.status(200).json({ success: true, message_id: data.messages?.[0]?.id });
       } else {
-        // Log more details for debugging
-        console.error("[META API ERROR]", data);
         return res.status(waRes.status).json({ 
           success: false, 
-          details: data.error?.message || "Meta API Rejected",
+          details: data.error?.message,
           code: data.error?.code,
-          subcode: data.error?.error_subcode,
           fb_trace_id: data.error?.fbtrace_id
         });
       }
@@ -70,9 +52,9 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // --- TICKETING LOGIC (USING TEMPLATE) ---
+  // --- TICKETING LOGIC ---
   if (req.query.type === 'whatsapp' && req.method === 'POST') {
-    const { mobile, booking } = req.body;
+    const { mobile, booking, templateName, langCode } = req.body;
     if (!WHATSAPP_TOKEN || !PHONE_NUMBER_ID) return res.status(400).json({ error: "CREDENTIALS_MISSING" });
 
     let cleanMobile = mobile.replace(/\D/g, '');
@@ -81,7 +63,6 @@ export default async function handler(req: any, res: any) {
     const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking.id}`;
 
     try {
-      // Step 1: Send the Template (Approved 'booked_ticket')
       const templateRes = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
@@ -90,8 +71,8 @@ export default async function handler(req: any, res: any) {
           to: cleanMobile,
           type: "template",
           template: { 
-            name: "booked_ticket", 
-            language: { code: "en_US" } 
+            name: templateName || "booked_ticket", 
+            language: { code: langCode || "en_US" } 
           }
         })
       });
@@ -101,15 +82,13 @@ export default async function handler(req: any, res: any) {
       if (!templateRes.ok) {
         return res.status(templateRes.status).json({ 
           success: false, 
-          error: "TEMPLATE_FAILED",
           details: templateData.error?.message,
           meta_code: templateData.error?.code,
           fb_trace_id: templateData.error?.fbtrace_id
         });
       }
 
-      // Step 2: Send the QR Code Image (Only works if user has messaged us first OR if part of a template with media)
-      // Since 'booked_ticket' is probably just text, we send QR as a separate image message.
+      // QR Image
       await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
@@ -123,11 +102,11 @@ export default async function handler(req: any, res: any) {
 
       return res.status(200).json({ success: true });
     } catch (error: any) {
-      return res.status(500).json({ success: false, error: "API_CRASH", details: error.message });
+      return res.status(500).json({ success: false, details: error.message });
     }
   }
 
-  // --- GOOGLE SHEETS LOGIC (UNCHANGED) ---
+  // --- GOOGLE SHEETS LOGIC ---
   if (!process.env.GOOGLE_CREDENTIALS || !process.env.SHEET_ID) return res.status(500).json({ error: "Config Error" });
   const auth = new google.auth.GoogleAuth({ credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS), scopes: ["https://www.googleapis.com/auth/spreadsheets"] });
   const sheets = google.sheets({ version: "v4", auth });
