@@ -2,6 +2,8 @@
 import { google } from "googleapis";
 
 // DETERMINISTIC TEMPLATE: "Pathar ki Lakeer"
+// Note: In LIVE mode, these free-text messages only work if the user messaged you in the last 24 hours.
+// To bypass this, you MUST register a Template in Meta Portal and use that.
 function generateOfficialTemplate(booking: any) {
   const isMorning = booking.time.toLowerCase().includes('morning');
   const guestName = booking.name || 'Guest';
@@ -32,33 +34,44 @@ export default async function handler(req: any, res: any) {
     });
   }
 
-  // --- CONFIG DIAGNOSTIC TEST ---
+  // --- CONFIG DIAGNOSTIC TEST (STRICT TEMPLATE MODE) ---
   if (req.query.type === 'test_config' && req.method === 'POST') {
     const { token, phoneId, mobile } = req.body;
     let cleanMobile = mobile.replace(/\D/g, '');
     if (cleanMobile.length === 10) cleanMobile = `91${cleanMobile}`;
 
     try {
+      // In LIVE Mode, you MUST use a template to start a conversation.
+      // 'hello_world' is a default template provided by Meta to all accounts.
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messaging_product: "whatsapp",
           to: cleanMobile,
-          type: "text",
-          text: { body: "Balle Balle! Spray Aqua Resort Direct Connection Test Successful! 🎉" }
+          type: "template",
+          template: { 
+            name: "hello_world", 
+            language: { code: "en_US" } 
+          }
         })
       });
+      
       const data = await waRes.json();
-      if (waRes.ok) return res.status(200).json({ success: true, data });
-      else {
-        // Return detailed Meta Error
+      
+      if (waRes.ok) {
+        return res.status(200).json({ 
+          success: true, 
+          msg: "Meta accepted the Template request.",
+          message_id: data.messages?.[0]?.id 
+        });
+      } else {
         return res.status(waRes.status).json({ 
           success: false, 
-          details: data.error?.message || "Unknown Meta Error",
+          details: data.error?.message || "Meta API Rejected",
           code: data.error?.code,
           subcode: data.error?.error_subcode,
-          type: data.error?.type
+          meta_error: data.error
         });
       }
     } catch (e: any) {
@@ -66,7 +79,7 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // --- BROADCAST LOGIC (MARKETING) ---
+  // --- BROADCAST LOGIC ---
   if (req.query.type === 'broadcast' && req.method === 'POST') {
     const { targets, message } = req.body;
     if (!WHATSAPP_TOKEN || !PHONE_NUMBER_ID) return res.status(400).json({ error: "API_CONFIG_MISSING" });
@@ -107,6 +120,8 @@ export default async function handler(req: any, res: any) {
     const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking.id}`;
 
     try {
+      // Note: This 'text' message will fail in LIVE mode if it's the first message.
+      // RECOMMENDED: Create a template named 'booking_confirmation' in Meta and use it here.
       const textRes = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
