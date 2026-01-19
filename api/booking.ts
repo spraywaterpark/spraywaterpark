@@ -16,23 +16,32 @@ export default async function handler(req: any, res: any) {
 
   // --- CONFIG DIAGNOSTIC TEST ---
   if (req.query.type === 'test_config' && req.method === 'POST') {
-    const { token, phoneId, mobile, templateName, langCode } = req.body;
+    const { token, phoneId, mobile, templateName, langCode, variables } = req.body;
     let cleanMobile = mobile.replace(/\D/g, '');
     if (cleanMobile.length === 10) cleanMobile = `91${cleanMobile}`;
+
+    const payload: any = {
+      messaging_product: "whatsapp",
+      to: cleanMobile,
+      type: "template",
+      template: { 
+        name: templateName || "booked_ticket", 
+        language: { code: langCode || "en_GB" } 
+      }
+    };
+
+    if (variables && Array.isArray(variables)) {
+      payload.template.components = [{
+        type: "body",
+        parameters: variables.map(v => ({ type: "text", text: String(v) }))
+      }];
+    }
 
     try {
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          to: cleanMobile,
-          type: "template",
-          template: { 
-            name: templateName || "booked_ticket", 
-            language: { code: langCode || "en_US" } 
-          }
-        })
+        body: JSON.stringify(payload)
       });
       
       const data = await waRes.json();
@@ -72,7 +81,14 @@ export default async function handler(req: any, res: any) {
           type: "template",
           template: { 
             name: templateName || "booked_ticket", 
-            language: { code: langCode || "en_US" } 
+            language: { code: langCode || "en_GB" },
+            components: [{
+              type: "body",
+              parameters: [
+                // ONLY ONE VARIABLE based on user screenshot showing "Variable: Name"
+                { type: "text", text: booking.name || "Guest" }
+              ]
+            }]
           }
         })
       });
