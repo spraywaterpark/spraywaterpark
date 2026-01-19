@@ -27,7 +27,8 @@ export default async function handler(req: any, res: any) {
   if (req.query.type === 'health') {
     return res.status(200).json({
       whatsapp_token: !!WHATSAPP_TOKEN,
-      whatsapp_phone_id: !!PHONE_NUMBER_ID
+      whatsapp_phone_id: !!PHONE_NUMBER_ID,
+      token_preview: WHATSAPP_TOKEN ? `${WHATSAPP_TOKEN.substring(0, 10)}...` : 'NONE'
     });
   }
 
@@ -49,8 +50,17 @@ export default async function handler(req: any, res: any) {
         })
       });
       const data = await waRes.json();
-      if (waRes.ok) return res.status(200).json({ success: true });
-      else return res.status(waRes.status).json({ success: false, details: data.error?.message });
+      if (waRes.ok) return res.status(200).json({ success: true, data });
+      else {
+        // Return detailed Meta Error
+        return res.status(waRes.status).json({ 
+          success: false, 
+          details: data.error?.message || "Unknown Meta Error",
+          code: data.error?.code,
+          subcode: data.error?.error_subcode,
+          type: data.error?.type
+        });
+      }
     } catch (e: any) {
       return res.status(500).json({ success: false, details: e.message });
     }
@@ -108,7 +118,16 @@ export default async function handler(req: any, res: any) {
         })
       });
       const textData = await textRes.json();
-      if (!textRes.ok) return res.status(textRes.status).json({ success: false, ...textData });
+      
+      if (!textRes.ok) {
+        return res.status(textRes.status).json({ 
+          success: false, 
+          error: textData.error?.type || "META_API_REJECTED",
+          details: textData.error?.message,
+          meta_code: textData.error?.code,
+          fb_trace_id: textData.error?.fbtrace_id
+        });
+      }
 
       await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
         method: 'POST',
@@ -122,7 +141,7 @@ export default async function handler(req: any, res: any) {
       });
       return res.status(200).json({ success: true, ai_message: messageText });
     } catch (error: any) {
-      return res.status(500).json({ success: false, error: "API_CRASH" });
+      return res.status(500).json({ success: false, error: "API_CRASH", details: error.message });
     }
   }
 
