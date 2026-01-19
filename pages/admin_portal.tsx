@@ -20,12 +20,12 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>(new Date().toLocaleTimeString());
+  const [showGuide, setShowGuide] = useState(false);
 
   // Health Stats
   const [apiHealth, setApiHealth] = useState({ token: false, phone: false });
 
   const [blkDate, setBlkDate] = useState('');
-  const [blkSlot, setBlkSlot] = useState(TIME_SLOTS[0]);
 
   useEffect(() => {
     setDraft(settings);
@@ -97,7 +97,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       const success = await cloudSync.saveSettings(draft);
       if (success) {
         onUpdateSettings(draft);
-        alert("Success: Resort settings synced to cloud!");
+        alert("Success: Resort settings saved!");
         setActiveTab('bookings');
       } else {
         alert("Error: Cloud Sync failed.");
@@ -185,25 +185,23 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         <Modal title="System Configuration" onClose={() => setActiveTab('bookings')}>
           <div className="space-y-8 max-h-[60vh] overflow-y-auto px-2 custom-scrollbar">
             
-            {/* WHATSAPP API STATUS - UPDATED TO USE HEALTH DATA */}
+            {/* WHATSAPP STATUS & HELP */}
             <div className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Meta API Health</h4>
+              <div className="flex justify-between items-center border-b pb-2">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Meta API (Vercel Variables)</h4>
+                <button onClick={() => setShowGuide(true)} className="text-[9px] font-black text-blue-600 uppercase tracking-widest hover:underline flex items-center gap-1">
+                  <i className="fas fa-question-circle"></i> Need Help?
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 gap-3">
-                 <div className={`p-4 rounded-xl border flex justify-between items-center ${apiHealth.token ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
-                    <span className="text-[10px] font-bold uppercase text-slate-600">WhatsApp Token</span>
-                    <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase ${apiHealth.token ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}`}>
-                       {apiHealth.token ? 'DETECTED' : 'MISSING'}
+                 <div className={`p-4 rounded-xl border flex justify-between items-center ${apiHealth.token && apiHealth.phone ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                    <span className="text-[10px] font-bold uppercase text-slate-600">API Readiness</span>
+                    <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase ${apiHealth.token && apiHealth.phone ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}`}>
+                       {apiHealth.token && apiHealth.phone ? 'CONNECTED' : 'WAITING FOR VERCEL'}
                     </span>
                  </div>
-                 <div className={`p-4 rounded-xl border flex justify-between items-center ${apiHealth.phone ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
-                    <span className="text-[10px] font-bold uppercase text-slate-600">Phone Number ID</span>
-                    <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase ${apiHealth.phone ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}`}>
-                       {apiHealth.phone ? 'DETECTED' : 'MISSING'}
-                    </span>
-                 </div>
-                 {!apiHealth.token && (
-                   <p className="text-[9px] text-red-500 font-bold italic text-center">⚠️ Update Environment Variables in Vercel & Redeploy.</p>
-                 )}
+                 <p className="text-[9px] text-slate-400 italic text-center font-bold px-4">Variables for WhatsApp Token and Phone ID are managed directly in Vercel project settings for maximum security.</p>
               </div>
             </div>
 
@@ -232,10 +230,45 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
           
           <div className="pt-8 border-t border-slate-100 mt-6">
             <button onClick={handleSaveSettings} disabled={isSaving} className="btn-resort w-full h-16 shadow-2xl disabled:opacity-50">
-              {isSaving ? 'Syncing...' : 'Save & Sync Global Settings'}
+              {isSaving ? 'Saving...' : 'Save Resort Rates'}
             </button>
           </div>
         </Modal>
+      )}
+
+      {/* SETUP GUIDE MODAL */}
+      {showGuide && (
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6 z-[1200] animate-fade">
+          <div className="bg-white rounded-[2.5rem] p-10 md:p-14 w-full max-w-2xl shadow-2xl relative border border-white/20">
+            <button onClick={() => setShowGuide(false)} className="absolute top-10 right-10 text-slate-400 hover:text-slate-900"><i className="fas fa-times text-2xl"></i></button>
+            
+            <div className="mb-8">
+               <h3 className="text-2xl font-black uppercase text-slate-900">WhatsApp Setup Guide</h3>
+               <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 mt-1">Check Display Name & Number</p>
+            </div>
+
+            <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                <p className="text-[11px] font-black text-slate-900 uppercase mb-3">How to see your Name/Number:</p>
+                <ul className="text-xs text-slate-600 space-y-2 list-disc ml-5 font-semibold">
+                  <li>Go to <b>Meta for Developers</b> Dashboard.</li>
+                  <li>Click <b>WhatsApp > API Setup</b> in the left sidebar.</li>
+                  <li>In the center of the screen, look for <b>"Step 5: Add a phone number"</b>. This is where you link your real resort number.</li>
+                  <li>When linking, Meta asks for a <b>"Display Name"</b>. This is where you write <b>"Spray Water Park"</b>.</li>
+                </ul>
+              </div>
+
+              <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
+                <p className="text-[11px] font-black text-blue-900 uppercase mb-2">Vercel Config:</p>
+                <p className="text-xs text-blue-700 font-semibold leading-relaxed">
+                  Once you get your <b>Phone Number ID</b> and <b>Permanent Token</b> from Meta, add them as <code>WHATSAPP_TOKEN</code> and <code>WHATSAPP_PHONE_ID</code> in your Vercel Dashboard Environment Variables.
+                </p>
+              </div>
+            </div>
+
+            <button onClick={() => setShowGuide(false)} className="w-full btn-resort mt-10 !bg-slate-900">Got it, thanks!</button>
+          </div>
+        </div>
       )}
     </div>
   );
