@@ -63,10 +63,10 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       const data = await res.json();
       if (res.ok) {
         setDiagStatus('success');
-        alert("🎉 Balle Balle! Message Sent. Aapka naya connection sahi kaam kar raha hai.");
+        alert("🎉 Balle Balle! Message Aa Gaya! Iska matlab naye IDs ekdum sahi hain.");
       } else {
         setDiagStatus('fail');
-        setDiagError(data.details || "Check Meta Portal for Errors");
+        setDiagError(data.details || "Meta Portal error. Check if permissions are assigned to System User.");
       }
     } catch (e: any) {
       setDiagStatus('fail');
@@ -84,8 +84,8 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targets, message: broadcastMsg })
       });
-      if (res.ok) alert("Broadcast sent!");
-      else alert("Broadcast failed.");
+      if (res.ok) alert("Broadcast sent successfully!");
+      else alert("Broadcast failed. Check API balance/settings.");
     } catch (e) {
       alert("Error sending broadcast.");
     } finally {
@@ -105,6 +105,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-10">
+      {/* GLOSSY HEADER */}
       <div className="bg-[#1B2559] text-white p-10 rounded-[2.5rem] shadow-2xl flex flex-col lg:flex-row justify-between items-center gap-10">
         <div className="text-center lg:text-left">
           <p className="text-[10px] uppercase tracking-[0.4em] opacity-60 mb-2">Resort Dashboard</p>
@@ -130,6 +131,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
       {activeTab === 'settings' && (
         <div className="grid lg:grid-cols-2 gap-10 animate-slide-up">
+           {/* TEST TOOL */}
            <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-8">
               <div>
                  <h3 className="text-2xl font-black uppercase text-slate-900">Direct API Test</h3>
@@ -142,8 +144,9 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                     <textarea value={testToken} onChange={e => setTestToken(e.target.value)} placeholder="EAAG..." className="input-premium h-20 text-[10px] font-mono" />
                  </div>
                  <div className="space-y-2">
-                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Paste New Phone Number ID</label>
+                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Phone Number ID</label>
                     <input value={testPhoneId} onChange={e => setTestPhoneId(e.target.value)} placeholder="138..." className="input-premium text-xs" />
+                    <p className="text-[8px] text-slate-400 font-bold uppercase ml-1">Note: Ye purane wala hi ho sakta hai, wahi daal dein.</p>
                  </div>
                  <div className="space-y-2">
                     <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Test Mobile (WhatsApp)</label>
@@ -161,25 +164,26 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                    </div>
                  )}
                  {diagStatus === 'success' && (
-                   <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-[10px] text-emerald-600 font-bold uppercase">
+                   <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-[10px] text-emerald-600 font-bold uppercase animate-bounce">
                       Success! Now update these values in Vercel settings.
                    </div>
                  )}
               </div>
            </div>
 
+           {/* INSTRUCTIONS */}
            <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white space-y-6 shadow-2xl border border-white/10">
               <h4 className="text-xl font-black uppercase text-blue-400">Vercel Update Guide</h4>
               <div className="space-y-4 text-xs font-medium text-slate-400 leading-relaxed">
                  <p><span className="text-white font-black">1.</span> Login to <a href="https://vercel.com" target="_blank" className="text-blue-400 underline">Vercel Dashboard</a>.</p>
-                 <p><span className="text-white font-black">2.</span> Projects -> Spray Aqua Resort -> Settings -> Environment Variables.</p>
+                 <p><span className="text-white font-black">2.</span> Projects {" -> "} Spray Aqua Resort {" -> "} Settings {" -> "} Environment Variables.</p>
                  <p><span className="text-white font-black">3.</span> Purane <code className="bg-white/10 p-1 rounded">WHATSAPP_TOKEN</code> aur <code className="bg-white/10 p-1 rounded">WHATSAPP_PHONE_ID</code> ko edit karke ye naye waale daal dein.</p>
-                 <p><span className="text-white font-black">4.</span> **Redeploy** karein (Deployments -> Latest -> Redeploy) taaki naye settings chalu ho jayein.</p>
+                 <p><span className="text-white font-black">4.</span> **Redeploy** karein (Deployments {" -> "} Latest {" -> "} Redeploy) taaki naye settings chalu ho jayein.</p>
               </div>
               <div className="bg-amber-500/10 border border-amber-500/30 p-6 rounded-2xl flex items-start gap-4 mt-6">
                  <i className="fas fa-exclamation-triangle text-amber-500 mt-1"></i>
                  <p className="text-[10px] font-semibold text-amber-200 leading-relaxed">
-                   Jab tak aap Vercel mein update nahi karenge, live customers ko purane system se messages jayenge jo ki ab AiSensy ne block kar diye honge.
+                   Dhyan rahe: Jab tak aap Vercel mein update nahi karenge, aapki app purane IDs hi use karegi jo ki ab kaam nahi karenge.
                  </p>
               </div>
            </div>
@@ -190,7 +194,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 max-w-2xl mx-auto space-y-8 animate-slide-up">
            <div className="text-center">
               <h3 className="text-2xl font-black uppercase text-slate-900">Broadcast Center</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Send to all guests</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Direct Marketing (0% Margin)</p>
            </div>
            
            <div className="space-y-6">
@@ -203,7 +207,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       )}
 
       <div className="flex justify-center gap-4 py-10">
-          <button onClick={() => window.location.hash = '#/admin-lockers'} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl">CO&LO Terminal</button>
+          <button onClick={() => window.location.hash = '#/admin-lockers'} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl">Inventory Terminal</button>
           <button onClick={onLogout} className="bg-red-50 text-red-600 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-red-100">Sign Out</button>
       </div>
     </div>
