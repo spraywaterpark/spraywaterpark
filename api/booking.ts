@@ -6,6 +6,15 @@ export default async function handler(req: any, res: any) {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
+  // --- HEALTH CHECK FOR ADMIN PANEL ---
+  if (req.query.type === 'health') {
+    return res.status(200).json({
+      whatsapp_token: !!process.env.WHATSAPP_TOKEN,
+      whatsapp_phone_id: !!process.env.WHATSAPP_PHONE_ID,
+      google_sheets: !!process.env.GOOGLE_CREDENTIALS && !!process.env.SHEET_ID
+    });
+  }
+
   if (!process.env.GOOGLE_CREDENTIALS || !process.env.SHEET_ID) {
     return res.status(500).json({ error: "Server Configuration Error" });
   }
@@ -38,8 +47,11 @@ export default async function handler(req: any, res: any) {
     const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_ID;
 
     if (!WHATSAPP_TOKEN || !PHONE_NUMBER_ID) {
-      console.warn("WhatsApp Credentials missing in Env. Falling back to local log.");
-      return res.status(200).json({ success: true, mode: 'local_log' });
+      return res.status(400).json({ 
+        success: false, 
+        error: "META_CREDENTIALS_MISSING",
+        details: "Configuration Error: Check WHATSAPP_TOKEN and WHATSAPP_PHONE_ID in your environment variables."
+      });
     }
 
     try {
@@ -59,15 +71,25 @@ export default async function handler(req: any, res: any) {
       });
 
       const waData = await waResponse.json();
-      if (!waResponse.ok) throw new Error(waData.error?.message || "WA API Error");
+      
+      if (!waResponse.ok) {
+        return res.status(waResponse.status).json({ 
+          success: false, 
+          error: "META_API_REJECTION",
+          details: waData.error?.message || "Meta API rejected the request.",
+          fb_trace_id: waData.error?.fbtrace_id,
+          meta_code: waData.error?.code,
+          meta_subcode: waData.error?.error_subcode
+        });
+      }
 
       return res.status(200).json({ success: true, wa_id: waData.messages?.[0]?.id });
     } catch (error: any) {
-      console.error("WhatsApp Send Error:", error.message);
-      return res.status(500).json({ error: error.message });
+      return res.status(500).json({ success: false, error: "FETCH_FAILED", details: error.message });
     }
   }
 
+  // --- GOOGLE SHEETS LOGIC (Rentals/Settings/Bookings) ---
   if (type === 'rentals') {
     if (req.method === "GET") {
       try {
