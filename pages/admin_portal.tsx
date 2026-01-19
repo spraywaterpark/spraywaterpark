@@ -64,7 +64,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       if (res.ok) {
         setDiagStatus('success');
         setDiagInfo(data);
-        alert("🎉 Connection Success! Check your WhatsApp now.");
       } else {
         setDiagStatus('fail');
         setDiagInfo(data);
@@ -134,7 +133,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
            <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-8">
               <div>
                  <h3 className="text-2xl font-black uppercase text-slate-900">Direct API Test</h3>
-                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Verify new IDs here</p>
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Meta Cloud Diagnostic</p>
               </div>
 
               <div className="space-y-4">
@@ -152,34 +151,38 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                  </div>
 
                  <button onClick={runDiagnostic} disabled={diagStatus === 'loading'} className="w-full btn-resort h-16 !bg-blue-600 shadow-xl">
-                    {diagStatus === 'loading' ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-vial mr-2"></i>}
-                    Verify New Connection
+                    {diagStatus === 'loading' ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-paper-plane mr-2"></i>}
+                    Send Test "Hello World"
                  </button>
 
                  {diagStatus === 'fail' && diagInfo && (
                    <div className="p-6 bg-red-50 border border-red-200 rounded-3xl space-y-3">
                       <p className="text-[11px] font-black uppercase text-red-600 tracking-widest">Meta API Error Log:</p>
                       <div className="text-[10px] font-bold text-red-800 space-y-1">
-                         <p>Message: {diagInfo.details}</p>
-                         <p>Error Code: {diagInfo.code || 'N/A'}</p>
-                         <p>Subcode: {diagInfo.subcode || 'N/A'}</p>
-                      </div>
-                      <div className="pt-2 border-t border-red-200">
-                         <p className="text-[9px] font-black text-red-400 uppercase">Suggested Fix:</p>
-                         <p className="text-[10px] text-red-600 font-bold">
-                            {diagInfo.code === 100 ? "Phone ID or Number format is wrong." : 
-                             diagInfo.code === 190 ? "Token is invalid or expired." :
-                             diagInfo.subcode === 33 ? "Recipent number not added in allowlist (Sandbox)." : 
-                             "Check Meta Developer Portal permissions."}
-                         </p>
+                         <p>Reason: {diagInfo.details}</p>
+                         <p>Code: {diagInfo.code} / Subcode: {diagInfo.subcode}</p>
                       </div>
                    </div>
                  )}
                  
                  {diagStatus === 'success' && (
-                   <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-3xl text-emerald-600 font-bold">
-                      <p className="text-[11px] font-black uppercase tracking-widest">Everything is OK! 🎉</p>
-                      <p className="text-[10px] mt-1">If message didn't arrive, check if your phone has DND or if the number is correct.</p>
+                   <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-3xl space-y-4">
+                      <div className="flex items-center gap-3">
+                        <i className="fas fa-check-circle text-emerald-600 text-xl"></i>
+                        <p className="text-[11px] font-black uppercase tracking-widest text-emerald-900">API Connection Verified!</p>
+                      </div>
+                      
+                      <div className="bg-white/50 p-4 rounded-xl border border-emerald-200 space-y-3">
+                        <p className="text-[10px] font-bold text-emerald-800 leading-relaxed uppercase">
+                          ⚠️ IMPORTANT: LIVE MODE RULES
+                        </p>
+                        <p className="text-[9px] text-emerald-700 font-medium">
+                          Agar aapka app LIVE hai, toh aap kisi bhi naye guest ko "Text" message nahi bhej sakte. Aapko pehle ek **Template** banakar Meta se approve karwana hoga. 
+                        </p>
+                        <p className="text-[9px] text-emerald-700 font-bold mt-2">
+                          Abhi humne "hello_world" template se test kiya hai. Agar ye message aa gaya, toh aapka connection 100% sahi hai.
+                        </p>
+                      </div>
                    </div>
                  )}
               </div>
@@ -187,19 +190,15 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
            <div className="space-y-8">
               <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white space-y-6 shadow-2xl border border-white/10">
-                 <h4 className="text-xl font-black uppercase text-blue-400">Migration Checklist</h4>
+                 <h4 className="text-xl font-black uppercase text-blue-400">Step 2: Update Vercel</h4>
                  <div className="space-y-4 text-[11px] font-medium text-slate-400 leading-relaxed">
                     <p className="flex items-start gap-3">
                        <i className="fas fa-check-circle text-emerald-500 mt-0.5"></i>
-                       <span><strong>System User:</strong> Kya aapne token "System User" se banaya hai? normal "User" token 24 hours mein expire ho jayega.</span>
+                       <span><strong>Permanent Token:</strong> Kya ye token expire toh nahi hoga? "System User" se hi banayein.</span>
                     </p>
                     <p className="flex items-start gap-3">
                        <i className="fas fa-check-circle text-emerald-500 mt-0.5"></i>
-                       <span><strong>Permissions:</strong> Token banate waqt `whatsapp_business_messaging` aur `whatsapp_business_management` select kiya?</span>
-                    </p>
-                    <p className="flex items-start gap-3">
-                       <i className="fas fa-check-circle text-emerald-500 mt-0.5"></i>
-                       <span><strong>Vercel Redeploy:</strong> Save karne ke baad Vercel Dashboard mein "Deployments" par jaakar **Redeploy** kiya? Bina iske naye IDs activate nahi honge.</span>
+                       <span><strong>Redeploy:</strong> Vercel mein settings save karne ke baad Redeploy zaroori hai.</span>
                     </p>
                  </div>
               </div>
