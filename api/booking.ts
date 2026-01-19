@@ -18,11 +18,11 @@ async function generateServerSideMessage(booking: any) {
     ? "FREE Snacks / Chole Bhature included for all guests!"
     : "FREE Grand Buffet Dinner included for all guests!";
 
-  const prompt = `You are the manager of Spray Aqua Resort. Generate a WhatsApp confirmation message in the following EXACT format. DO NOT ADD ANY EXTRA INTRO OR OUTRO.
+  const prompt = `You are the manager of Spray Aqua Resort. Generate a professional WhatsApp confirmation message in this EXACT template:
 
 Hello *${booking.name}*! 🌊
 
-We are absolutely thrilled to confirm your booking at *Spray Aqua Resort!* Get ready for an unforgettable day of fun, splashes, and relaxation. 🏊‍♂️
+We are absolutely thrilled to confirm your booking at *Spray Aqua Resort!* Get ready for an unforgettable ${isMorning ? 'morning' : 'evening'} of fun, splashes, and relaxation. 🏊‍♂️
 
 *Your Booking Details:*
 📅 *Date:* ${booking.date}
@@ -38,18 +38,25 @@ To ensure you have the best experience, please take a moment to review our house
 🩱 *Pool Access:* Proper swimming costumes are *mandatory*. Guests without appropriate swimwear will not be allowed past the changing rooms into the pool area. (पूल में प्रवेश के लिए उचित स्विमवियर अनिवार्य है। बिना कॉस्ट्यूम के चेंजिंग रूम से आगे जाना वर्जित है।)
 🔒 *Safety:* Please look after your belongings. While we provide paid locker facilities for your convenience, the resort is not responsible for any lost items. (निजी सामान के खोने के लिए प्रबंधन जिम्मेदार नहीं है। सशुल्क लॉकर सुविधा उपलब्ध है।)
 
+We can't wait to welcome you! If you have any questions, feel free to message us.
+
+See you soon for some fun in the sun! ☀️
+
 Warm regards,
+
 *The Manager*
-Spray Aqua Resort 🌴`;
+*Spray Aqua Resort* 🌴
+
+DO NOT ADD ANY EXTRA INTRO OR OUTRO. SEND ONLY THE MESSAGE CONTENT.`;
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
     });
-    return response.text || `Booking confirmed for ${booking.name}`;
+    return response.text || `Booking confirmed for ${booking.name}. ID: ${booking.id}`;
   } catch (e) {
-    return `Hello ${booking.name}! Your booking for ${booking.date} is confirmed. Regards, Spray Aqua Resort.`;
+    return `Hello ${booking.name}! Thank you for your booking. Your ticket ID is ${booking.id} for ${booking.date}. Regards, Spray Aqua Resort.`;
   }
 }
 
@@ -73,7 +80,6 @@ export default async function handler(req: any, res: any) {
     const { mobile, booking } = req.body;
     let message = req.body.message;
 
-    // If message is not provided, generate it using AI on the server
     if (!message && booking) {
       message = await generateServerSideMessage(booking);
     }
@@ -189,7 +195,6 @@ export default async function handler(req: any, res: any) {
             return res.status(200).json({ success: true });
           }
         } else if (action === 'checkout') {
-          // Reset logic...
           return res.status(200).json({ success: true });
         } else {
           const values = [[rental.receiptNo, rental.guestName, rental.guestMobile, rental.date, rental.shift, JSON.stringify(rental.maleLockers), JSON.stringify(rental.femaleLockers), Number(rental.maleCostumes), Number(rental.femaleCostumes), Number(rental.rentAmount), Number(rental.securityDeposit), Number(rental.totalCollected), Number(rental.refundableAmount), rental.status, rental.createdAt, ""]];
