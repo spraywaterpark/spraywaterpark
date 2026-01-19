@@ -21,12 +21,28 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const [isSaving, setIsSaving] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>(new Date().toLocaleTimeString());
 
+  // Health Stats
+  const [apiHealth, setApiHealth] = useState({ token: false, phone: false });
+
   const [blkDate, setBlkDate] = useState('');
   const [blkSlot, setBlkSlot] = useState(TIME_SLOTS[0]);
 
   useEffect(() => {
     setDraft(settings);
+    checkApiHealth();
   }, [settings]);
+
+  const checkApiHealth = async () => {
+    try {
+      const res = await fetch('/api/booking?type=health');
+      if (res.ok) {
+        const data = await res.json();
+        setApiHealth({ token: data.whatsapp_token, phone: data.whatsapp_phone_id });
+      }
+    } catch (e) {
+      console.error("Health check failed");
+    }
+  };
 
   useEffect(() => setLastUpdated(new Date().toLocaleTimeString()), [bookings]);
 
@@ -59,23 +75,12 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       if (remoteSettings) onUpdateSettings(remoteSettings);
       await cloudSync.fetchData(syncId || MASTER_SYNC_ID);
       setLastUpdated(new Date().toLocaleTimeString());
+      checkApiHealth();
     } catch (e) {
       console.error("Manual refresh failed", e);
     } finally {
       setIsSyncing(false);
     }
-  };
-
-  const addBlackout = () => {
-    if (!blkDate) return alert("Select a date");
-    const currentShift = blkSlot.toLowerCase().includes('morning') ? 'morning' : 'evening';
-    const newSlot: BlockedSlot = { date: blkDate, shift: currentShift as ShiftType };
-    const currentBlocked = draft.blockedSlots || [];
-
-    if (currentBlocked.some(s => s.date === blkDate && (s.shift === currentShift || s.shift === 'all'))) {
-        return alert("This slot or full day is already blocked.");
-    }
-    setDraft({ ...draft, blockedSlots: [...currentBlocked, newSlot] });
   };
 
   const addFullDayBlackout = () => {
@@ -85,26 +90,20 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     setDraft({ ...draft, blockedSlots: [...updatedSlots, { date: blkDate, shift: 'all' }] });
   };
 
-  const removeBlackout = (index: number) => {
-    const updated = (draft.blockedSlots || []).filter((_, i) => i !== index);
-    setDraft({ ...draft, blockedSlots: updated });
-  };
-
-  // CRITICAL FIX: Actually push to Google Sheets
   const handleSaveSettings = async () => {
     if (isSaving) return;
     setIsSaving(true);
     try {
       const success = await cloudSync.saveSettings(draft);
       if (success) {
-        onUpdateSettings(draft); // Update parent state
+        onUpdateSettings(draft);
         alert("Success: Resort settings synced to cloud!");
         setActiveTab('bookings');
       } else {
-        alert("Error: Cloud Sync failed. Check your connection and try again.");
+        alert("Error: Cloud Sync failed.");
       }
     } catch (err) {
-      alert("An unexpected error occurred while saving settings.");
+      alert("An unexpected error occurred.");
     } finally {
       setIsSaving(false);
     }
@@ -132,7 +131,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         </div>
       </div>
 
-      {/* STATS */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Stat label="Total Tickets" value={stats.tickets} />
         <Stat label="Adults" value={stats.adults} />
@@ -140,7 +138,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         <Stat label="Last Sync" value={lastUpdated} />
       </div>
 
-      {/* BOOKINGS TABLE */}
       <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
         <div className="overflow-x-auto custom-scrollbar">
           <table className="min-w-[900px] w-full text-center">
@@ -172,30 +169,45 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         </div>
       </div>
 
-      {/* ACTIONS */}
       <div className="flex flex-wrap justify-center gap-4">
         <button onClick={manualRefresh} disabled={isSyncing} className="btn-resort !px-8 h-14 !bg-slate-800 disabled:opacity-50">
            <i className={`fas fa-sync-alt mr-2 text-xs ${isSyncing ? 'fa-spin' : ''}`}></i> {isSyncing ? 'Refreshing...' : 'Refresh Cloud Data'}
         </button>
         <button onClick={() => setActiveTab('settings')} className="btn-resort !px-8 h-14">
-           <i className="fas fa-cog mr-2 text-xs"></i> Rates & Blackout Dates
+           <i className="fas fa-cog mr-2 text-xs"></i> WhatsApp & Resort Rates
         </button>
-
-        <button
-          onClick={() => window.location.hash = '#/admin-lockers'}
-          className="btn-resort !px-8 h-14 !bg-emerald-600 hover:!bg-emerald-700"
-        >
-          <i className="fas fa-box mr-2 text-xs"></i>
-          CO&LO LOGIN
+        <button onClick={() => window.location.hash = '#/admin-lockers'} className="btn-resort !px-8 h-14 !bg-emerald-600 hover:!bg-emerald-700">
+          <i className="fas fa-box mr-2 text-xs"></i> CO&LO LOGIN
         </button>
       </div>
 
-      {/* SETTINGS MODAL */}
       {activeTab === 'settings' && (
-        <Modal title="Configure Resort" onClose={() => setActiveTab('bookings')}>
+        <Modal title="System Configuration" onClose={() => setActiveTab('bookings')}>
           <div className="space-y-8 max-h-[60vh] overflow-y-auto px-2 custom-scrollbar">
-            {/* PRICING */}
+            
+            {/* WHATSAPP API STATUS - UPDATED TO USE HEALTH DATA */}
             <div className="space-y-4">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Meta API Health</h4>
+              <div className="grid grid-cols-1 gap-3">
+                 <div className={`p-4 rounded-xl border flex justify-between items-center ${apiHealth.token ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                    <span className="text-[10px] font-bold uppercase text-slate-600">WhatsApp Token</span>
+                    <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase ${apiHealth.token ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}`}>
+                       {apiHealth.token ? 'DETECTED' : 'MISSING'}
+                    </span>
+                 </div>
+                 <div className={`p-4 rounded-xl border flex justify-between items-center ${apiHealth.phone ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                    <span className="text-[10px] font-bold uppercase text-slate-600">Phone Number ID</span>
+                    <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase ${apiHealth.phone ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}`}>
+                       {apiHealth.phone ? 'DETECTED' : 'MISSING'}
+                    </span>
+                 </div>
+                 {!apiHealth.token && (
+                   <p className="text-[9px] text-red-500 font-bold italic text-center">⚠️ Update Environment Variables in Vercel & Redeploy.</p>
+                 )}
+              </div>
+            </div>
+
+            <div className="space-y-4 pt-4 border-t border-slate-100">
               <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Ticket Rates (₹)</h4>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -206,68 +218,21 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                   <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Evening Adult</label>
                   <input type="number" className="input-premium py-3" value={draft.eveningAdultRate} onChange={e => setDraft({...draft, eveningAdultRate: Number(e.target.value)})} />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Morning Kid</label>
-                  <input type="number" className="input-premium py-3" value={draft.morningKidRate} onChange={e => setDraft({...draft, morningKidRate: Number(e.target.value)})} />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Evening Kid</label>
-                  <input type="number" className="input-premium py-3" value={draft.eveningKidRate} onChange={e => setDraft({...draft, eveningKidRate: Number(e.target.value)})} />
-                </div>
               </div>
             </div>
 
-            {/* BLACKOUTS */}
             <div className="space-y-6 pt-6 border-t border-slate-100">
               <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Blackout Management</h4>
               <div className="bg-slate-50 p-6 rounded-2xl space-y-5 border border-slate-200">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase text-slate-500 ml-1">Date</label>
-                    <input type="date" className="input-premium py-3" value={blkDate} onChange={e => setBlkDate(e.target.value)} />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase text-slate-500 ml-1">Shift</label>
-                    <select className="input-premium py-3 bg-white" value={blkSlot} onChange={e => setBlkSlot(e.target.value)}>
-                      {TIME_SLOTS.map(t => <option key={t} value={t}>{t.split(':')[0]}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <button onClick={addBlackout} className="flex-1 bg-slate-900 text-white text-[10px] font-black uppercase py-4 rounded-xl shadow-lg">Block Slot</button>
-                  <button onClick={addFullDayBlackout} className="flex-1 border-2 border-slate-900 text-slate-900 text-[10px] font-black uppercase py-4 rounded-xl">Block Full Day</button>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Current Active Blackouts</p>
-                {(!draft.blockedSlots || draft.blockedSlots.length === 0) ? (
-                  <p className="text-xs text-slate-400 text-center py-4">All dates are open for booking</p>
-                ) : (
-                  <div className="grid grid-cols-1 gap-2">
-                    {draft.blockedSlots.map((bs, i) => (
-                      <div key={i} className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200">
-                        <div>
-                          <p className="text-sm font-black text-slate-900 uppercase">{bs.date}</p>
-                          <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest">{bs.shift}</p>
-                        </div>
-                        <button onClick={() => removeBlackout(i)} className="w-10 h-10 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"><i className="fas fa-trash-alt text-xs"></i></button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <input type="date" className="input-premium py-3" value={blkDate} onChange={e => setBlkDate(e.target.value)} />
+                <button onClick={addFullDayBlackout} className="w-full border-2 border-slate-900 text-slate-900 text-[10px] font-black uppercase py-4 rounded-xl">Block Full Day</button>
               </div>
             </div>
           </div>
           
-          <div className="pt-8 border-t border-slate-100 mt-6 space-y-4">
-            <p className="text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest">Settings will be saved to 'Settings' tab in Google Sheets.</p>
-            <button 
-              onClick={handleSaveSettings} 
-              disabled={isSaving}
-              className="btn-resort w-full h-16 shadow-2xl disabled:opacity-50"
-            >
-              {isSaving ? <><i className="fas fa-circle-notch fa-spin mr-2"></i> Syncing to Cloud...</> : 'Save & Sync Global Settings'}
+          <div className="pt-8 border-t border-slate-100 mt-6">
+            <button onClick={handleSaveSettings} disabled={isSaving} className="btn-resort w-full h-16 shadow-2xl disabled:opacity-50">
+              {isSaving ? 'Syncing...' : 'Save & Sync Global Settings'}
             </button>
           </div>
         </Modal>
