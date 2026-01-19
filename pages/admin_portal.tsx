@@ -21,8 +21,11 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const [isSaving, setIsSaving] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>(new Date().toLocaleTimeString());
 
-  // Health Stats
+  // Health & Test Tools
   const [apiHealth, setApiHealth] = useState({ token: false, phone: false });
+  const [testMobile, setTestMobile] = useState('');
+  const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'fail'>('idle');
+  const [testError, setTestError] = useState('');
   const [blkDate, setBlkDate] = useState('');
 
   useEffect(() => {
@@ -39,6 +42,29 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       }
     } catch (e) {
       console.error("Health check failed");
+    }
+  };
+
+  const handleTestWhatsApp = async () => {
+    if (!/^[789]\d{9}$/.test(testMobile)) return alert("Enter 10-digit mobile for testing");
+    setTestStatus('loading');
+    setTestError('');
+    try {
+      const res = await fetch('/api/booking?type=test_whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobile: testMobile })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTestStatus('success');
+      } else {
+        setTestStatus('fail');
+        setTestError(data.error?.message || data.details || "API Error");
+      }
+    } catch (e: any) {
+      setTestStatus('fail');
+      setTestError(e.message);
     }
   };
 
@@ -188,16 +214,42 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         <Modal title="System Configuration" onClose={() => setActiveTab('bookings')}>
           <div className="space-y-8 max-h-[60vh] overflow-y-auto px-2 custom-scrollbar">
             
-            {/* WHATSAPP STATUS */}
-            <div className="space-y-4">
+            {/* WHATSAPP ENGINE & TEST TOOL */}
+            <div className="space-y-6">
               <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">WhatsApp Engine</h4>
-              <div className="grid grid-cols-1 gap-3">
-                 <div className={`p-4 rounded-xl border flex justify-between items-center ${apiHealth.token && apiHealth.phone ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
-                    <span className="text-[10px] font-bold uppercase text-slate-600">API Connection</span>
-                    <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase ${apiHealth.token && apiHealth.phone ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}`}>
-                       {apiHealth.token && apiHealth.phone ? 'CONNECTED' : 'OFFLINE'}
-                    </span>
-                 </div>
+              
+              <div className={`p-5 rounded-2xl border flex justify-between items-center ${apiHealth.token && apiHealth.phone ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase">Credential Status</p>
+                  <p className={`text-[12px] font-black ${apiHealth.token && apiHealth.phone ? 'text-emerald-700' : 'text-red-700'}`}>
+                    {apiHealth.token && apiHealth.phone ? 'Token & ID Verified' : 'Missing Vercel Variables'}
+                  </p>
+                </div>
+                <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase ${apiHealth.token && apiHealth.phone ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}`}>
+                   {apiHealth.token && apiHealth.phone ? 'CONNECTED' : 'OFFLINE'}
+                </span>
+              </div>
+
+              {/* TEST TOOL */}
+              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Connection Tester</p>
+                <div className="flex gap-2">
+                  <input 
+                    placeholder="Enter your mobile for test" 
+                    className="input-premium py-3 text-xs" 
+                    value={testMobile} 
+                    onChange={e => setTestMobile(e.target.value.replace(/\D/g,''))} 
+                  />
+                  <button 
+                    onClick={handleTestWhatsApp} 
+                    disabled={testStatus === 'loading'}
+                    className="bg-slate-900 text-white px-6 rounded-xl text-[9px] font-black uppercase whitespace-nowrap"
+                  >
+                    {testStatus === 'loading' ? 'Sending...' : 'Test Now'}
+                  </button>
+                </div>
+                {testStatus === 'success' && <p className="text-[9px] font-bold text-emerald-600 uppercase">Test Sent! Check your WhatsApp.</p>}
+                {testStatus === 'fail' && <p className="text-[9px] font-bold text-red-600 uppercase">Failed: {testError}</p>}
               </div>
             </div>
 
