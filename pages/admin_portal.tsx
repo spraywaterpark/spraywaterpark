@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Booking, AdminSettings, BlockedSlot, ShiftType } from '../types';
+import { Booking, AdminSettings } from '../types';
 import { cloudSync } from '../services/cloud_sync';
-import { TIME_SLOTS, MASTER_SYNC_ID } from '../constants';
 
 interface AdminPanelProps {
   bookings: Booking[];
@@ -12,13 +11,11 @@ interface AdminPanelProps {
   onLogout: () => void;
 }
 
-const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings, syncId, onLogout }) => {
+const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings, onLogout }) => {
   const [activeTab, setActiveTab] = useState<'bookings' | 'marketing' | 'settings'>('bookings');
-  const [viewMode, setViewMode] = useState<'sales_today' | 'visit_today' | 'all'>('sales_today');
+  const [viewMode] = useState<'sales_today' | 'visit_today' | 'all'>('sales_today');
   const [draft, setDraft] = useState<AdminSettings>(settings);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<string>(new Date().toLocaleTimeString());
 
   // Migration Diagnostic States
   const [testToken, setTestToken] = useState('');
@@ -35,6 +32,18 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     setDraft(settings);
   }, [settings]);
 
+  const saveSettings = async () => {
+    setIsSaving(true);
+    const success = await cloudSync.saveSettings(draft);
+    if (success) {
+      onUpdateSettings(draft);
+      alert("Settings Saved Successfully!");
+    } else {
+      alert("Failed to save settings to cloud.");
+    }
+    setIsSaving(false);
+  };
+
   const runDiagnostic = async () => {
     if (!testToken || !testPhoneId || !testMobile) return alert("Please fill Token, Phone ID and a Mobile number to test.");
     setDiagStatus('loading');
@@ -43,7 +52,13 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       const res = await fetch('/api/booking?type=test_config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: testToken, phoneId: testPhoneId, mobile: testMobile })
+        body: JSON.stringify({ 
+          token: testToken, 
+          phoneId: testPhoneId, 
+          mobile: testMobile,
+          templateName: draft.waTemplateName,
+          langCode: draft.waLangCode
+        })
       });
       const data = await res.json();
       if (res.ok) {
@@ -116,44 +131,58 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       {activeTab === 'settings' && (
         <div className="grid lg:grid-cols-2 gap-10 animate-slide-up">
            <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-8">
-              <div>
-                 <h3 className="text-2xl font-black uppercase text-slate-900">Direct API Test</h3>
-                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Template: <strong>booked_ticket</strong></p>
+              <div className="flex justify-between items-center">
+                 <h3 className="text-2xl font-black uppercase text-slate-900">API Setup</h3>
+                 <button onClick={saveSettings} disabled={isSaving} className="bg-emerald-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase">
+                    {isSaving ? 'Saving...' : 'Save Config'}
+                 </button>
               </div>
 
-              <div className="space-y-4">
-                 <div className="space-y-2">
+              <div className="space-y-6">
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Approved Template Name</label>
+                        <input value={draft.waTemplateName} onChange={e => setDraft({...draft, waTemplateName: e.target.value})} placeholder="booked_ticket" className="input-premium text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Lang Code (Use 'en')</label>
+                        <input value={draft.waLangCode} onChange={e => setDraft({...draft, waLangCode: e.target.value})} placeholder="en" className="input-premium text-xs" />
+                    </div>
+                 </div>
+
+                 <div className="space-y-1">
                     <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Paste Permanent Token</label>
                     <textarea value={testToken} onChange={e => setTestToken(e.target.value)} placeholder="EAAG..." className="input-premium h-20 text-[10px] font-mono" />
                  </div>
-                 <div className="space-y-2">
+                 <div className="space-y-1">
                     <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Phone Number ID</label>
                     <input value={testPhoneId} onChange={e => setTestPhoneId(e.target.value)} placeholder="138..." className="input-premium text-xs" />
                  </div>
-                 <div className="space-y-2">
-                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Test Number</label>
+                 <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Test Mobile (With 91)</label>
                     <input value={testMobile} onChange={e => setTestMobile(e.target.value)} placeholder="91..." className="input-premium text-xs" />
                  </div>
 
                  <button onClick={runDiagnostic} disabled={diagStatus === 'loading'} className="w-full btn-resort h-16 !bg-blue-600 shadow-xl">
                     {diagStatus === 'loading' ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-paper-plane mr-2"></i>}
-                    Send "booked_ticket"
+                    Test Current Configuration
                  </button>
 
                  {diagStatus === 'fail' && diagInfo && (
                    <div className="p-6 bg-red-50 border border-red-200 rounded-3xl space-y-4">
-                      <p className="text-[11px] font-black uppercase text-red-600 tracking-widest underline decoration-2">🚨 Error 200 Detected: Permission Denied</p>
-                      <div className="text-[10px] font-bold text-red-800 space-y-2 leading-relaxed">
-                         <p>Bhai, Meta Business Settings mein jaaiye:</p>
-                         <ol className="list-decimal ml-4 space-y-1">
-                            <li>Business Settings {">"} Users {">"} <strong>System Users</strong></li>
-                            <li>Apne System User ko select karein</li>
-                            <li><strong>"Add Assets"</strong> button par click karein</li>
-                            <li><strong>"WhatsApp Business Account"</strong> select karein</li>
-                            <li>Apne Resort ke account ko select karke <strong>Sari Permissions ON</strong> karke Save karein.</li>
-                         </ol>
-                         <p className="mt-4 pt-2 border-t border-red-200 text-[9px] opacity-60 italic">Trace ID: {diagInfo.fb_trace_id}</p>
-                      </div>
+                      {diagInfo.code === 132001 ? (
+                        <div className="space-y-2">
+                           <p className="text-[11px] font-black uppercase text-red-600 tracking-widest underline decoration-2">🚨 Error 132001: Template Mismatch</p>
+                           <p className="text-[10px] font-bold text-red-800 leading-relaxed">
+                              Bhai, Meta Manager mein aapki language "English" hai. 
+                              Upar <strong>Lang Code</strong> ko <code>en</code> karke dobara test karein. 
+                              Agar <code>en</code> fail ho, tabhi <code>en_US</code> try karein.
+                           </p>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] font-bold text-red-800">Error: {diagInfo.details}</p>
+                      )}
+                      <p className="text-[9px] opacity-60 italic">Trace ID: {diagInfo.fb_trace_id}</p>
                    </div>
                  )}
                  
@@ -163,7 +192,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                         <i className="fas fa-check-circle text-emerald-600 text-xl"></i>
                         <p className="text-[11px] font-black uppercase tracking-widest text-emerald-900">Success!</p>
                       </div>
-                      <p className="text-[9px] text-emerald-700 font-bold">Aapke number par 'booked_ticket' message pahunch gaya hai.</p>
+                      <p className="text-[9px] text-emerald-700 font-bold">Message sent using "{draft.waTemplateName}" with language "{draft.waLangCode}". Please Save Config above.</p>
                    </div>
                  )}
               </div>
@@ -171,21 +200,21 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
            <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white space-y-8 shadow-2xl border border-white/10">
                 <div className="flex items-center gap-4">
-                    <i className="fas fa-tools text-blue-400 text-2xl"></i>
-                    <h3 className="text-xl font-black uppercase tracking-tight">Technical Checklist</h3>
+                    <i className="fas fa-info-circle text-blue-400 text-2xl"></i>
+                    <h3 className="text-xl font-black uppercase tracking-tight">Solution for 132001</h3>
                 </div>
                 
                 <div className="space-y-6">
                     <div className="p-5 bg-white/5 rounded-2xl border border-white/10 space-y-2">
-                        <p className="text-[9px] font-black uppercase text-blue-400">Template Logic</p>
+                        <p className="text-[9px] font-black uppercase text-blue-400">Step 1: Check Code</p>
                         <p className="text-xs font-medium text-slate-300 leading-relaxed">
-                          Agar aapka template <strong>"booked_ticket"</strong> parameters (variables) use kar raha hai (jaise Name ya Date), toh Meta usse block kar sakta hai jab tak variable data na bheja jaye. 
+                          Aapke screenshot ke hisaab se language "English" hai. Iska API code <strong>en</strong> hota hai. Use <code>en</code> in Lang Code field.
                         </p>
                     </div>
                     <div className="p-5 bg-white/5 rounded-2xl border border-white/10 space-y-2">
-                        <p className="text-[9px] font-black uppercase text-blue-400">Wait Time</p>
+                        <p className="text-[9px] font-black uppercase text-blue-400">Step 2: Save Config</p>
                         <p className="text-xs font-medium text-slate-300 leading-relaxed">
-                          Asset assign karne ke baad kabhi kabhi 1-2 minute ka delay hota hai Meta ke server par reflect hone mein.
+                          Jab test success ho jaye, toh upar <strong>Save Config</strong> button dabana na bhulein! Tabhi booking system ise use karega.
                         </p>
                     </div>
                 </div>
@@ -205,6 +234,11 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
            </button>
         </div>
       )}
+
+      <div className="flex justify-center gap-4 py-10">
+          <button onClick={() => window.location.hash = '#/admin-lockers'} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl">Inventory Terminal</button>
+          <button onClick={onLogout} className="bg-red-50 text-red-600 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-red-100">Sign Out</button>
+      </div>
     </div>
   );
 };
