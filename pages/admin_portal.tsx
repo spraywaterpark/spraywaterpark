@@ -133,12 +133,12 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
            <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-8">
               <div>
                  <h3 className="text-2xl font-black uppercase text-slate-900">Direct API Test</h3>
-                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Meta Cloud Diagnostic</p>
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Testing Template: <strong>booked_ticket</strong></p>
               </div>
 
               <div className="space-y-4">
                  <div className="space-y-2">
-                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Paste New Permanent Token</label>
+                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Paste Permanent Token</label>
                     <textarea value={testToken} onChange={e => setTestToken(e.target.value)} placeholder="EAAG..." className="input-premium h-20 text-[10px] font-mono" />
                  </div>
                  <div className="space-y-2">
@@ -146,22 +146,32 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                     <input value={testPhoneId} onChange={e => setTestPhoneId(e.target.value)} placeholder="138..." className="input-premium text-xs" />
                  </div>
                  <div className="space-y-2">
-                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Test Mobile (WhatsApp)</label>
+                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Test Number (WhatsApp)</label>
                     <input value={testMobile} onChange={e => setTestMobile(e.target.value)} placeholder="91..." className="input-premium text-xs" />
                  </div>
 
                  <button onClick={runDiagnostic} disabled={diagStatus === 'loading'} className="w-full btn-resort h-16 !bg-blue-600 shadow-xl">
                     {diagStatus === 'loading' ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-paper-plane mr-2"></i>}
-                    Send Test "Hello World"
+                    Send Template "booked_ticket"
                  </button>
 
                  {diagStatus === 'fail' && diagInfo && (
-                   <div className="p-6 bg-red-50 border border-red-200 rounded-3xl space-y-3">
+                   <div className="p-6 bg-red-50 border border-red-200 rounded-3xl space-y-4">
                       <p className="text-[11px] font-black uppercase text-red-600 tracking-widest">Meta API Error Log:</p>
                       <div className="text-[10px] font-bold text-red-800 space-y-1">
                          <p>Reason: {diagInfo.details}</p>
                          <p>Code: {diagInfo.code} / Subcode: {diagInfo.subcode}</p>
+                         <p className="mt-2 text-[9px] opacity-60">Trace ID: {diagInfo.fb_trace_id}</p>
                       </div>
+
+                      {diagInfo.code === 200 && (
+                        <div className="pt-3 border-t border-red-200">
+                           <p className="text-[10px] font-black text-red-700 uppercase">🔥 CRITICAL FIX FOR CODE 200:</p>
+                           <p className="text-[9px] text-red-600 font-bold leading-relaxed mt-1">
+                             Bhai, Meta Business Suite mein jaao -> <strong>System Users</strong> -> Select User -> <strong>Add Assets</strong> dabao. Wahan "WhatsApp Business Account" select karke permission ON karke Save karo. Uske bina message nahi jayega.
+                           </p>
+                        </div>
+                      )}
                    </div>
                  )}
                  
@@ -169,20 +179,9 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                    <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-3xl space-y-4">
                       <div className="flex items-center gap-3">
                         <i className="fas fa-check-circle text-emerald-600 text-xl"></i>
-                        <p className="text-[11px] font-black uppercase tracking-widest text-emerald-900">API Connection Verified!</p>
+                        <p className="text-[11px] font-black uppercase tracking-widest text-emerald-900">Template Delivered!</p>
                       </div>
-                      
-                      <div className="bg-white/50 p-4 rounded-xl border border-emerald-200 space-y-3">
-                        <p className="text-[10px] font-bold text-emerald-800 leading-relaxed uppercase">
-                          ⚠️ IMPORTANT: LIVE MODE RULES
-                        </p>
-                        <p className="text-[9px] text-emerald-700 font-medium">
-                          Agar aapka app LIVE hai, toh aap kisi bhi naye guest ko "Text" message nahi bhej sakte. Aapko pehle ek **Template** banakar Meta se approve karwana hoga. 
-                        </p>
-                        <p className="text-[9px] text-emerald-700 font-bold mt-2">
-                          Abhi humne "hello_world" template se test kiya hai. Agar ye message aa gaya, toh aapka connection 100% sahi hai.
-                        </p>
-                      </div>
+                      <p className="text-[9px] text-emerald-700 font-bold">Aapke number par 'booked_ticket' template wala message aa gaya hoga.</p>
                    </div>
                  )}
               </div>
@@ -190,45 +189,29 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
            <div className="space-y-8">
               <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white space-y-6 shadow-2xl border border-white/10">
-                 <h4 className="text-xl font-black uppercase text-blue-400">Step 2: Update Vercel</h4>
+                 <h4 className="text-xl font-black uppercase text-blue-400">Live Flow Steps</h4>
                  <div className="space-y-4 text-[11px] font-medium text-slate-400 leading-relaxed">
                     <p className="flex items-start gap-3">
-                       <i className="fas fa-check-circle text-emerald-500 mt-0.5"></i>
-                       <span><strong>Permanent Token:</strong> Kya ye token expire toh nahi hoga? "System User" se hi banayein.</span>
+                       <i className="fas fa-check text-blue-400 mt-0.5"></i>
+                       <span><strong>Template 'booked_ticket':</strong> Humne ise test ke liye set kar diya hai.</span>
                     </p>
                     <p className="flex items-start gap-3">
-                       <i className="fas fa-check-circle text-emerald-500 mt-0.5"></i>
-                       <span><strong>Redeploy:</strong> Vercel mein settings save karne ke baad Redeploy zaroori hai.</span>
+                       <i className="fas fa-info-circle text-blue-400 mt-0.5"></i>
+                       {/* Fix: Wrapped literal double curly braces in strings within JSX expression to avoid object literal parsing errors */}
+                       <span><strong>Parameters ({"{{1}}"}, {"{{2}}"}):</strong> Agar aapne template mein variables dale hain, toh mujhe batayein, hum code mein unhe pass kar denge. Abhi hum simple message bhej rahe hain.</span>
                     </p>
-                 </div>
-              </div>
-
-              <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-6">
-                 <h4 className="text-sm font-black uppercase text-slate-900">Live App Health</h4>
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
-                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Active Token</p>
-                       <p className={`text-[10px] font-black mt-1 ${apiHealth.whatsapp_token ? 'text-emerald-600' : 'text-red-500'}`}>
-                          {apiHealth.whatsapp_token ? `CONNECTED (${apiHealth.token_preview})` : 'DISCONNECTED'}
-                       </p>
-                    </div>
-                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
-                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Phone ID</p>
-                       <p className={`text-[10px] font-black mt-1 ${apiHealth.whatsapp_phone_id ? 'text-emerald-600' : 'text-red-500'}`}>
-                          {apiHealth.whatsapp_phone_id ? 'CONFIGURED' : 'MISSING'}
-                       </p>
-                    </div>
                  </div>
               </div>
            </div>
         </div>
       )}
 
+      {/* Marketing Section */}
       {activeTab === 'marketing' && (
         <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 max-w-2xl mx-auto space-y-8 animate-slide-up">
            <div className="text-center">
               <h3 className="text-2xl font-black uppercase text-slate-900">Broadcast Center</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Direct Marketing (0% Margin)</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Direct Marketing</p>
            </div>
            
            <div className="space-y-6">
