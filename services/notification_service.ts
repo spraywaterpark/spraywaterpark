@@ -1,25 +1,24 @@
 
-
 import { Booking } from "../types";
 import { generateConfirmationMessage } from "./gemini_service";
 
-/**
- * WhatsApp Notification Service for Spray Aqua Resort
- * Automated via Server-Side Official Meta API
- */
+export interface WhatsAppResponse {
+  success: boolean;
+  error?: string;
+  details?: string;
+  fb_trace_id?: string;
+  meta_code?: number;
+  meta_subcode?: number;
+}
+
 export const notificationService = {
-  /**
-   * Triggers an official automated WhatsApp message from the server.
-   */
-  sendWhatsAppTicket: async (booking: Booking): Promise<boolean> => {
+  sendWhatsAppTicket: async (booking: Booking): Promise<WhatsAppResponse> => {
     console.log(`[Official WA] Sending ticket to: ${booking.mobile}`);
     
     try {
-      // 1. Generate content via AI
       const aiMessage = await generateConfirmationMessage(booking);
       sessionStorage.setItem('last_ai_message', aiMessage);
 
-      // 2. Call our internal API which handles the Meta Graph API logic
       const response = await fetch('/api/booking?type=whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -29,21 +28,27 @@ export const notificationService = {
         })
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error("Failed to send official WhatsApp message.");
+        return {
+          success: false,
+          error: data.error || "SERVER_ERROR",
+          details: data.details || "Failed to deliver WhatsApp message via Meta API.",
+          fb_trace_id: data.fb_trace_id,
+          meta_code: data.meta_code,
+          meta_subcode: data.meta_subcode
+        };
       }
 
-      return true;
-    } catch (error) {
+      return { success: true };
+    } catch (error: any) {
       console.error("Official WhatsApp Error:", error);
-      
-      // Fallback: If official API fails, try the manual method as a last resort
-      const fallbackMsg = `*Spray Aqua Resort* \nHi ${booking.name}, your booking ID ${booking.id} is confirmed for ${booking.date}. See you soon!`;
-      const encoded = encodeURIComponent(fallbackMsg);
-      // We only open manual WA as a fallback if the automated one fails completely
-      // window.open(`https://wa.me/91${booking.mobile}?text=${encoded}`, '_blank');
-      
-      return false;
+      return {
+        success: false,
+        error: "NETWORK_ERROR",
+        details: error.message || "Network connectivity issue."
+      };
     }
   }
 };
