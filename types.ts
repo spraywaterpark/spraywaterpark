@@ -44,7 +44,7 @@ export interface AdminSettings {
   extraDiscountPercent: number;
 
   blockedSlots: BlockedSlot[];
-  lastShiftReset?: string; // New: Timestamp to trigger receipt reset on staff devices
+  lastShiftReset?: string; 
 }
 
 /* ===============================
