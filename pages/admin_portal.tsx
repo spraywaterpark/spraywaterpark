@@ -201,7 +201,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                        {apiHealth.token && apiHealth.phone ? 'CONNECTED' : 'WAITING FOR VERCEL'}
                     </span>
                  </div>
-                 <p className="text-[9px] text-slate-400 italic text-center font-bold px-4">Variables for WhatsApp Token and Phone ID are managed directly in Vercel project settings for maximum security.</p>
+                 <p className="text-[9px] text-slate-400 italic text-center font-bold px-4">WhatsApp config is managed in Vercel settings for security.</p>
               </div>
             </div>
 
@@ -252,7 +252,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                 <p className="text-[11px] font-black text-slate-900 uppercase mb-3">How to see your Name/Number:</p>
                 <ul className="text-xs text-slate-600 space-y-2 list-disc ml-5 font-semibold">
                   <li>Go to <b>Meta for Developers</b> Dashboard.</li>
-                  <li>Click <b>WhatsApp > API Setup</b> in the left sidebar.</li>
+                  <li>Click <b>WhatsApp &gt; API Setup</b> in the left sidebar.</li>
                   <li>In the center of the screen, look for <b>"Step 5: Add a phone number"</b>. This is where you link your real resort number.</li>
                   <li>When linking, Meta asks for a <b>"Display Name"</b>. This is where you write <b>"Spray Water Park"</b>.</li>
                 </ul>
@@ -261,7 +261,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
               <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
                 <p className="text-[11px] font-black text-blue-900 uppercase mb-2">Vercel Config:</p>
                 <p className="text-xs text-blue-700 font-semibold leading-relaxed">
-                  Once you get your <b>Phone Number ID</b> and <b>Permanent Token</b> from Meta, add them as <code>WHATSAPP_TOKEN</code> and <code>WHATSAPP_PHONE_ID</code> in your Vercel Dashboard Environment Variables.
+                  Once you get your Phone ID and Token from Meta, add them as <code>WHATSAPP_TOKEN</code> and <code>WHATSAPP_PHONE_ID</code> in your Vercel Dashboard Environment Variables.
                 </p>
               </div>
             </div>
