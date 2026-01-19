@@ -1,41 +1,42 @@
 
 import { google } from "googleapis";
-import { GoogleGenAI } from "@google/genai";
 
-// Helper to generate AI message on the server
-async function generateServerSideMessage(booking: any) {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) return `Hello ${booking.name}! Your booking for ${booking.date} is confirmed. Amount: Rs.${booking.totalAmount}. Regards, Spray Aqua Resort.`;
-
-  const ai = new GoogleGenAI({ apiKey });
+// Hard-coded deterministic template to ensure 100% accuracy with user's request
+function generateOfficialTemplate(booking: any) {
   const isMorning = booking.time.toLowerCase().includes('morning');
   
-  const shiftTimings = isMorning 
-    ? "pool time 10am to 2pm and snacks time 1pm to 3pm" 
-    : "pool time 4pm to 8pm and dinner time 7pm to 10pm";
+  const shiftInfo = isMorning 
+    ? {
+        timings: "10:00 AM to 03:00 PM (Morning Shift)",
+        details: "(pool time 10am to 2pm and snacks time 1pm to 3pm)",
+        offer: "FREE Snacks / Chole Bhature included for all guests! 🍴"
+      }
+    : {
+        timings: "04:00 PM onwards (Evening Shift)",
+        details: "(pool time 4pm to 8pm and dinner time 7pm to 10pm)",
+        offer: "FREE Grand Buffet Dinner included for all guests! 🍴"
+      };
 
-  const offerDetail = isMorning
-    ? "FREE Snacks / Chole Bhature included for all guests!"
-    : "FREE Grand Buffet Dinner included for all guests!";
+  // The EXACT template requested by the user
+  return `Hello *${booking.name}*! 🌊
 
-  const prompt = `You are the manager of Spray Aqua Resort. Generate a professional WhatsApp confirmation message in this EXACT template:
-
-Hello *${booking.name}*! 🌊
-
-We are absolutely thrilled to confirm your booking at *Spray Aqua Resort!* Get ready for an unforgettable ${isMorning ? 'morning' : 'evening'} of fun, splashes, and relaxation. 🏊‍♂️
+We are absolutely thrilled to confirm your booking at *Spray Aqua Resort!* Get ready for an unforgettable evening of fun, splashes, and relaxation. 🏊‍♂️
 
 *Your Booking Details:*
 📅 *Date:* ${booking.date}
-⏰ *Slot:* ${booking.time}
-        (${shiftTimings})
+⏰ *Slot:* ${shiftInfo.timings}
+        ${shiftInfo.details}
 💰 *Total Amount Paid:* ₹${booking.totalAmount}
-🎁 *SPECIAL OFFER INCLUDED:* Your booking comes with a *${offerDetail}* 🍴
+🎁 *SPECIAL OFFER INCLUDED:* Your booking comes with a *${shiftInfo.offer}*
 
 To ensure you have the best experience, please take a moment to review our house rules:
 
 🚫 *Group Policy:* To maintain a family-friendly environment, single males or "only males" groups are strictly not allowed. (अकेले पुरुष या केवल पुरुषों के समूह को प्रवेश की अनुमति नहीं है।)
+
 🚭 *Clean Environment:* Alcohol and smoking are strictly prohibited on the premises. (परिसर के भीतर शराब का सेवन और धूम्रपान पूरी तरह से वर्जित है।)
-🩱 *Pool Access:* Proper swimming costumes are *mandatory*. Guests without appropriate swimwear will not be allowed past the changing rooms into the pool area. (पूल में प्रवेश के लिए उचित स्विमवियर अनिवार्य है। बिना कॉस्ट्यूम के चेंजिंग रूम से आगे जाना वर्जित है।)
+
+🩱 *Pool Access:* Proper swimming costumes are mandatory. Guests without appropriate swimwear will not be allowed past the changing rooms into the pool area. (पूल में प्रवेश के लिए उचित स्विमवियर अनिवार्य है। बिना कॉस्ट्यूम के चेंजिंग रूम से आगे जाना वर्जित है।)
+
 🔒 *Safety:* Please look after your belongings. While we provide paid locker facilities for your convenience, the resort is not responsible for any lost items. (निजी सामान के खोने के लिए प्रबंधन जिम्मेदार नहीं है। सशुल्क लॉकर सुविधा उपलब्ध है।)
 
 We can't wait to welcome you! If you have any questions, feel free to message us.
@@ -43,21 +44,8 @@ We can't wait to welcome you! If you have any questions, feel free to message us
 See you soon for some fun in the sun! ☀️
 
 Warm regards,
-
 *The Manager*
-*Spray Aqua Resort* 🌴
-
-DO NOT ADD ANY EXTRA INTRO OR OUTRO. SEND ONLY THE MESSAGE CONTENT.`;
-
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-    });
-    return response.text || `Booking confirmed for ${booking.name}. ID: ${booking.id}`;
-  } catch (e) {
-    return `Hello ${booking.name}! Thank you for your booking. Your ticket ID is ${booking.id} for ${booking.date}. Regards, Spray Aqua Resort.`;
-  }
+*Spray Aqua Resort* 🌴`;
 }
 
 export default async function handler(req: any, res: any) {
@@ -70,19 +58,16 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json({
       whatsapp_token: !!process.env.WHATSAPP_TOKEN,
       whatsapp_phone_id: !!process.env.WHATSAPP_PHONE_ID,
-      google_sheets: !!process.env.GOOGLE_CREDENTIALS && !!process.env.SHEET_ID,
-      gemini_api: !!process.env.API_KEY
+      google_sheets: !!process.env.GOOGLE_CREDENTIALS && !!process.env.SHEET_ID
     });
   }
 
   // --- OFFICIAL WHATSAPP INTEGRATION ---
   if (req.query.type === 'whatsapp' && req.method === 'POST') {
     const { mobile, booking } = req.body;
-    let message = req.body.message;
-
-    if (!message && booking) {
-      message = await generateServerSideMessage(booking);
-    }
+    
+    // Generate the exact template
+    const message = generateOfficialTemplate(booking);
 
     const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN; 
     const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_ID;
@@ -112,10 +97,7 @@ export default async function handler(req: any, res: any) {
         return res.status(waResponse.status).json({ 
           success: false, 
           error: "META_REJECTION",
-          details: waData.error?.message,
-          fb_trace_id: waData.error?.fbtrace_id,
-          meta_code: waData.error?.code,
-          meta_subcode: waData.error?.error_subcode
+          details: waData.error?.message
         });
       }
       return res.status(200).json({ success: true, ai_message: message });
