@@ -2,66 +2,34 @@
 import { google } from "googleapis";
 
 // DETERMINISTIC TEMPLATE: "Pathar ki Lakeer"
-// This function ensures the guest receives the exact format requested.
 function generateOfficialTemplate(booking: any) {
   const isMorning = booking.time.toLowerCase().includes('morning');
   const guestName = booking.name || 'Guest';
 
-  // Rules in English and Hindi (Bilingual)
   const rules = `
 🚫 *Group Policy:* To maintain a family-friendly environment, single males or "only males" groups are strictly not allowed. (अकेले पुरुष या केवल पुरुषों के समूह को प्रवेश की अनुमति नहीं है।)
 
-🚭 *Clean Environment:* Alcohol and smoking are strictly prohibited on the premises. (परिसर के भीतर शराब का सेवन और धूम्रपान पूरी तरह से वर्जित है।)
+Smoking and alcohol are strictly prohibited. Costumes mandatory for pool entry. Management not responsible for lost items. (शराब, धूम्रपान वर्जित है। पूल के लिए कॉस्ट्यूम अनिवार्य है। सामान की जिम्मेदारी प्रबंधन की नहीं है।)`;
 
-🩱 *Pool Access:* Proper swimming costumes are mandatory. Guests without appropriate swimwear will not be allowed past the changing rooms into the pool area. (पूल में प्रवेश के लिए उचित स्विमवियर अनिवार्य है। बिना कॉस्ट्यूम के चेंजिंग रूम से आगे जाना वर्जित है।)
+  const shiftDetails = isMorning 
+    ? { slot: "10:00 AM - 03:00 PM (Morning)", pool: "10am-2pm", food: "1pm-3pm", offer: "FREE Snacks / Chole Bhature included! 🍛" }
+    : { slot: "04:00 PM onwards (Evening)", pool: "4pm-8pm", food: "7pm-10pm", offer: "FREE Grand Buffet Dinner included! 🍽️" };
 
-🔒 *Safety:* Please look after your belongings. While we provide paid locker facilities for your convenience, the resort is not responsible for any lost items. (निजी सामान के खोने के लिए प्रबंधन जिम्मेदार नहीं है। सशुल्क लॉकर सुविधा उपलब्ध है।)`;
+  return `Hello *${guestName}*! 🌊
 
-  if (isMorning) {
-    return `Hello ${guestName}! 😊
+Booking Confirmed at *Spray Aqua Resort!* 🏊‍♂️
 
-We are absolutely thrilled to confirm your booking at *Spray Aqua Resort!* Get ready for an unforgettable morning of fun, splashes, and relaxation. 🌊
-
-*Your Booking Details:*
+*Details:*
 📅 *Date:* ${booking.date}
-⏰ *Slot:* 10:00 AM to 03:00 PM (Morning Shift)
-        (pool time 10am to 2pm and snacks time 1pm to 3pm)
-💰 *Total Amount Paid:* ₹${booking.totalAmount}
-🎁 *SPECIAL OFFER INCLUDED:* Your booking comes with a *FREE Snacks / Chole Bhature* for all guests! 🍛🥟
+⏰ *Slot:* ${shiftDetails.slot}
+        (pool: ${shiftDetails.pool}, food: ${shiftDetails.food})
+💰 *Paid:* ₹${booking.totalAmount}
+🎁 *OFFER:* ${shiftDetails.offer}
 
-To ensure you have the best experience, please take a moment to review our house rules:
+*Rules:*
 ${rules}
 
-We can't wait to welcome you! If you have any questions, feel free to message us.
-
-See you soon for some fun in the sun! ☀️🌴
-
-Warm regards,
-*The Manager*
-*Spray Aqua Resort* 🏨`;
-  } else {
-    return `Hello ${guestName}! 😊
-
-We are absolutely thrilled to confirm your booking at *Spray Aqua Resort!* Get ready for an unforgettable evening of fun, splashes, and relaxation. 🌊
-
-*Your Booking Details:*
-📅 *Date:* ${booking.date}
-⏰ *Slot:* 04:00 PM onwards (Evening Shift)
-        (pool time 4pm to 8pm and dinner time 7pm to 10pm)
-💰 *Total Amount Paid:* ₹${booking.totalAmount}
-🎁 *SPECIAL OFFER INCLUDED:* Your booking comes with a *FREE Grand Buffet Dinner* for all guests! 🍽️🥘
-
-To ensure you have the best experience, please take a moment to review our house rules:
-${rules}
-
-We can't wait to welcome you! If you have any questions, feel free to message us.
-
-See you soon for some fun in the sun! ☀️🌴
-
-Warm regards,
-*The Manager*
-*Spray Aqua Resort* 🏨`;
-  }
+Please find your QR Ticket attached below. Scan it at the entrance! 🎫`;
 }
 
 export default async function handler(req: any, res: any) {
@@ -79,7 +47,6 @@ export default async function handler(req: any, res: any) {
 
   if (req.query.type === 'whatsapp' && req.method === 'POST') {
     const { mobile, booking } = req.body;
-    const message = generateOfficialTemplate(booking);
     const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN; 
     const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_ID;
 
@@ -87,47 +54,48 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ success: false, error: "CREDENTIALS_MISSING" });
     }
 
+    const formattedMobile = mobile.startsWith('91') ? mobile : `91${mobile}`;
+    const messageText = generateOfficialTemplate(booking);
+    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking.id}`;
+
     try {
-      const waResponse = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
+      // 1. Send Text Message
+      const textRes = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messaging_product: "whatsapp",
-          recipient_type: "individual",
-          to: mobile.startsWith('91') ? mobile : `91${mobile}`,
+          to: formattedMobile,
           type: "text",
-          text: { body: message }
+          text: { body: messageText }
         })
       });
 
-      const waData = await waResponse.json();
-      if (!waResponse.ok) {
-        return res.status(waResponse.status).json({ success: false, error: "META_REJECTION", details: waData.error?.message });
-      }
-      return res.status(200).json({ success: true, ai_message: message });
+      // 2. Send QR Code Image
+      await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to: formattedMobile,
+          type: "image",
+          image: { link: qrImageUrl, caption: `Official Entry Pass: ${booking.id}` }
+        })
+      });
+
+      return res.status(200).json({ success: true });
     } catch (error: any) {
-      return res.status(500).json({ success: false, error: "FETCH_FAILED" });
+      return res.status(500).json({ success: false, error: "WHATSAPP_FAILED" });
     }
   }
 
+  // --- GOOGLE SHEETS LOGIC ---
   if (!process.env.GOOGLE_CREDENTIALS || !process.env.SHEET_ID) return res.status(500).json({ error: "Config Error" });
-
-  const auth = new google.auth.GoogleAuth({
-    credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"]
-  });
+  const auth = new google.auth.GoogleAuth({ credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS), scopes: ["https://www.googleapis.com/auth/spreadsheets"] });
   const sheets = google.sheets({ version: "v4", auth });
   const type = req.query.type;
 
-  const safeParseInt = (val: any) => {
-    if (!val) return 0;
-    const str = String(val).trim();
-    const num = parseInt(str);
-    return isNaN(num) ? 0 : num;
-  };
+  const safeParseInt = (val: any) => { if (!val) return 0; const n = parseInt(String(val).trim()); return isNaN(n) ? 0 : n; };
 
   if (type === 'rentals') {
     if (req.method === "GET") {
