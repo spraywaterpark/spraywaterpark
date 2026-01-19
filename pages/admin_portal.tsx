@@ -26,8 +26,8 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const [testPhoneId, setTestPhoneId] = useState('');
   const [testMobile, setTestMobile] = useState('');
   const [diagStatus, setDiagStatus] = useState<'idle' | 'loading' | 'success' | 'fail'>('idle');
-  const [diagError, setDiagError] = useState('');
-  const [apiHealth, setApiHealth] = useState({ token: false, phone: false });
+  const [diagInfo, setDiagInfo] = useState<any>(null);
+  const [apiHealth, setApiHealth] = useState<any>({ token: false, phone: false });
 
   // Marketing States
   const [broadcastMsg, setBroadcastMsg] = useState('');
@@ -43,7 +43,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       const res = await fetch('/api/booking?type=health');
       if (res.ok) {
         const data = await res.json();
-        setApiHealth({ token: data.whatsapp_token, phone: data.whatsapp_phone_id });
+        setApiHealth(data);
       }
     } catch (e) {
       console.error("Health check failed");
@@ -53,7 +53,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const runDiagnostic = async () => {
     if (!testToken || !testPhoneId || !testMobile) return alert("Please fill Token, Phone ID and a Mobile number to test.");
     setDiagStatus('loading');
-    setDiagError('');
+    setDiagInfo(null);
     try {
       const res = await fetch('/api/booking?type=test_config', {
         method: 'POST',
@@ -63,14 +63,15 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       const data = await res.json();
       if (res.ok) {
         setDiagStatus('success');
-        alert("🎉 Balle Balle! Message Aa Gaya! Iska matlab naye IDs ekdum sahi hain.");
+        setDiagInfo(data);
+        alert("🎉 Connection Success! Check your WhatsApp now.");
       } else {
         setDiagStatus('fail');
-        setDiagError(data.details || "Meta Portal error. Check if permissions are assigned to System User.");
+        setDiagInfo(data);
       }
     } catch (e: any) {
       setDiagStatus('fail');
-      setDiagError(e.message);
+      setDiagInfo({ details: e.message });
     }
   };
 
@@ -105,7 +106,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-10">
-      {/* GLOSSY HEADER */}
       <div className="bg-[#1B2559] text-white p-10 rounded-[2.5rem] shadow-2xl flex flex-col lg:flex-row justify-between items-center gap-10">
         <div className="text-center lg:text-left">
           <p className="text-[10px] uppercase tracking-[0.4em] opacity-60 mb-2">Resort Dashboard</p>
@@ -131,7 +131,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
       {activeTab === 'settings' && (
         <div className="grid lg:grid-cols-2 gap-10 animate-slide-up">
-           {/* TEST TOOL */}
            <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-8">
               <div>
                  <h3 className="text-2xl font-black uppercase text-slate-900">Direct API Test</h3>
@@ -146,7 +145,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                  <div className="space-y-2">
                     <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Phone Number ID</label>
                     <input value={testPhoneId} onChange={e => setTestPhoneId(e.target.value)} placeholder="138..." className="input-premium text-xs" />
-                    <p className="text-[8px] text-slate-400 font-bold uppercase ml-1">Note: Ye purane wala hi ho sakta hai, wahi daal dein.</p>
                  </div>
                  <div className="space-y-2">
                     <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Test Mobile (WhatsApp)</label>
@@ -158,33 +156,70 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                     Verify New Connection
                  </button>
 
-                 {diagStatus === 'fail' && (
-                   <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-[10px] text-red-600 font-bold uppercase">
-                      Error: {diagError}
+                 {diagStatus === 'fail' && diagInfo && (
+                   <div className="p-6 bg-red-50 border border-red-200 rounded-3xl space-y-3">
+                      <p className="text-[11px] font-black uppercase text-red-600 tracking-widest">Meta API Error Log:</p>
+                      <div className="text-[10px] font-bold text-red-800 space-y-1">
+                         <p>Message: {diagInfo.details}</p>
+                         <p>Error Code: {diagInfo.code || 'N/A'}</p>
+                         <p>Subcode: {diagInfo.subcode || 'N/A'}</p>
+                      </div>
+                      <div className="pt-2 border-t border-red-200">
+                         <p className="text-[9px] font-black text-red-400 uppercase">Suggested Fix:</p>
+                         <p className="text-[10px] text-red-600 font-bold">
+                            {diagInfo.code === 100 ? "Phone ID or Number format is wrong." : 
+                             diagInfo.code === 190 ? "Token is invalid or expired." :
+                             diagInfo.subcode === 33 ? "Recipent number not added in allowlist (Sandbox)." : 
+                             "Check Meta Developer Portal permissions."}
+                         </p>
+                      </div>
                    </div>
                  )}
+                 
                  {diagStatus === 'success' && (
-                   <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-[10px] text-emerald-600 font-bold uppercase animate-bounce">
-                      Success! Now update these values in Vercel settings.
+                   <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-3xl text-emerald-600 font-bold">
+                      <p className="text-[11px] font-black uppercase tracking-widest">Everything is OK! 🎉</p>
+                      <p className="text-[10px] mt-1">If message didn't arrive, check if your phone has DND or if the number is correct.</p>
                    </div>
                  )}
               </div>
            </div>
 
-           {/* INSTRUCTIONS */}
-           <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white space-y-6 shadow-2xl border border-white/10">
-              <h4 className="text-xl font-black uppercase text-blue-400">Vercel Update Guide</h4>
-              <div className="space-y-4 text-xs font-medium text-slate-400 leading-relaxed">
-                 <p><span className="text-white font-black">1.</span> Login to <a href="https://vercel.com" target="_blank" className="text-blue-400 underline">Vercel Dashboard</a>.</p>
-                 <p><span className="text-white font-black">2.</span> Projects {" -> "} Spray Aqua Resort {" -> "} Settings {" -> "} Environment Variables.</p>
-                 <p><span className="text-white font-black">3.</span> Purane <code className="bg-white/10 p-1 rounded">WHATSAPP_TOKEN</code> aur <code className="bg-white/10 p-1 rounded">WHATSAPP_PHONE_ID</code> ko edit karke ye naye waale daal dein.</p>
-                 <p><span className="text-white font-black">4.</span> **Redeploy** karein (Deployments {" -> "} Latest {" -> "} Redeploy) taaki naye settings chalu ho jayein.</p>
+           <div className="space-y-8">
+              <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white space-y-6 shadow-2xl border border-white/10">
+                 <h4 className="text-xl font-black uppercase text-blue-400">Migration Checklist</h4>
+                 <div className="space-y-4 text-[11px] font-medium text-slate-400 leading-relaxed">
+                    <p className="flex items-start gap-3">
+                       <i className="fas fa-check-circle text-emerald-500 mt-0.5"></i>
+                       <span><strong>System User:</strong> Kya aapne token "System User" se banaya hai? normal "User" token 24 hours mein expire ho jayega.</span>
+                    </p>
+                    <p className="flex items-start gap-3">
+                       <i className="fas fa-check-circle text-emerald-500 mt-0.5"></i>
+                       <span><strong>Permissions:</strong> Token banate waqt `whatsapp_business_messaging` aur `whatsapp_business_management` select kiya?</span>
+                    </p>
+                    <p className="flex items-start gap-3">
+                       <i className="fas fa-check-circle text-emerald-500 mt-0.5"></i>
+                       <span><strong>Vercel Redeploy:</strong> Save karne ke baad Vercel Dashboard mein "Deployments" par jaakar **Redeploy** kiya? Bina iske naye IDs activate nahi honge.</span>
+                    </p>
+                 </div>
               </div>
-              <div className="bg-amber-500/10 border border-amber-500/30 p-6 rounded-2xl flex items-start gap-4 mt-6">
-                 <i className="fas fa-exclamation-triangle text-amber-500 mt-1"></i>
-                 <p className="text-[10px] font-semibold text-amber-200 leading-relaxed">
-                   Dhyan rahe: Jab tak aap Vercel mein update nahi karenge, aapki app purane IDs hi use karegi jo ki ab kaam nahi karenge.
-                 </p>
+
+              <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-6">
+                 <h4 className="text-sm font-black uppercase text-slate-900">Live App Health</h4>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Active Token</p>
+                       <p className={`text-[10px] font-black mt-1 ${apiHealth.whatsapp_token ? 'text-emerald-600' : 'text-red-500'}`}>
+                          {apiHealth.whatsapp_token ? `CONNECTED (${apiHealth.token_preview})` : 'DISCONNECTED'}
+                       </p>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Phone ID</p>
+                       <p className={`text-[10px] font-black mt-1 ${apiHealth.whatsapp_phone_id ? 'text-emerald-600' : 'text-red-500'}`}>
+                          {apiHealth.whatsapp_phone_id ? 'CONFIGURED' : 'MISSING'}
+                       </p>
+                    </div>
+                 </div>
               </div>
            </div>
         </div>
