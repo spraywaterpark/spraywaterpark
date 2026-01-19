@@ -1,14 +1,26 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Booking } from '../types';
+import { notificationService } from '../services/notification_service';
 
 const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ bookings, mobile }) => {
   const userList = bookings.filter(b => b.mobile === mobile);
-  const lastAiMessage = sessionStorage.getItem('last_ai_message');
+  const [resending, setResending] = useState<string | null>(null);
 
-  const sendWhatsApp = (msg: string, phone: string) => {
-    const encoded = encodeURIComponent(msg);
-    window.open(`https://wa.me/${phone}?text=${encoded}`, '_blank');
+  const handleResend = async (booking: Booking) => {
+    setResending(booking.id);
+    try {
+      const res = await notificationService.sendWhatsAppTicket(booking);
+      if (res.success) {
+        alert("Success! Ticket and QR Code sent to your WhatsApp.");
+      } else {
+        alert("Failed to resend. Please contact support.");
+      }
+    } catch (e) {
+      alert("Error occurred while resending.");
+    } finally {
+      setResending(null);
+    }
   };
 
   return (
@@ -51,7 +63,7 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
           {userList.map((b, idx) => (
             <div key={b.id} className="relative">
 
-              {/* Thank you Message - EXACTLY AS REQUESTED BY USER */}
+              {/* Thank you Message */}
               {idx === 0 && (
                 <div className="bg-emerald-50 p-8 sm:p-12 rounded-[2.5rem] border border-emerald-200 mb-10 shadow-lg relative overflow-hidden no-print">
                   <i className="fab fa-whatsapp absolute -right-4 -bottom-4 text-8xl text-emerald-100/50 -rotate-12"></i>
@@ -64,17 +76,21 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
                     <div className="max-w-xl space-y-3">
                       <h3 className="text-2xl font-black text-emerald-900 uppercase tracking-tight">Booking Confirmed!</h3>
                       <p className="text-emerald-700 font-semibold text-base leading-relaxed">
-                        Thank you for booking with us! 🌊 Your official tickets have been dispatched to your WhatsApp number. 
-                        We can't wait to see you soon at the resort for a day full of splashes and joy!
+                        Thank you for booking with us! 🌊 Your official tickets (with QR Code) have been dispatched to your WhatsApp number. 
                       </p>
                     </div>
 
                     <div className="pt-4 w-full max-w-xs">
                       <button
-                        onClick={() => sendWhatsApp(lastAiMessage || "Hello! My booking is confirmed at Spray Aqua Resort.", b.mobile)}
-                        className="w-full bg-emerald-600 text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition shadow-xl hover:shadow-emerald-200 flex items-center justify-center gap-3"
+                        onClick={() => handleResend(b)}
+                        disabled={resending === b.id}
+                        className="w-full bg-emerald-600 text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition shadow-xl hover:shadow-emerald-200 flex items-center justify-center gap-3 disabled:opacity-50"
                       >
-                        <i className="fab fa-whatsapp text-lg"></i> Resend Ticket to WhatsApp
+                        {resending === b.id ? (
+                          <><i className="fas fa-circle-notch fa-spin"></i> Sending...</>
+                        ) : (
+                          <><i className="fab fa-whatsapp text-lg"></i> Resend Ticket with QR</>
+                        )}
                       </button>
                     </div>
                   </div>
