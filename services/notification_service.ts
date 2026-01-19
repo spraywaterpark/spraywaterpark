@@ -1,6 +1,5 @@
 
 import { Booking } from "../types";
-import { generateConfirmationMessage } from "./gemini_service";
 
 export interface WhatsAppResponse {
   success: boolean;
@@ -13,18 +12,17 @@ export interface WhatsAppResponse {
 
 export const notificationService = {
   sendWhatsAppTicket: async (booking: Booking): Promise<WhatsAppResponse> => {
-    console.log(`[Official WA] Sending ticket to: ${booking.mobile}`);
+    console.log(`[Backend-AI WA] Requesting ticket for: ${booking.mobile}`);
     
     try {
-      const aiMessage = await generateConfirmationMessage(booking);
-      sessionStorage.setItem('last_ai_message', aiMessage);
-
+      // We no longer call generateConfirmationMessage here.
+      // The backend /api/booking?type=whatsapp will do it.
       const response = await fetch('/api/booking?type=whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mobile: booking.mobile,
-          message: aiMessage
+          booking: booking // Send the full object, server will generate text
         })
       });
 
@@ -34,11 +32,16 @@ export const notificationService = {
         return {
           success: false,
           error: data.error || "SERVER_ERROR",
-          details: data.details || "Failed to deliver WhatsApp message via Meta API.",
+          details: data.details || "Meta API rejected the message.",
           fb_trace_id: data.fb_trace_id,
           meta_code: data.meta_code,
           meta_subcode: data.meta_subcode
         };
+      }
+
+      // Store the generated message for the 'Get on WhatsApp' button fallback
+      if (data.ai_message) {
+        sessionStorage.setItem('last_ai_message', data.ai_message);
       }
 
       return { success: true };
@@ -47,7 +50,7 @@ export const notificationService = {
       return {
         success: false,
         error: "NETWORK_ERROR",
-        details: error.message || "Network connectivity issue."
+        details: error.message || "Could not connect to the server."
       };
     }
   }
