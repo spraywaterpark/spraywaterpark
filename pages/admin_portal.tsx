@@ -21,6 +21,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const [testToken, setTestToken] = useState('');
   const [testPhoneId, setTestPhoneId] = useState('');
   const [testMobile, setTestMobile] = useState('');
+  const [varCount, setVarCount] = useState<number>(1); // Default to 1 variable (Name)
   const [diagStatus, setDiagStatus] = useState<'idle' | 'loading' | 'success' | 'fail'>('idle');
   const [diagInfo, setDiagInfo] = useState<any>(null);
 
@@ -49,6 +50,11 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     setDiagStatus('loading');
     setDiagInfo(null);
     try {
+      // Build test variables based on user selection
+      const vars = [];
+      if (varCount >= 1) vars.push("Guest Name");
+      if (varCount >= 2) vars.push(new Date().toLocaleDateString());
+
       const res = await fetch('/api/booking?type=test_config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -58,8 +64,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
           mobile: testMobile,
           templateName: draft.waTemplateName,
           langCode: draft.waLangCode,
-          // Sending only ONE variable as per user screenshot (Variable: Name)
-          variables: ["Test Guest"] 
+          variables: vars
         })
       });
       const data = await res.json();
@@ -107,7 +112,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-10">
-      {/* Header Summary */}
       <div className="bg-[#1B2559] text-white p-10 rounded-[2.5rem] shadow-2xl flex flex-col lg:flex-row justify-between items-center gap-10">
         <div className="text-center lg:text-left">
           <p className="text-[10px] uppercase tracking-[0.4em] opacity-60 mb-2">Resort Dashboard</p>
@@ -135,7 +139,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         <div className="grid lg:grid-cols-2 gap-10 animate-slide-up">
            <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-8">
               <div className="flex justify-between items-center">
-                 <h3 className="text-2xl font-black uppercase text-slate-900">API Config</h3>
+                 <h3 className="text-2xl font-black uppercase text-slate-900">API Debugger</h3>
                  <button onClick={saveSettings} disabled={isSaving} className="bg-emerald-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase">
                     {isSaving ? 'Saving...' : 'Save & Set Default'}
                  </button>
@@ -143,21 +147,34 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
               <div className="space-y-6">
                  <div className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-4">
-                    <p className="text-[10px] font-black uppercase text-slate-400">Template Sync</p>
+                    <p className="text-[10px] font-black uppercase text-slate-400">Step 1: Template Info</p>
                     <div className="grid grid-cols-1 gap-4">
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Template Name</label>
                             <input value={draft.waTemplateName} onChange={e => setDraft({...draft, waTemplateName: e.target.value})} placeholder="booked_ticket" className="input-premium text-xs" />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Language Code (Match your Screenshot)</label>
+                            <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Language Code</label>
                             <div className="grid grid-cols-3 gap-2">
-                                <button onClick={() => setDraft({...draft, waLangCode: 'en_GB'})} className={`py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waLangCode === 'en_GB' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-400 border-slate-200'}`}>en_GB (IND)</button>
-                                <button onClick={() => setDraft({...draft, waLangCode: 'en'})} className={`py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waLangCode === 'en' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-400 border-slate-200'}`}>en</button>
-                                <button onClick={() => setDraft({...draft, waLangCode: 'en_US'})} className={`py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waLangCode === 'en_US' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-400 border-slate-200'}`}>en_US</button>
+                                <button onClick={() => setDraft({...draft, waLangCode: 'en_GB'})} className={`py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waLangCode === 'en_GB' ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}>en_GB (IND)</button>
+                                <button onClick={() => setDraft({...draft, waLangCode: 'en'})} className={`py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waLangCode === 'en' ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}>en</button>
+                                <button onClick={() => setDraft({...draft, waLangCode: 'en_US'})} className={`py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waLangCode === 'en_US' ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}>en_US</button>
                             </div>
                         </div>
                     </div>
+                 </div>
+
+                 <div className="p-6 bg-blue-50/50 rounded-3xl border border-blue-100 space-y-4">
+                    <p className="text-[10px] font-black uppercase text-blue-600">Step 2: Solve Error 132000</p>
+                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">How many variables in your Template Body?</label>
+                    <div className="flex gap-2">
+                        {[0, 1, 2].map(num => (
+                            <button key={num} onClick={() => setVarCount(num)} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${varCount === num ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-400 border-slate-200'}`}>
+                                {num} Variables
+                            </button>
+                        ))}
+                    </div>
+                    <p className="text-[8px] text-blue-400 font-bold italic">Tip: If you use {"{{1}}"} in body, select 1. If no brackets, select 0.</p>
                  </div>
 
                  <div className="space-y-4">
@@ -171,7 +188,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                             <input value={testPhoneId} onChange={e => setTestPhoneId(e.target.value)} placeholder="138..." className="input-premium text-xs" />
                         </div>
                         <div className="space-y-1">
-                            <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Test No. (91...)</label>
+                            <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Test No.</label>
                             <input value={testMobile} onChange={e => setTestMobile(e.target.value)} placeholder="91..." className="input-premium text-xs" />
                         </div>
                     </div>
@@ -179,7 +196,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
                  <button onClick={runDiagnostic} disabled={diagStatus === 'loading'} className="w-full btn-resort h-16 !bg-blue-600 shadow-xl">
                     {diagStatus === 'loading' ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-bolt mr-2"></i>}
-                    Test Diagnostic Message
+                    Send Diagnostic Message
                  </button>
 
                  {diagStatus === 'fail' && diagInfo && (
@@ -189,8 +206,8 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                         <p className="text-[11px] font-black uppercase text-red-600 tracking-widest">Error {diagInfo.code}</p>
                       </div>
                       <p className="text-[10px] font-bold text-red-800 leading-relaxed">
-                        {diagInfo.code === 132001 
-                          ? `Bhai, code '${draft.waLangCode}' Meta ko nahi mila. Aapne screenshot mein "English (IND)" chuna hai, iska matlab aapko upar 'en_GB' wala button use karna chahiye.`
+                        {diagInfo.code === 132000 
+                          ? `Bhai, abhi bhi variables ki ginti match nahi ho rahi. Upar wale "Variables to Send" buttons mein se koi dusra (0, 1, ya 2) select karke check kijiye.`
                           : diagInfo.details}
                       </p>
                       <p className="text-[8px] opacity-40 font-mono select-all">Trace: {diagInfo.fb_trace_id}</p>
@@ -201,9 +218,9 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                    <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-3xl space-y-4 animate-bounce-short">
                       <div className="flex items-center gap-3">
                         <i className="fas fa-check-circle text-emerald-600 text-xl"></i>
-                        <p className="text-[11px] font-black uppercase tracking-widest text-emerald-900">Success!</p>
+                        <p className="text-[11px] font-black uppercase tracking-widest text-emerald-900">It Worked!</p>
                       </div>
-                      <p className="text-[9px] text-emerald-700 font-bold">Message sent using "{draft.waLangCode}". Please Save Config to make it the default for new bookings.</p>
+                      <p className="text-[9px] text-emerald-700 font-bold">Message sent with {varCount} variables. Please Save & Set Default now.</p>
                    </div>
                  )}
               </div>
@@ -211,21 +228,21 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
            <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white space-y-8 shadow-2xl border border-white/10">
                 <div className="flex items-center gap-4">
-                    <i className="fas fa-terminal text-blue-400 text-2xl"></i>
-                    <h3 className="text-xl font-black uppercase tracking-tight">Technical Match</h3>
+                    <i className="fas fa-magic text-blue-400 text-2xl"></i>
+                    <h3 className="text-xl font-black uppercase tracking-tight">Fixing 132000</h3>
                 </div>
                 
                 <div className="space-y-6">
                     <div className="p-6 bg-white/5 rounded-2xl border border-white/10 space-y-3">
-                        <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest">English (IND) Code</p>
+                        <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest">Rule of Parameters</p>
                         <p className="text-xs font-medium text-slate-300 leading-relaxed">
-                          Aapke Meta dashboard mein jo <strong>English (IND)</strong> likha hai, API mein uska code <code>en_GB</code> hota hai. Use <strong>en_GB</strong> for test.
+                          Agar aapke Meta Body text mein <code>{"{{1}}"}</code> hai, toh aapko 1 Variable select karna hoga. Agar body khali hai toh 0. Match hona zaroori hai.
                         </p>
                     </div>
                     <div className="p-6 bg-white/5 rounded-2xl border border-white/10 space-y-3">
-                        <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest">Single Variable Rule</p>
+                        <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest">Success is Key</p>
                         <p className="text-xs font-medium text-slate-300 leading-relaxed">
-                          Aapke screenshot mein "Variable: Name" hai. Iska matlab message mein sirf ek variable <code>{"{{"}1{"}}"}</code> allow hai. Maine code ko sirf ek hi variable bhejne ke liye update kar diya hai.
+                          Ek baar Success message aa jaye, toh aapko pata chal jayega ki aapka template kitne parameters mang raha hai. Tabhi Save button kaam karega.
                         </p>
                     </div>
                 </div>
