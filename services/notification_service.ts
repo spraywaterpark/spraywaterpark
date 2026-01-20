@@ -39,7 +39,8 @@ export const notificationService = {
           booking: booking,
           templateName,
           langCode,
-          hasVariables
+          hasVariables,
+          settings: currentSettings // Pass credentials for backend processing
         })
       });
 
