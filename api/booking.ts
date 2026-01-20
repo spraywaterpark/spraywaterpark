@@ -1,70 +1,92 @@
 import { google } from "googleapis";
 
+/* =========================================================
+   HELPERS
+========================================================= */
+
+const normalizeIndianMobile = (mobile: string) => {
+  let m = String(mobile).replace(/\D/g, "");
+  if (m.length === 10) return `91${m}`;
+  if (m.length === 12 && m.startsWith("91")) return m;
+  return m;
+};
+
+/* =========================================================
+   API HANDLER
+========================================================= */
+
 export default async function handler(req: any, res: any) {
-  /* ================= BASIC ================= */
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
 
-  if (req.method === "OPTIONS") return res.status(200).end();
-
-  /* ================= ENV CHECK ================= */
-  if (!process.env.GOOGLE_CREDENTIALS || !process.env.SHEET_ID) {
-    return res.status(500).json({ error: "GOOGLE CONFIG MISSING" });
+  /* ================= HEALTH CHECK ================= */
+  if (req.query.type === "health") {
+    return res.status(200).json({
+      whatsapp_token: !!process.env.WHATSAPP_TOKEN,
+      whatsapp_phone_id: !!process.env.WHATSAPP_PHONE_ID,
+      google_sheet: !!process.env.GOOGLE_CREDENTIALS && !!process.env.SHEET_ID
+    });
   }
 
-  const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
-  const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_ID;
+  if (!process.env.GOOGLE_CREDENTIALS || !process.env.SHEET_ID) {
+    return res.status(500).json({ error: "SERVER_CONFIG_ERROR" });
+  }
 
+  /* ================= GOOGLE AUTH ================= */
   const auth = new google.auth.GoogleAuth({
     credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"]
   });
 
   const sheets = google.sheets({ version: "v4", auth });
   const type = req.query.type;
 
-  const toInt = (v: any) => (isNaN(Number(v)) ? 0 : Number(v));
+  /* =========================================================
+     WHATSAPP TEMPLATE SEND (META CLOUD API)
+  ========================================================= */
 
-  /* ======================================================
-     1️⃣ WHATSAPP TEMPLATE MESSAGE (ticket_confirmed)
-     ====================================================== */
   if (type === "whatsapp" && req.method === "POST") {
+    const { mobile, name, ticketNo, visitDate, amount } = req.body;
+
+    const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+    const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_ID;
+
+    if (!WHATSAPP_TOKEN || !PHONE_NUMBER_ID) {
+      return res.status(400).json({ error: "META_CONFIG_MISSING" });
+    }
+
+    const to = normalizeIndianMobile(mobile);
+
     try {
-      if (!WHATSAPP_TOKEN || !PHONE_NUMBER_ID) {
-        return res.status(400).json({ error: "WHATSAPP CONFIG MISSING" });
-      }
-
-      const { mobile, amount } = req.body;
-
       const waRes = await fetch(
-        `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
+        `https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`,
         {
           method: "POST",
           headers: {
             Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-            "Content-Type": "application/json",
+            "Content-Type": "application/json"
           },
           body: JSON.stringify({
             messaging_product: "whatsapp",
-            to: mobile.startsWith("91") ? mobile : `91${mobile}`,
+            to,
             type: "template",
             template: {
-              name: "ticket_confirmed", // ✅ YOUR APPROVED TEMPLATE
+              name: "ticket_confirmed",
               language: { code: "en" },
               components: [
                 {
                   type: "body",
                   parameters: [
-                    {
-                      type: "text",
-                      text: String(amount), // {{1}} → NUMBER
-                    },
-                  ],
-                },
-              ],
-            },
-          }),
+                    { type: "text", text: name || "Guest" },
+                    { type: "text", text: ticketNo || "-" },
+                    { type: "text", text: visitDate || "-" },
+                    { type: "text", text: `₹${amount || 0}` }
+                  ]
+                }
+              ]
+            }
+          })
         }
       );
 
@@ -72,85 +94,92 @@ export default async function handler(req: any, res: any) {
 
       if (!waRes.ok) {
         return res.status(400).json({
-          error: "META_API_ERROR",
-          details: waData,
+          error: "WHATSAPP_FAILED",
+          meta: waData
         });
       }
 
-      return res.status(200).json({ success: true });
-    } catch (e: any) {
-      return res.status(500).json({ error: e.message });
-    }
-  }
-
-  /* ======================================================
-     2️⃣ GET BOOKINGS (ADMIN)
-     ====================================================== */
-  if (req.method === "GET" && !type) {
-    try {
-      const resp = await sheets.spreadsheets.values.get({
-        spreadsheetId: process.env.SHEET_ID,
-        range: "Sheet1!A2:J2000",
+      return res.status(200).json({
+        success: true,
+        whatsapp_id: waData.messages?.[0]?.id
       });
 
-      const rows = resp.data.values || [];
-
-      const data = rows.map((r: any, i: number) => ({
-        id: i,
-        createdAt: r[0],
-        name: r[1],
-        mobile: r[2],
-        adults: toInt(r[3]),
-        kids: toInt(r[4]),
-        totalPersons: toInt(r[5]),
-        amount: toInt(r[6]),
-        date: r[7],
-        time: r[8],
-        status: r[9],
-      }));
-
-      return res.status(200).json(data.reverse());
-    } catch (e: any) {
-      return res.status(500).json({ error: e.message });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
     }
   }
 
-  /* ======================================================
-     3️⃣ SAVE BOOKING (PAYMENT SUCCESS)
-     ====================================================== */
-  if (req.method === "POST" && !type) {
-    try {
-      const { name, mobile, adults, kids, amount, date, time } = req.body;
+  /* =========================================================
+     BOOKINGS → GOOGLE SHEETS
+  ========================================================= */
 
+  if (req.method === "POST" && !type) {
+    const { namel̥name, mobile, adults, kids, amount, date, time } = req.body;
+
+    try {
       const timestamp = new Date().toLocaleString("en-IN", {
-        timeZone: "Asia/Kolkata",
+        timeZone: "Asia/Kolkata"
       });
 
       const values = [[
         timestamp,
         name,
         mobile,
-        toInt(adults),
-        toInt(kids),
-        toInt(adults) + toInt(kids),
-        toInt(amount), // ✅ AMOUNT FIX
+        adults,
+        kids,
+        Number(adults) + Number(kids),
+        amount,
         date,
         time,
-        "PAID",
+        "PAID"
       ]];
 
       await sheets.spreadsheets.values.append({
         spreadsheetId: process.env.SHEET_ID,
         range: "Sheet1!A:J",
         valueInputOption: "USER_ENTERED",
-        requestBody: { values },
+        requestBody: { values }
       });
 
       return res.status(200).json({ success: true });
-    } catch (e: any) {
-      return res.status(500).json({ error: e.message });
+
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
     }
   }
 
-  return res.status(405).json({ error: "Method Not Allowed" });
+  /* =========================================================
+     GET BOOKINGS (ADMIN)
+  ========================================================= */
+
+  if (req.method === "GET" && !type) {
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: process.env.SHEET_ID,
+        range: "Sheet1!A2:J2000"
+      });
+
+      const rows = response.data.values || [];
+
+      const bookings = rows.map((row: any, index: number) => ({
+        id: index + 1,
+        createdAt: row[0],
+        name: row[1],
+        mobile: row[2],
+        adults: Number(row[3] || 0),
+        kids: Number(row[4] || 0),
+        totalAmount: Number(row[6] || 0),
+        date: row[7],
+        time: row[8],
+        status: row[9]
+      })).reverse();
+
+      return res.status(200).json(bookings);
+
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  return res.status(405).json({ error: "METHOD_NOT_ALLOWED" });
 }
