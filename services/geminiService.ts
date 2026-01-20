@@ -34,4 +34,3 @@ export async function generateConfirmationMessage(booking: Booking) {
     return `Booking Confirmed for ${booking.name} on ${booking.date}.`;
   }
 }
-
