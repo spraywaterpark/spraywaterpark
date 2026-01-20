@@ -1,21 +1,12 @@
 import { google } from "googleapis";
 
-/**
- * SINGLE API FILE
- * - Booking save to Google Sheet
- * - Locker rentals (future safe)
- * - WhatsApp official template message
- */
-
 export default async function handler(req: any, res: any) {
-  /* ================= BASIC HEADERS ================= */
+  /* ================= BASIC ================= */
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
+  if (req.method === "OPTIONS") return res.status(200).end();
 
   /* ================= ENV CHECK ================= */
   if (!process.env.GOOGLE_CREDENTIALS || !process.env.SHEET_ID) {
@@ -25,26 +16,18 @@ export default async function handler(req: any, res: any) {
   const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
   const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_ID;
 
-  /* ================= GOOGLE AUTH ================= */
   const auth = new google.auth.GoogleAuth({
     credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
 
   const sheets = google.sheets({ version: "v4", auth });
-
   const type = req.query.type;
 
-  /* ======================================================
-     HELPER
-     ====================================================== */
-  const safeInt = (v: any) => {
-    const n = Number(v);
-    return isNaN(n) ? 0 : n;
-  };
+  const toInt = (v: any) => (isNaN(Number(v)) ? 0 : Number(v));
 
   /* ======================================================
-     1️⃣ WHATSAPP OFFICIAL TEMPLATE MESSAGE
+     1️⃣ WHATSAPP TEMPLATE MESSAGE (ticket_confirmed)
      ====================================================== */
   if (type === "whatsapp" && req.method === "POST") {
     try {
@@ -52,7 +35,7 @@ export default async function handler(req: any, res: any) {
         return res.status(400).json({ error: "WHATSAPP CONFIG MISSING" });
       }
 
-      const { mobile, name } = req.body;
+      const { mobile, amount } = req.body;
 
       const waRes = await fetch(
         `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
@@ -67,7 +50,7 @@ export default async function handler(req: any, res: any) {
             to: mobile.startsWith("91") ? mobile : `91${mobile}`,
             type: "template",
             template: {
-              name: "ticket_test", // ⚠️ EXACT approved template name
+              name: "ticket_confirmed", // ✅ YOUR APPROVED TEMPLATE
               language: { code: "en" },
               components: [
                 {
@@ -75,7 +58,7 @@ export default async function handler(req: any, res: any) {
                   parameters: [
                     {
                       type: "text",
-                      text: name || "Guest",
+                      text: String(amount), // {{1}} → NUMBER
                     },
                   ],
                 },
@@ -89,7 +72,7 @@ export default async function handler(req: any, res: any) {
 
       if (!waRes.ok) {
         return res.status(400).json({
-          error: "META_ERROR",
+          error: "META_API_ERROR",
           details: waData,
         });
       }
@@ -101,39 +84,39 @@ export default async function handler(req: any, res: any) {
   }
 
   /* ======================================================
-     2️⃣ GET BOOKINGS (ADMIN / DASHBOARD)
+     2️⃣ GET BOOKINGS (ADMIN)
      ====================================================== */
   if (req.method === "GET" && !type) {
     try {
-      const response = await sheets.spreadsheets.values.get({
+      const resp = await sheets.spreadsheets.values.get({
         spreadsheetId: process.env.SHEET_ID,
         range: "Sheet1!A2:J2000",
       });
 
-      const rows = response.data.values || [];
+      const rows = resp.data.values || [];
 
-      const bookings = rows.map((row: any, i: number) => ({
+      const data = rows.map((r: any, i: number) => ({
         id: i,
-        createdAt: row[0],
-        name: row[1],
-        mobile: row[2],
-        adults: safeInt(row[3]),
-        kids: safeInt(row[4]),
-        totalPersons: safeInt(row[5]),
-        amount: safeInt(row[6]),
-        visitDate: row[7],
-        visitTime: row[8],
-        status: row[9],
+        createdAt: r[0],
+        name: r[1],
+        mobile: r[2],
+        adults: toInt(r[3]),
+        kids: toInt(r[4]),
+        totalPersons: toInt(r[5]),
+        amount: toInt(r[6]),
+        date: r[7],
+        time: r[8],
+        status: r[9],
       }));
 
-      return res.status(200).json(bookings.reverse());
+      return res.status(200).json(data.reverse());
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
     }
   }
 
   /* ======================================================
-     3️⃣ NEW BOOKING SAVE (PAYMENT SUCCESS)
+     3️⃣ SAVE BOOKING (PAYMENT SUCCESS)
      ====================================================== */
   if (req.method === "POST" && !type) {
     try {
@@ -143,20 +126,18 @@ export default async function handler(req: any, res: any) {
         timeZone: "Asia/Kolkata",
       });
 
-      const values = [
-        [
-          timestamp,
-          name,
-          mobile,
-          safeInt(adults),
-          safeInt(kids),
-          safeInt(adults) + safeInt(kids),
-          safeInt(amount), // ✅ AMOUNT FIXED
-          date,
-          time,
-          "PAID",
-        ],
-      ];
+      const values = [[
+        timestamp,
+        name,
+        mobile,
+        toInt(adults),
+        toInt(kids),
+        toInt(adults) + toInt(kids),
+        toInt(amount), // ✅ AMOUNT FIX
+        date,
+        time,
+        "PAID",
+      ]];
 
       await sheets.spreadsheets.values.append({
         spreadsheetId: process.env.SHEET_ID,
@@ -171,8 +152,5 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  /* ======================================================
-     FALLBACK
-     ====================================================== */
   return res.status(405).json({ error: "Method Not Allowed" });
 }
