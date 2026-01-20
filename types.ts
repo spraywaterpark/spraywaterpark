@@ -1,4 +1,9 @@
+
 export type UserRole = 'guest' | 'admin' | 'staff' | null;
+
+/* ===============================
+   🎟 BOOKING SYSTEM
+================================ */
 
 export interface Booking {
   id: string;
@@ -14,12 +19,20 @@ export interface Booking {
   createdAt: string;
 }
 
+/* ===============================
+   🚫 ADMIN: BLOCK DATE / SHIFT
+================================ */
+
 export type ShiftType = 'morning' | 'evening' | 'all';
 
 export interface BlockedSlot {
   date: string;
   shift: ShiftType;
 }
+
+/* ===============================
+   🧰 ADMIN SETTINGS
+================================ */
 
 export interface AdminSettings {
   morningAdultRate: number;
@@ -31,15 +44,12 @@ export interface AdminSettings {
   extraDiscountPercent: number;
 
   blockedSlots: BlockedSlot[];
-  lastShiftReset?: string; 
-  
-  // WhatsApp Template Config
-  waTemplateName: string;
-  waLangCode: string;
-  waVarCount?: number;
-  waToken?: string;
-  waPhoneId?: string;
+  lastShiftReset?: string; // New: Timestamp to trigger receipt reset on staff devices
 }
+
+/* ===============================
+   🔐 AUTH STATE
+================================ */
 
 export interface AuthState {
   role: UserRole;
@@ -49,6 +59,10 @@ export interface AuthState {
     email?: string;
   } | null;
 }
+
+/* ===============================
+   🧾 STAFF: LOCKER / COSTUME SYSTEM
+================================ */
 
 export type GenderType = 'male' | 'female';
 
