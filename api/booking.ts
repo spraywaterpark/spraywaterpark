@@ -1,158 +1,168 @@
 import { google } from "googleapis";
 
+/**
+ * SINGLE API FILE
+ * - Booking save to Google Sheet
+ * - Locker rentals (future safe)
+ * - WhatsApp official template message
+ */
+
 export default async function handler(req: any, res: any) {
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
+  /* ================= BASIC HEADERS ================= */
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  /* ================= HEALTH CHECK ================= */
-  if (req.query.type === "health") {
-    return res.status(200).json({
-      whatsapp_token: !!process.env.WHATSAPP_TOKEN,
-      whatsapp_phone_id: !!process.env.WHATSAPP_PHONE_ID,
-      google_sheets: !!process.env.GOOGLE_CREDENTIALS && !!process.env.SHEET_ID
-    });
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
   }
 
+  /* ================= ENV CHECK ================= */
   if (!process.env.GOOGLE_CREDENTIALS || !process.env.SHEET_ID) {
-    return res.status(500).json({ error: "Server configuration missing" });
+    return res.status(500).json({ error: "GOOGLE CONFIG MISSING" });
   }
 
+  const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+  const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_ID;
+
+  /* ================= GOOGLE AUTH ================= */
   const auth = new google.auth.GoogleAuth({
     credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"]
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
 
   const sheets = google.sheets({ version: "v4", auth });
+
   const type = req.query.type;
 
+  /* ======================================================
+     HELPER
+     ====================================================== */
   const safeInt = (v: any) => {
     const n = Number(v);
     return isNaN(n) ? 0 : n;
   };
 
-  /* ================= WHATSAPP TEMPLATE SEND ================= */
+  /* ======================================================
+     1️⃣ WHATSAPP OFFICIAL TEMPLATE MESSAGE
+     ====================================================== */
   if (type === "whatsapp" && req.method === "POST") {
-    const { mobile } = req.body;
-
-    const TOKEN = process.env.WHATSAPP_TOKEN;
-    const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
-
-    if (!TOKEN || !PHONE_ID) {
-      return res.status(400).json({ error: "META_CREDENTIALS_MISSING" });
-    }
-
     try {
+      if (!WHATSAPP_TOKEN || !PHONE_NUMBER_ID) {
+        return res.status(400).json({ error: "WHATSAPP CONFIG MISSING" });
+      }
+
+      const { mobile, name } = req.body;
+
       const waRes = await fetch(
-        `https://graph.facebook.com/v21.0/${PHONE_ID}/messages`,
+        `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${TOKEN}`,
-            "Content-Type": "application/json"
+            Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             messaging_product: "whatsapp",
             to: mobile.startsWith("91") ? mobile : `91${mobile}`,
             type: "template",
             template: {
-              name: "booked_ticket",
-              language: {
-                code: "en_US"
-              }
-            }
-          })
+              name: "ticket_test", // ⚠️ EXACT approved template name
+              language: { code: "en" },
+              components: [
+                {
+                  type: "body",
+                  parameters: [
+                    {
+                      type: "text",
+                      text: name || "Guest",
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
         }
       );
 
-      const data = await waRes.json();
+      const waData = await waRes.json();
 
       if (!waRes.ok) {
         return res.status(400).json({
-          success: false,
-          meta_error: data.error?.message,
-          meta_code: data.error?.code,
-          fb_trace_id: data.error?.fbtrace_id
+          error: "META_ERROR",
+          details: waData,
         });
       }
 
-      return res.status(200).json({
-        success: true,
-        message_id: data.messages?.[0]?.id
-      });
-    } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(200).json({ success: true });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
     }
   }
 
-  /* ================= LOCKERS SHEET ================= */
-  if (type === "rentals") {
-    if (req.method === "POST") {
-      const r = req.body;
-
-      try {
-        const values = [[
-          r.receiptNo,
-          r.guestName,
-          r.guestMobile,
-          r.date,
-          r.shift,
-          JSON.stringify(r.maleLockers || []),
-          JSON.stringify(r.femaleLockers || []),
-          safeInt(r.maleCostumes),
-          safeInt(r.femaleCostumes),
-          safeInt(r.rentAmount),
-          safeInt(r.securityDeposit),
-          safeInt(r.totalCollected),
-          safeInt(r.refundableAmount),
-          r.status,
-          r.createdAt,
-          r.returnedAt || ""
-        ]];
-
-        await sheets.spreadsheets.values.append({
-          spreadsheetId: process.env.SHEET_ID,
-          range: "Lockers!A:P",
-          valueInputOption: "RAW",
-          requestBody: { values }
-        });
-
-        return res.status(200).json({ success: true });
-      } catch (e: any) {
-        return res.status(500).json({ error: e.message });
-      }
-    }
-  }
-
-  /* ================= BOOKINGS (WATER PARK) ================= */
-  if (req.method === "POST" && !type) {
-    const { name, mobile, adults, kids, amount, date, time } = req.body;
-
+  /* ======================================================
+     2️⃣ GET BOOKINGS (ADMIN / DASHBOARD)
+     ====================================================== */
+  if (req.method === "GET" && !type) {
     try {
-      const timestamp = new Date().toLocaleString("en-IN", {
-        timeZone: "Asia/Kolkata"
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: process.env.SHEET_ID,
+        range: "Sheet1!A2:J2000",
       });
 
-      const amountSafe = safeInt(amount);
+      const rows = response.data.values || [];
 
-      const values = [[
-        timestamp,
-        name,
-        mobile,
-        safeInt(adults),
-        safeInt(kids),
-        safeInt(adults) + safeInt(kids),
-        amountSafe,
-        date,
-        time,
-        "PAID"
-      ]];
+      const bookings = rows.map((row: any, i: number) => ({
+        id: i,
+        createdAt: row[0],
+        name: row[1],
+        mobile: row[2],
+        adults: safeInt(row[3]),
+        kids: safeInt(row[4]),
+        totalPersons: safeInt(row[5]),
+        amount: safeInt(row[6]),
+        visitDate: row[7],
+        visitTime: row[8],
+        status: row[9],
+      }));
+
+      return res.status(200).json(bookings.reverse());
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  /* ======================================================
+     3️⃣ NEW BOOKING SAVE (PAYMENT SUCCESS)
+     ====================================================== */
+  if (req.method === "POST" && !type) {
+    try {
+      const { name, mobile, adults, kids, amount, date, time } = req.body;
+
+      const timestamp = new Date().toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+      });
+
+      const values = [
+        [
+          timestamp,
+          name,
+          mobile,
+          safeInt(adults),
+          safeInt(kids),
+          safeInt(adults) + safeInt(kids),
+          safeInt(amount), // ✅ AMOUNT FIXED
+          date,
+          time,
+          "PAID",
+        ],
+      ];
 
       await sheets.spreadsheets.values.append({
         spreadsheetId: process.env.SHEET_ID,
         range: "Sheet1!A:J",
         valueInputOption: "USER_ENTERED",
-        requestBody: { values }
+        requestBody: { values },
       });
 
       return res.status(200).json({ success: true });
@@ -161,5 +171,8 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  return res.status(405).json({ error: "Invalid request" });
+  /* ======================================================
+     FALLBACK
+     ====================================================== */
+  return res.status(405).json({ error: "Method Not Allowed" });
 }
