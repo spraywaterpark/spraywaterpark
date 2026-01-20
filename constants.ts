@@ -30,7 +30,8 @@ export const DEFAULT_ADMIN_SETTINGS = {
   blockedSlots: [],
   waTemplateName: 'ticket_confirmed',
   waLangCode: 'en',
-  waVarCount: 0
+  waVarCount: 1,
+  waAdd91: true
 };
 
 export const TIME_SLOTS = [
