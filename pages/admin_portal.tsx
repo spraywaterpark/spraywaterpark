@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Booking, AdminSettings } from '../types';
 import { cloudSync } from '../services/cloud_sync';
 
@@ -14,6 +14,9 @@ interface AdminPanelProps {
 const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings, onLogout }) => {
   const [activeTab, setActiveTab] = useState<'bookings' | 'marketing' | 'settings'>('bookings');
   const [viewMode] = useState<'sales_today' | 'visit_today' | 'all'>('sales_today');
+  
+  // Use a ref to track if user is currently editing settings
+  const isEditing = useRef(false);
   const [draft, setDraft] = useState<AdminSettings>(settings);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -22,15 +25,24 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const [diagStatus, setDiagStatus] = useState<'idle' | 'loading' | 'success' | 'fail'>('idle');
   const [diagInfo, setDiagInfo] = useState<any>(null);
 
+  // Only sync settings from props if the user is NOT actively on the settings tab
   useEffect(() => {
-    setDraft(settings);
-  }, [settings]);
+    if (activeTab !== 'settings') {
+      setDraft(settings);
+    }
+  }, [settings, activeTab]);
+
+  const updateDraft = (patch: Partial<AdminSettings>) => {
+    isEditing.current = true;
+    setDraft(prev => ({ ...prev, ...patch }));
+  };
 
   const saveSettings = async () => {
     setIsSaving(true);
     const success = await cloudSync.saveSettings(draft);
     if (success) {
       onUpdateSettings(draft);
+      isEditing.current = false;
       alert("All Credentials & Settings Saved Successfully!");
     } else {
       alert("Failed to save settings to cloud.");
@@ -113,14 +125,14 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                     <div className="grid grid-cols-1 gap-4">
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Template Name</label>
-                            <input value={draft.waTemplateName} onChange={e => setDraft({...draft, waTemplateName: e.target.value})} placeholder="booked_ticket" className="input-premium text-xs" />
+                            <input autoComplete="off" value={draft.waTemplateName} onChange={e => updateDraft({ waTemplateName: e.target.value})} placeholder="booked_ticket" className="input-premium text-xs" />
                         </div>
                         <div className="space-y-2">
                             <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Language Code</label>
                             <div className="grid grid-cols-3 gap-2">
-                                <button onClick={() => setDraft({...draft, waLangCode: 'en'})} className={`py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waLangCode === 'en' ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}>en</button>
-                                <button onClick={() => setDraft({...draft, waLangCode: 'en_GB'})} className={`py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waLangCode === 'en_GB' ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}>en_GB</button>
-                                <button onClick={() => setDraft({...draft, waLangCode: 'en_US'})} className={`py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waLangCode === 'en_US' ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}>en_US</button>
+                                <button onClick={() => updateDraft({ waLangCode: 'en'})} className={`py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waLangCode === 'en' ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}>en</button>
+                                <button onClick={() => updateDraft({ waLangCode: 'en_GB'})} className={`py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waLangCode === 'en_GB' ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}>en_GB</button>
+                                <button onClick={() => updateDraft({ waLangCode: 'en_US'})} className={`py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waLangCode === 'en_US' ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}>en_US</button>
                             </div>
                         </div>
                     </div>
@@ -129,10 +141,10 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                  <div className="p-6 bg-blue-50/50 rounded-3xl border border-blue-100 space-y-4">
                     <p className="text-[10px] font-black uppercase text-blue-600">Step 2: Message Style</p>
                     <div className="flex gap-2">
-                        <button onClick={() => setDraft({...draft, waVarCount: 0})} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waVarCount === 0 ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-400 border-slate-200'}`}>
+                        <button onClick={() => updateDraft({ waVarCount: 0})} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waVarCount === 0 ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-400 border-slate-200'}`}>
                             Plain Text
                         </button>
-                        <button onClick={() => setDraft({...draft, waVarCount: 1})} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waVarCount === 1 ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-400 border-slate-200'}`}>
+                        <button onClick={() => updateDraft({ waVarCount: 1})} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waVarCount === 1 ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-400 border-slate-200'}`}>
                             With {"{{1}}"}
                         </button>
                     </div>
@@ -141,16 +153,16 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                  <div className="space-y-4">
                     <div className="space-y-1">
                         <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Permanent Access Token</label>
-                        <textarea value={draft.waToken || ''} onChange={e => setDraft({...draft, waToken: e.target.value})} placeholder="EAAG..." className="input-premium h-20 text-[10px] font-mono" />
+                        <textarea autoComplete="off" value={draft.waToken || ''} onChange={e => updateDraft({ waToken: e.target.value})} placeholder="EAAG..." className="input-premium h-20 text-[10px] font-mono" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Phone Number ID</label>
-                            <input value={draft.waPhoneId || ''} onChange={e => setDraft({...draft, waPhoneId: e.target.value})} placeholder="138..." className="input-premium text-xs" />
+                            <input autoComplete="off" value={draft.waPhoneId || ''} onChange={e => updateDraft({ waPhoneId: e.target.value})} placeholder="138..." className="input-premium text-xs" />
                         </div>
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Test Mobile</label>
-                            <input value={testMobile} onChange={e => setTestMobile(e.target.value.replace(/\D/g,''))} placeholder="91..." className="input-premium text-xs" />
+                            <input autoComplete="off" value={testMobile} onChange={e => setTestMobile(e.target.value.replace(/\D/g,''))} placeholder="91..." className="input-premium text-xs" />
                         </div>
                     </div>
                  </div>
@@ -198,12 +210,5 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     </div>
   );
 };
-
-const StatCard: React.FC<{ label: string; value: string | number; color: string }> = ({ label, value, color }) => (
-  <div className="bg-white p-8 rounded-[2rem] shadow-xl border border-slate-100 flex flex-col items-center justify-center text-center">
-    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">{label}</p>
-    <h4 className={`text-3xl font-black ${color}`}>{value}</h4>
-  </div>
-);
 
 export default AdminPortal;
