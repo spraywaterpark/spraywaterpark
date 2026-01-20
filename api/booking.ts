@@ -1,38 +1,22 @@
 import { google } from "googleapis";
 
-/* =========================================================
-   CONFIG
-========================================================= */
-
-const LOCKER_SHEET_NAME = "Lockers";
-const SETTINGS_SHEET_NAME = "Settings";
-const BOOKING_SHEET_NAME = "Sheet1";
-
-/* =========================================================
-   MAIN HANDLER
-========================================================= */
-
 export default async function handler(req: any, res: any) {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
 
   /* ================= HEALTH CHECK ================= */
-
   if (req.query.type === "health") {
     return res.status(200).json({
       whatsapp_token: !!process.env.WHATSAPP_TOKEN,
       whatsapp_phone_id: !!process.env.WHATSAPP_PHONE_ID,
-      google_credentials: !!process.env.GOOGLE_CREDENTIALS,
-      sheet_id: !!process.env.SHEET_ID
+      google_sheets: !!process.env.GOOGLE_CREDENTIALS && !!process.env.SHEET_ID
     });
   }
 
   if (!process.env.GOOGLE_CREDENTIALS || !process.env.SHEET_ID) {
-    return res.status(500).json({ error: "SERVER_CONFIG_MISSING" });
+    return res.status(500).json({ error: "Server configuration missing" });
   }
-
-  /* ================= GOOGLE AUTH ================= */
 
   const auth = new google.auth.GoogleAuth({
     credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
@@ -42,27 +26,29 @@ export default async function handler(req: any, res: any) {
   const sheets = google.sheets({ version: "v4", auth });
   const type = req.query.type;
 
-  /* =========================================================
-     WHATSAPP TEMPLATE MESSAGE (META OFFICIAL)
-  ========================================================= */
+  const safeInt = (v: any) => {
+    const n = Number(v);
+    return isNaN(n) ? 0 : n;
+  };
 
+  /* ================= WHATSAPP TEMPLATE SEND ================= */
   if (type === "whatsapp" && req.method === "POST") {
+    const { mobile } = req.body;
+
+    const TOKEN = process.env.WHATSAPP_TOKEN;
+    const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
+
+    if (!TOKEN || !PHONE_ID) {
+      return res.status(400).json({ error: "META_CREDENTIALS_MISSING" });
+    }
+
     try {
-      const { mobile, templateName, language = "en" } = req.body;
-
-      if (!mobile || !templateName) {
-        return res.status(400).json({ error: "MISSING_PARAMS" });
-      }
-
-      const WA_TOKEN = process.env.WHATSAPP_TOKEN!;
-      const PHONE_ID = process.env.WHATSAPP_PHONE_ID!;
-
-      const response = await fetch(
+      const waRes = await fetch(
         `https://graph.facebook.com/v21.0/${PHONE_ID}/messages`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${WA_TOKEN}`,
+            Authorization: `Bearer ${TOKEN}`,
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
@@ -70,16 +56,18 @@ export default async function handler(req: any, res: any) {
             to: mobile.startsWith("91") ? mobile : `91${mobile}`,
             type: "template",
             template: {
-              name: templateName,
-              language: { code: language }
+              name: "booked_ticket",
+              language: {
+                code: "en_US"
+              }
             }
           })
         }
       );
 
-      const data = await response.json();
+      const data = await waRes.json();
 
-      if (!response.ok) {
+      if (!waRes.ok) {
         return res.status(400).json({
           success: false,
           meta_error: data.error?.message,
@@ -92,164 +80,86 @@ export default async function handler(req: any, res: any) {
         success: true,
         message_id: data.messages?.[0]?.id
       });
-
     } catch (err: any) {
-      return res.status(500).json({
-        error: "WHATSAPP_SEND_FAILED",
-        details: err.message
-      });
+      return res.status(500).json({ error: err.message });
     }
   }
 
-  /* =========================================================
-     LOCKERS (STAFF → GOOGLE SHEET)
-  ========================================================= */
-
+  /* ================= LOCKERS SHEET ================= */
   if (type === "rentals") {
-
-    /* ---------- GET ALL LOCKER RECORDS ---------- */
-    if (req.method === "GET") {
-      try {
-        const response = await sheets.spreadsheets.values.get({
-          spreadsheetId: process.env.SHEET_ID,
-          range: `${LOCKER_SHEET_NAME}!A2:P2000`
-        });
-
-        return res.status(200).json(response.data.values || []);
-      } catch (e: any) {
-        return res.status(500).json({ error: e.message });
-      }
-    }
-
-    /* ---------- POST NEW / UPDATE ---------- */
     if (req.method === "POST") {
-      const rental = req.body;
-      const action = req.query.action;
+      const r = req.body;
 
       try {
-        /* UPDATE RETURN STATUS */
-        if (action === "update") {
-          const rows = await sheets.spreadsheets.values.get({
-            spreadsheetId: process.env.SHEET_ID,
-            range: `${LOCKER_SHEET_NAME}!A:A`
-          });
+        const values = [[
+          r.receiptNo,
+          r.guestName,
+          r.guestMobile,
+          r.date,
+          r.shift,
+          JSON.stringify(r.maleLockers || []),
+          JSON.stringify(r.femaleLockers || []),
+          safeInt(r.maleCostumes),
+          safeInt(r.femaleCostumes),
+          safeInt(r.rentAmount),
+          safeInt(r.securityDeposit),
+          safeInt(r.totalCollected),
+          safeInt(r.refundableAmount),
+          r.status,
+          r.createdAt,
+          r.returnedAt || ""
+        ]];
 
-          const index = rows.data.values?.findIndex(
-            (r: any) => r[0] === rental.receiptNo
-          );
-
-          if (index === -1) {
-            return res.status(404).json({ error: "RECEIPT_NOT_FOUND" });
-          }
-
-          const rowNo = index + 1;
-
-          await sheets.spreadsheets.values.update({
-            spreadsheetId: process.env.SHEET_ID,
-            range: `${LOCKER_SHEET_NAME}!N${rowNo}:P${rowNo}`,
-            valueInputOption: "USER_ENTERED",
-            requestBody: {
-              values: [[rental.status, rental.createdAt, rental.returnedAt || ""]]
-            }
-          });
-
-          return res.status(200).json({ success: true });
-        }
-
-        /* INSERT NEW ISSUE */
         await sheets.spreadsheets.values.append({
           spreadsheetId: process.env.SHEET_ID,
-          range: `${LOCKER_SHEET_NAME}!A:P`,
+          range: "Lockers!A:P",
           valueInputOption: "RAW",
-          requestBody: {
-            values: [[
-              rental.receiptNo,
-              rental.guestName,
-              rental.guestMobile,
-              rental.date,
-              rental.shift,
-              JSON.stringify(rental.maleLockers),
-              JSON.stringify(rental.femaleLockers),
-              rental.maleCostumes,
-              rental.femaleCostumes,
-              rental.rentAmount,
-              rental.securityDeposit,
-              rental.totalCollected,
-              rental.refundableAmount,
-              rental.status,
-              rental.createdAt,
-              ""
-            ]]
-          }
+          requestBody: { values }
         });
 
         return res.status(200).json({ success: true });
-
       } catch (e: any) {
         return res.status(500).json({ error: e.message });
       }
     }
   }
 
-  /* =========================================================
-     SETTINGS
-  ========================================================= */
+  /* ================= BOOKINGS (WATER PARK) ================= */
+  if (req.method === "POST" && !type) {
+    const { name, mobile, adults, kids, amount, date, time } = req.body;
 
-  if (type === "settings") {
-    if (req.method === "GET") {
-      const resData = await sheets.spreadsheets.values.get({
-        spreadsheetId: process.env.SHEET_ID,
-        range: `${SETTINGS_SHEET_NAME}!A1`
+    try {
+      const timestamp = new Date().toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata"
       });
 
-      return res.status(200).json(resData.data.values?.[0]?.[0] || null);
-    }
+      const amountSafe = safeInt(amount);
 
-    if (req.method === "POST") {
-      await sheets.spreadsheets.values.update({
+      const values = [[
+        timestamp,
+        name,
+        mobile,
+        safeInt(adults),
+        safeInt(kids),
+        safeInt(adults) + safeInt(kids),
+        amountSafe,
+        date,
+        time,
+        "PAID"
+      ]];
+
+      await sheets.spreadsheets.values.append({
         spreadsheetId: process.env.SHEET_ID,
-        range: `${SETTINGS_SHEET_NAME}!A1`,
-        valueInputOption: "RAW",
-        requestBody: { values: [[JSON.stringify(req.body)]] }
+        range: "Sheet1!A:J",
+        valueInputOption: "USER_ENTERED",
+        requestBody: { values }
       });
 
       return res.status(200).json({ success: true });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
     }
   }
 
-  /* =========================================================
-     BOOKINGS (TICKET BOOKING)
-  ========================================================= */
-
-  if (!type && req.method === "POST") {
-    const { name, mobile, adults, kids, amount, date, time } = req.body;
-
-    const timestamp = new Date().toLocaleString("en-IN", {
-      timeZone: "Asia/Kolkata"
-    });
-
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: process.env.SHEET_ID,
-      range: `${BOOKING_SHEET_NAME}!A:J`,
-      valueInputOption: "USER_ENTERED",
-      requestBody: {
-        values: [[
-          timestamp,
-          name,
-          mobile,
-          adults,
-          kids,
-          adults + kids,
-          amount,
-          date,
-          time,
-          "PAID"
-        ]]
-      }
-    });
-
-    return res.status(200).json({ success: true });
-  }
-
-  return res.status(405).json({ error: "METHOD_NOT_ALLOWED" });
+  return res.status(405).json({ error: "Invalid request" });
 }
