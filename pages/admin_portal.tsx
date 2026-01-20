@@ -49,7 +49,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       const data = await res.json();
       
       if (res.ok) {
-        setDiag({status: 'success', msg: 'Meta Handshake Successful! Check your WhatsApp.'});
+        setDiag({status: 'success', msg: data.info || 'Handshake Successful!'});
       } else {
         setDiag({status: 'fail', msg: data.details || 'Rejected by Meta', hint: data.hint, raw: data.raw});
       }
@@ -101,7 +101,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                     </div>
                     <div className="space-y-2">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Template Name</label>
-                        <input value={draft.waTemplateName} onChange={e => setDraft({...draft, waTemplateName: e.target.value})} className="input-premium text-xs font-bold" placeholder="E.g. booked_ticket" />
+                        <input value={draft.waTemplateName} onChange={e => setDraft({...draft, waTemplateName: e.target.value})} className="input-premium text-xs font-bold" placeholder="E.g. ticket_confirmed" />
                     </div>
                  </div>
 
@@ -124,7 +124,18 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                     </div>
                  </div>
 
-                 <div className="space-y-4">
+                 <div className="flex items-center justify-between bg-blue-50 p-6 rounded-2xl border border-blue-100">
+                    <div className="space-y-1">
+                        <p className="text-[10px] font-black text-blue-800 uppercase tracking-widest">Auto-Prefix 91 (India)</p>
+                        <p className="text-[9px] font-bold text-blue-600 uppercase">Ensures Meta receives 12-digit format</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" className="sr-only peer" checked={draft.waAdd91 !== false} onChange={e => setDraft({...draft, waAdd91: e.target.checked})} />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                 </div>
+
+                 <div className="space-y-4 pt-4">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] text-center">Connection Diagnostics</p>
                     <div className="flex gap-2">
                         <input value={testMobile} onChange={e => setTestMobile(e.target.value.replace(/\D/g,''))} placeholder="Verify 10-digit number" className="flex-1 input-premium text-xs font-black" />
@@ -173,12 +184,12 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                       <p className="text-xs text-slate-300">Ensure Phone ID <b>947519298437599</b> is in the left box.</p>
                    </div>
                    <div className="space-y-2">
-                      <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest">2. Token Security</p>
-                      <p className="text-xs text-slate-300">If using a Test Token, it expires every 24 hours. Ensure you have a <b>Permanent Token</b>.</p>
+                      <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest">2. 91 Prefix Logic</p>
+                      <p className="text-xs text-slate-300">Meta requires <b>91</b> before the number. If you enter 977xxx, our system sends <b>91977xxx</b> automatically.</p>
                    </div>
                    <div className="space-y-2">
-                      <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest">3. Language Match</p>
-                      <p className="text-xs text-slate-300">Lang Code must be exactly <b>en</b> as per your template screenshot.</p>
+                      <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest">3. Variable Mismatch</p>
+                      <p className="text-xs text-slate-300">Aapke template mein 'Number' variable type hai, isliye <b>1 Variable</b> select karein.</p>
                    </div>
                 </div>
               </div>
