@@ -3,128 +3,120 @@ import { google } from "googleapis";
 export default async function handler(req: any, res: any) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
-  const ENV_TOKEN = process.env.WHATSAPP_TOKEN;
-  const ENV_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
+  if (!process.env.GOOGLE_CREDENTIALS || !process.env.SHEET_ID) {
+    return res.status(500).json({ error: "Server Configuration Missing (Sheets)" });
+  }
 
-  // --- CONFIG DIAGNOSTIC TEST ---
-  if (req.query.type === 'test_config' && req.method === 'POST') {
-    const { token, phoneId, mobile, templateName, langCode, variables } = req.body;
+  const auth = new google.auth.GoogleAuth({
+    credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+  });
+  const sheets = google.sheets({ version: "v4", auth });
+  const type = req.query.type;
+
+  // --- HELPER: GET LATEST SETTINGS FROM SHEET ---
+  const getLatestSettings = async () => {
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: process.env.SHEET_ID,
+        range: "Settings!A1",
+      });
+      const data = response.data.values?.[0]?.[0];
+      return data ? JSON.parse(data) : null;
+    } catch (e) { return null; }
+  };
+
+  // --- WHATSAPP SENDING LOGIC (TEST & REAL) ---
+  if (type === 'whatsapp' || type === 'test_config') {
+    const { mobile, booking, testConfig } = req.body;
+    
+    // 1. Get credentials (either from test input or from Sheets)
+    const settings = type === 'test_config' ? testConfig : await getLatestSettings();
+    
+    const token = settings?.waToken;
+    const phoneId = settings?.waPhoneId;
+    const templateName = settings?.waTemplateName || "booked_ticket";
+    const langCode = settings?.waLangCode || "en";
+
+    if (!token || !phoneId) {
+      return res.status(400).json({ success: false, details: "WhatsApp Credentials (Token/ID) not found in Settings." });
+    }
+
     let cleanMobile = mobile.replace(/\D/g, '');
     if (cleanMobile.length === 10) cleanMobile = `91${cleanMobile}`;
 
-    const payload: any = {
-      messaging_product: "whatsapp",
-      to: cleanMobile,
-      type: "template",
-      template: { 
-        name: templateName || "booked_ticket", 
-        language: { code: langCode || "en" } 
-      }
-    };
-
-    if (variables && Array.isArray(variables) && variables.length > 0) {
-      payload.template.components = [{
-        type: "body",
-        parameters: variables.map(v => ({ type: "text", text: String(v) }))
-      }];
-    }
+    const qrImageUrl = booking ? `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking.id}` : null;
 
     try {
+      // Step A: Send Template Message
+      const payload: any = {
+        messaging_product: "whatsapp",
+        to: cleanMobile,
+        type: "template",
+        template: { 
+          name: templateName, 
+          language: { code: langCode }
+        }
+      };
+
+      // Add variable if needed (Guest Name)
+      if (settings.waVarCount > 0 && (booking?.name || testConfig?.name)) {
+        payload.template.components = [{
+          type: "body",
+          parameters: [{ type: "text", text: booking?.name || "Guest" }]
+        }];
+      }
+
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const data = await waRes.json();
-      if (waRes.ok) return res.status(200).json({ success: true });
-      else return res.status(waRes.status).json({ success: false, details: data.error?.message, code: data.error?.code });
+      
+      const waData = await waRes.json();
+      if (!waRes.ok) {
+        return res.status(waRes.status).json({ success: false, details: waData.error?.message, code: waData.error?.code });
+      }
+
+      // Step B: Send QR Code (Only for real bookings)
+      if (booking && qrImageUrl) {
+        await new Promise(r => setTimeout(r, 1000)); // Delay
+        await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messaging_product: "whatsapp",
+            to: cleanMobile,
+            type: "image",
+            image: { link: qrImageUrl, caption: `Your official entry QR for booking ${booking.id}` }
+          })
+        });
+      }
+
+      return res.status(200).json({ success: true });
     } catch (e: any) {
       return res.status(500).json({ success: false, details: e.message });
     }
   }
 
-  // --- TICKETING LOGIC ---
-  if (req.query.type === 'whatsapp' && req.method === 'POST') {
-    const { mobile, booking, templateName, langCode, hasVariables, settings } = req.body;
-    
-    // Priority: Settings from Cloud > Vercel Env Vars
-    const token = settings?.waToken || ENV_TOKEN;
-    const phoneId = settings?.waPhoneId || ENV_PHONE_ID;
-
-    if (!token || !phoneId) return res.status(400).json({ error: "CREDENTIALS_MISSING" });
-
-    let cleanMobile = mobile.replace(/\D/g, '');
-    if (cleanMobile.length === 10) cleanMobile = `91${cleanMobile}`;
-
-    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking.id}`;
-
-    try {
-      const templatePayload: any = {
-        messaging_product: "whatsapp",
-        to: cleanMobile,
-        type: "template",
-        template: { 
-          name: templateName || "booked_ticket", 
-          language: { code: langCode || "en" }
-        }
-      };
-
-      if (hasVariables) {
-        templatePayload.template.components = [{
-          type: "body",
-          parameters: [{ type: "text", text: booking.name || "Guest" }]
-        }];
-      }
-
-      // 1. Send Template
-      const templateRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(templatePayload)
-      });
-      
-      const templateData = await templateRes.json();
-      if (!templateRes.ok) return res.status(templateRes.status).json({ success: false, details: templateData.error?.message, meta_code: templateData.error?.code });
-
-      // Small delay between messages to improve reliability on Meta side
-      await new Promise(r => setTimeout(r, 1000));
-
-      // 2. Send QR Image
-      await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          to: cleanMobile,
-          type: "image",
-          image: { link: qrImageUrl, caption: `Your official entry QR for booking ${booking.id}` }
-        })
-      });
-
-      return res.status(200).json({ success: true });
-    } catch (error: any) {
-      return res.status(500).json({ success: false, details: error.message });
-    }
-  }
-
-  // --- GOOGLE SHEETS LOGIC ---
-  if (!process.env.GOOGLE_CREDENTIALS || !process.env.SHEET_ID) return res.status(500).json({ error: "Config Error" });
-  const auth = new google.auth.GoogleAuth({ credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS), scopes: ["https://www.googleapis.com/auth/spreadsheets"] });
-  const sheets = google.sheets({ version: "v4", auth });
-  const type = req.query.type;
-
+  // --- STANDARD SETTINGS LOGIC ---
   if (type === 'settings') {
     if (req.method === "GET") {
-      const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Settings!A1" });
-      const data = response.data.values?.[0]?.[0];
-      return res.status(200).json(data ? JSON.parse(data) : null);
+      const data = await getLatestSettings();
+      return res.status(200).json(data);
     }
     if (req.method === "POST") {
-      await sheets.spreadsheets.values.update({ spreadsheetId: process.env.SHEET_ID, range: "Settings!A1", valueInputOption: "RAW", requestBody: { values: [[JSON.stringify(req.body)]] } });
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: process.env.SHEET_ID,
+        range: "Settings!A1",
+        valueInputOption: "RAW",
+        requestBody: { values: [[JSON.stringify(req.body)]] }
+      });
       return res.status(200).json({ success: true });
     }
   }
 
+  // --- BOOKING RECORDS LOGIC ---
   if (req.method === "GET" && !type) {
     const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Sheet1!A2:J1000" });
     const rows = response.data.values || [];
