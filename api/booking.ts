@@ -3,16 +3,8 @@ import { google } from "googleapis";
 export default async function handler(req: any, res: any) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
-  const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
-  const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_ID;
-
-  if (req.query.type === 'health') {
-    return res.status(200).json({
-      whatsapp_token: !!WHATSAPP_TOKEN,
-      whatsapp_phone_id: !!PHONE_NUMBER_ID,
-      token_preview: WHATSAPP_TOKEN ? `${WHATSAPP_TOKEN.substring(0, 10)}...` : 'NONE'
-    });
-  }
+  const ENV_TOKEN = process.env.WHATSAPP_TOKEN;
+  const ENV_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 
   // --- CONFIG DIAGNOSTIC TEST ---
   if (req.query.type === 'test_config' && req.method === 'POST') {
@@ -30,7 +22,6 @@ export default async function handler(req: any, res: any) {
       }
     };
 
-    // CRITICAL: If plain text template (0 variables), DO NOT include components at all
     if (variables && Array.isArray(variables) && variables.length > 0) {
       payload.template.components = [{
         type: "body",
@@ -44,19 +35,9 @@ export default async function handler(req: any, res: any) {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      
       const data = await waRes.json();
-      
-      if (waRes.ok) {
-        return res.status(200).json({ success: true, message_id: data.messages?.[0]?.id });
-      } else {
-        return res.status(waRes.status).json({ 
-          success: false, 
-          details: data.error?.message,
-          code: data.error?.code,
-          fb_trace_id: data.error?.fbtrace_id
-        });
-      }
+      if (waRes.ok) return res.status(200).json({ success: true });
+      else return res.status(waRes.status).json({ success: false, details: data.error?.message, code: data.error?.code });
     } catch (e: any) {
       return res.status(500).json({ success: false, details: e.message });
     }
@@ -64,8 +45,13 @@ export default async function handler(req: any, res: any) {
 
   // --- TICKETING LOGIC ---
   if (req.query.type === 'whatsapp' && req.method === 'POST') {
-    const { mobile, booking, templateName, langCode, hasVariables } = req.body;
-    if (!WHATSAPP_TOKEN || !PHONE_NUMBER_ID) return res.status(400).json({ error: "CREDENTIALS_MISSING" });
+    const { mobile, booking, templateName, langCode, hasVariables, settings } = req.body;
+    
+    // Priority: Settings from Cloud > Vercel Env Vars
+    const token = settings?.waToken || ENV_TOKEN;
+    const phoneId = settings?.waPhoneId || ENV_PHONE_ID;
+
+    if (!token || !phoneId) return res.status(400).json({ error: "CREDENTIALS_MISSING" });
 
     let cleanMobile = mobile.replace(/\D/g, '');
     if (cleanMobile.length === 10) cleanMobile = `91${cleanMobile}`;
@@ -83,7 +69,6 @@ export default async function handler(req: any, res: any) {
         }
       };
 
-      // Only add components if explicitly requested in settings
       if (hasVariables) {
         templatePayload.template.components = [{
           type: "body",
@@ -91,27 +76,23 @@ export default async function handler(req: any, res: any) {
         }];
       }
 
-      const templateRes = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
+      // 1. Send Template
+      const templateRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(templatePayload)
       });
       
       const templateData = await templateRes.json();
-      
-      if (!templateRes.ok) {
-        return res.status(templateRes.status).json({ 
-          success: false, 
-          details: templateData.error?.message,
-          meta_code: templateData.error?.code,
-          fb_trace_id: templateData.error?.fbtrace_id
-        });
-      }
+      if (!templateRes.ok) return res.status(templateRes.status).json({ success: false, details: templateData.error?.message, meta_code: templateData.error?.code });
 
-      // QR Image (Separate message)
-      await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
+      // Small delay between messages to improve reliability on Meta side
+      await new Promise(r => setTimeout(r, 1000));
+
+      // 2. Send QR Image
+      await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messaging_product: "whatsapp",
           to: cleanMobile,
