@@ -34,7 +34,8 @@ export default async function handler(req: any, res: any) {
     const phoneId = (settings?.waPhoneId || "").trim();
     const templateName = (settings?.waTemplateName || "ticket_confirmed").trim();
     const langCode = (settings?.waLangCode || "en").trim();
-    const varCount = settings?.waVarCount !== undefined ? Number(settings.waVarCount) : 0;
+    const varCount = settings?.waVarCount !== undefined ? Number(settings.waVarCount) : 1;
+    const shouldAdd91 = settings?.waAdd91 !== false; // Default true
 
     if (!token || !phoneId) {
       return res.status(400).json({ 
@@ -43,8 +44,20 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    let cleanMobile = mobile.replace(/\D/g, '');
-    if (cleanMobile.length === 10) cleanMobile = `91${cleanMobile}`;
+    // ROBUST MOBILE CLEANING
+    let cleanMobile = String(mobile || "").replace(/\D/g, '');
+    
+    if (shouldAdd91) {
+      if (cleanMobile.length === 10) {
+        cleanMobile = "91" + cleanMobile;
+      } else if (cleanMobile.length === 11 && cleanMobile.startsWith('0')) {
+        cleanMobile = "91" + cleanMobile.substring(1);
+      } else if (cleanMobile.length === 12 && cleanMobile.startsWith('91')) {
+        // Already has 91
+      } else if (cleanMobile.length === 13 && cleanMobile.startsWith('0091')) {
+        cleanMobile = cleanMobile.substring(2);
+      }
+    }
 
     try {
       const templatePayload: any = {
@@ -57,8 +70,6 @@ export default async function handler(req: any, res: any) {
         }
       };
 
-      // If varCount is > 0, we send the components. 
-      // If Meta dashboard shows "Type of Variable", you MUST send this.
       if (varCount > 0) {
         templatePayload.template.components = [{
           type: "body",
@@ -80,14 +91,14 @@ export default async function handler(req: any, res: any) {
       if (!waRes.ok) {
         let hint = "Technical Error from Meta.";
         const errorCode = waData.error?.code;
-        const errorMsg = waData.error?.message?.toLowerCase() || "";
+        const subCode = waData.error?.error_subcode;
         
-        if (errorCode === 132001) {
-          hint = "Template Variable Mismatch! Your Meta Dashboard says 'Number' for variables, but you selected 'No Variables' in Admin. Try switching to '1 Variable' in Admin Portal.";
+        if (errorCode === 132001 || subCode === 2494010) {
+          hint = "Variable Count Mismatch. Meta expects a variable but none were sent or vice-versa. Try switching between 'No Variables' and '1 Variable' in Admin.";
         } else if (errorCode === 100) {
-          hint = "Invalid Parameter. Check if Template Name 'ticket_confirmed' matches exactly (no spaces).";
+          hint = `Meta rejected the phone number '${cleanMobile}'. Ensure it's a valid WhatsApp number with country code.`;
         } else if (errorCode === 190) {
-          hint = "Token Invalid. Check your Permanent Access Token in Vercel.";
+          hint = "Token Invalid. Your Permanent Access Token is either wrong or expired.";
         }
 
         return res.status(waRes.status).json({ 
@@ -101,14 +112,13 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ 
         success: true, 
         meta_id: waData.messages?.[0]?.id,
-        info: "Accepted by Meta."
+        info: `Sent to ${cleanMobile}`
       });
     } catch (e: any) {
       return res.status(500).json({ success: false, details: e.message });
     }
   }
 
-  // ... rest of the handler remains same ...
   if (type === 'settings') {
     if (req.method === "GET") {
       const data = await getLatestSettings();
