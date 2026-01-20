@@ -18,16 +18,9 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const [isSaving, setIsSaving] = useState(false);
 
   // Migration Diagnostic States
-  const [testToken, setTestToken] = useState('');
-  const [testPhoneId, setTestPhoneId] = useState('');
   const [testMobile, setTestMobile] = useState('');
-  const [varCount, setVarCount] = useState<number>(0); 
   const [diagStatus, setDiagStatus] = useState<'idle' | 'loading' | 'success' | 'fail'>('idle');
   const [diagInfo, setDiagInfo] = useState<any>(null);
-
-  // Marketing States
-  const [broadcastMsg, setBroadcastMsg] = useState('');
-  const [isBroadcasting, setIsBroadcasting] = useState(false);
 
   useEffect(() => {
     setDraft(settings);
@@ -35,11 +28,10 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
   const saveSettings = async () => {
     setIsSaving(true);
-    const settingsToSave = { ...draft, waVarCount: varCount };
-    const success = await cloudSync.saveSettings(settingsToSave);
+    const success = await cloudSync.saveSettings(draft);
     if (success) {
-      onUpdateSettings(settingsToSave);
-      alert("Settings Saved Successfully!");
+      onUpdateSettings(draft);
+      alert("All Credentials & Settings Saved Successfully!");
     } else {
       alert("Failed to save settings to cloud.");
     }
@@ -47,19 +39,19 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   };
 
   const runDiagnostic = async () => {
-    if (!testToken || !testPhoneId || !testMobile) return alert("Please fill Token, Phone ID and a Mobile number to test.");
+    if (!draft.waToken || !draft.waPhoneId || !testMobile) return alert("Please fill Token, Phone ID and a Mobile number to test.");
     setDiagStatus('loading');
     setDiagInfo(null);
     try {
       const vars = [];
-      if (varCount >= 1) vars.push("Guest Name");
+      if ((draft.waVarCount || 0) >= 1) vars.push("Guest Name");
 
       const res = await fetch('/api/booking?type=test_config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          token: testToken, 
-          phoneId: testPhoneId, 
+          token: draft.waToken, 
+          phoneId: draft.waPhoneId, 
           mobile: testMobile,
           templateName: draft.waTemplateName,
           langCode: draft.waLangCode,
@@ -77,25 +69,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     } catch (e: any) {
       setDiagStatus('fail');
       setDiagInfo({ details: e.message });
-    }
-  };
-
-  const handleBroadcast = async () => {
-    if (!broadcastMsg.trim()) return alert("Please enter a message");
-    setIsBroadcasting(true);
-    try {
-      const targets = Array.from(new Set(bookings.map(b => b.mobile)));
-      const res = await fetch('/api/booking?type=broadcast', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targets, message: broadcastMsg })
-      });
-      if (res.ok) alert("Broadcast sent successfully!");
-      else alert("Broadcast failed.");
-    } catch (e) {
-      alert("Error sending broadcast.");
-    } finally {
-      setIsBroadcasting(false);
     }
   };
 
@@ -120,25 +93,15 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
         <div className="flex bg-white/10 p-1.5 rounded-2xl border border-white/10 backdrop-blur-md">
             <button onClick={() => setActiveTab('bookings')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='bookings' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/60 hover:text-white'}`}>Bookings</button>
-            <button onClick={() => setActiveTab('marketing')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='marketing' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/60 hover:text-white'}`}>Marketing</button>
             <button onClick={() => setActiveTab('settings')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='settings' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/60 hover:text-white'}`}>Migration</button>
         </div>
       </div>
-
-      {activeTab === 'bookings' && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-           <StatCard label="Total Tickets" value={stats.tickets} color="text-blue-600" />
-           <StatCard label="Adults" value={stats.adults} color="text-indigo-600" />
-           <StatCard label="Children" value={stats.kids} color="text-pink-600" />
-           <StatCard label="Last Sync" value={new Date().toLocaleTimeString()} color="text-emerald-600" />
-        </div>
-      )}
 
       {activeTab === 'settings' && (
         <div className="grid lg:grid-cols-2 gap-10 animate-slide-up">
            <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-8">
               <div className="flex justify-between items-center">
-                 <h3 className="text-2xl font-black uppercase text-slate-900 tracking-tight">API Debugger</h3>
+                 <h3 className="text-2xl font-black uppercase text-slate-900 tracking-tight">API Settings</h3>
                  <button onClick={saveSettings} disabled={isSaving} className="bg-emerald-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase">
                     {isSaving ? 'Saving...' : 'Save & Set Default'}
                  </button>
@@ -149,17 +112,16 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                     <p className="text-[10px] font-black uppercase text-slate-400">Step 1: Configuration</p>
                     <div className="grid grid-cols-1 gap-4">
                         <div className="space-y-1">
-                            <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Template Name (Case Sensitive)</label>
+                            <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Template Name</label>
                             <input value={draft.waTemplateName} onChange={e => setDraft({...draft, waTemplateName: e.target.value})} placeholder="booked_ticket" className="input-premium text-xs" />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Language Code (Fix for 132001)</label>
+                            <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Language Code</label>
                             <div className="grid grid-cols-3 gap-2">
                                 <button onClick={() => setDraft({...draft, waLangCode: 'en'})} className={`py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waLangCode === 'en' ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}>en</button>
                                 <button onClick={() => setDraft({...draft, waLangCode: 'en_GB'})} className={`py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waLangCode === 'en_GB' ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}>en_GB</button>
                                 <button onClick={() => setDraft({...draft, waLangCode: 'en_US'})} className={`py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waLangCode === 'en_US' ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-white text-slate-400 border-slate-200'}`}>en_US</button>
                             </div>
-                            <p className="text-[8px] text-slate-400 font-bold italic mt-1 text-center">Tip: Match this with your Meta Dashboard exactly.</p>
                         </div>
                     </div>
                  </div>
@@ -167,10 +129,10 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                  <div className="p-6 bg-blue-50/50 rounded-3xl border border-blue-100 space-y-4">
                     <p className="text-[10px] font-black uppercase text-blue-600">Step 2: Message Style</p>
                     <div className="flex gap-2">
-                        <button onClick={() => setVarCount(0)} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${varCount === 0 ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-400 border-slate-200'}`}>
-                            Plain Text (Test)
+                        <button onClick={() => setDraft({...draft, waVarCount: 0})} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waVarCount === 0 ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-400 border-slate-200'}`}>
+                            Plain Text
                         </button>
-                        <button onClick={() => setVarCount(1)} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${varCount === 1 ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-400 border-slate-200'}`}>
+                        <button onClick={() => setDraft({...draft, waVarCount: 1})} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${draft.waVarCount === 1 ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-400 border-slate-200'}`}>
                             With {"{{1}}"}
                         </button>
                     </div>
@@ -178,17 +140,17 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
                  <div className="space-y-4">
                     <div className="space-y-1">
-                        <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Permanent Token</label>
-                        <textarea value={testToken} onChange={e => setTestToken(e.target.value)} placeholder="EAAG..." className="input-premium h-20 text-[10px] font-mono" />
+                        <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Permanent Access Token</label>
+                        <textarea value={draft.waToken || ''} onChange={e => setDraft({...draft, waToken: e.target.value})} placeholder="EAAG..." className="input-premium h-20 text-[10px] font-mono" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                            <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Phone ID</label>
-                            <input value={testPhoneId} onChange={e => setTestPhoneId(e.target.value)} placeholder="138..." className="input-premium text-xs" />
+                            <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Phone Number ID</label>
+                            <input value={draft.waPhoneId || ''} onChange={e => setDraft({...draft, waPhoneId: e.target.value})} placeholder="138..." className="input-premium text-xs" />
                         </div>
                         <div className="space-y-1">
-                            <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Mobile (Test No.)</label>
-                            <input value={testMobile} onChange={e => setTestMobile(e.target.value)} placeholder="91..." className="input-premium text-xs" />
+                            <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Test Mobile</label>
+                            <input value={testMobile} onChange={e => setTestMobile(e.target.value.replace(/\D/g,''))} placeholder="91..." className="input-premium text-xs" />
                         </div>
                     </div>
                  </div>
@@ -200,26 +162,15 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
                  {diagStatus === 'fail' && diagInfo && (
                    <div className="p-6 bg-red-50 border border-red-200 rounded-3xl space-y-3">
-                      <div className="flex items-center gap-2">
-                        <i className="fas fa-exclamation-circle text-red-600"></i>
-                        <p className="text-[11px] font-black uppercase text-red-600 tracking-widest">Error {diagInfo.code}</p>
-                      </div>
-                      <p className="text-[10px] font-bold text-red-800 leading-relaxed">
-                        {diagInfo.code === 132001 
-                          ? `Bhai, Language Code '${draft.waLangCode}' galat hai. Meta Dashboard mein dekhiye ki aapka template English (en), English UK (en_GB), ya English US (en_US) mein hai.`
-                          : diagInfo.details}
-                      </p>
-                      <p className="text-[8px] opacity-40 font-mono select-all">Trace: {diagInfo.fb_trace_id}</p>
+                      <p className="text-[11px] font-black text-red-600 uppercase tracking-widest">Error {diagInfo.code}</p>
+                      <p className="text-[10px] font-bold text-red-800 leading-relaxed">{diagInfo.details}</p>
                    </div>
                  )}
                  
                  {diagStatus === 'success' && (
-                   <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-3xl space-y-4 animate-bounce-short">
-                      <div className="flex items-center gap-3">
-                        <i className="fas fa-check-circle text-emerald-600 text-xl"></i>
-                        <p className="text-[11px] font-black uppercase tracking-widest text-emerald-900">Success!</p>
-                      </div>
-                      <p className="text-[9px] text-emerald-700 font-bold">Message delivered successfully! Ab aap Save kar sakte hain.</p>
+                   <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-3xl space-y-2 text-center">
+                      <i className="fas fa-check-circle text-emerald-600 text-xl"></i>
+                      <p className="text-[9px] text-emerald-700 font-bold uppercase tracking-widest">Diagnostic Delivered!</p>
                    </div>
                  )}
               </div>
@@ -227,38 +178,16 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
            <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white space-y-8 shadow-2xl border border-white/10">
                 <div className="flex items-center gap-4">
-                    <i className="fas fa-question-circle text-blue-400 text-2xl"></i>
-                    <h3 className="text-xl font-black uppercase tracking-tight">132001 Guide</h3>
+                    <i className="fas fa-shield-alt text-blue-400 text-2xl"></i>
+                    <h3 className="text-xl font-black uppercase tracking-tight">Security Note</h3>
                 </div>
-                
-                <div className="space-y-6">
-                    <div className="p-6 bg-white/5 rounded-2xl border border-white/10 space-y-3">
-                        <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest">Why it happens?</p>
-                        <p className="text-xs font-medium text-slate-300 leading-relaxed">
-                          Meta templates are strict. If you registered your template as <strong>English (UK)</strong> but send the request as <strong>en</strong>, Meta rejects it with error 132001.
-                        </p>
-                    </div>
-                    <div className="p-6 bg-white/5 rounded-2xl border border-white/10 space-y-3">
-                        <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest">The Fix</p>
-                        <p className="text-xs font-medium text-slate-300 leading-relaxed">
-                          Check your Meta WhatsApp Manager. Look for the "Language" column next to your template name. Click the corresponding button above and re-test.
-                        </p>
-                    </div>
+                <p className="text-xs font-medium text-slate-300 leading-relaxed">
+                  Bhai, Token aur Phone ID ko yahan save karne ke baad, aapka system cloud se automatically credentials uthayega. Aapko baar-baar Vercel Dashboard par jaane ki zaroorat nahi padegi.
+                </p>
+                <div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-xs text-blue-200 font-bold italic">
+                   Tip: Make sure the 'Test Mobile' has 91 prefix or is a 10-digit number.
                 </div>
            </div>
-        </div>
-      )}
-
-      {activeTab === 'marketing' && (
-        <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-8 animate-slide-up max-w-2xl mx-auto">
-           <div className="text-center">
-              <h3 className="text-2xl font-black uppercase text-slate-900">Broadcast Message</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Direct Outreach</p>
-           </div>
-           <textarea value={broadcastMsg} onChange={e => setBroadcastMsg(e.target.value)} placeholder="Type message..." className="input-premium h-32" />
-           <button onClick={handleBroadcast} disabled={isBroadcasting} className="w-full btn-resort h-16 !bg-indigo-600 shadow-xl">
-              {isBroadcasting ? 'Sending...' : 'Start Broadcast'}
-           </button>
         </div>
       )}
 
