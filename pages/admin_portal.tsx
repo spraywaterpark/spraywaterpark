@@ -1,8 +1,6 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
-import { Booking, AdminSettings, BlockedSlot, ShiftType } from '../types';
+import { Booking, AdminSettings } from '../types';
 import { cloudSync } from '../services/cloud_sync';
-import { TIME_SLOTS, MASTER_SYNC_ID } from '../constants';
 
 interface AdminPanelProps {
   bookings: Booking[];
@@ -13,284 +11,224 @@ interface AdminPanelProps {
   onLogout: () => void;
 }
 
-const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings, syncId, onLogout }) => {
+const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings, onLogout }) => {
   const [activeTab, setActiveTab] = useState<'bookings' | 'settings'>('bookings');
-  const [viewMode, setViewMode] = useState<'sales_today' | 'visit_today' | 'all'>('sales_today');
   const [draft, setDraft] = useState<AdminSettings>(settings);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<string>(new Date().toLocaleTimeString());
-
-  const [blkDate, setBlkDate] = useState('');
-  const [blkSlot, setBlkSlot] = useState(TIME_SLOTS[0]);
+  const [testMobile, setTestMobile] = useState('');
+  const [diag, setDiag] = useState<{status: 'idle'|'loading'|'success'|'fail', msg: string, hint?: string, raw?: any}>({status: 'idle', msg: ''});
 
   useEffect(() => {
-    setDraft(settings);
-  }, [settings]);
-
-  useEffect(() => setLastUpdated(new Date().toLocaleTimeString()), [bookings]);
-
-  const today = new Date();
-  const todayISO = today.toISOString().split('T')[0];
-  const todayLocale = today.toLocaleDateString("en-IN");
-
-  const filteredBookings = useMemo(() => {
-    let list = [...bookings];
-    if (viewMode === 'sales_today') {
-      return list.filter(b => b.createdAt.includes(todayLocale) || b.createdAt.startsWith(todayISO));
+    if (activeTab !== 'settings') {
+      setDraft(settings);
     }
-    if (viewMode === 'visit_today') {
-      return list.filter(b => b.date === todayISO);
-    }
-    return list;
-  }, [bookings, viewMode, todayLocale, todayISO]);
+  }, [settings, activeTab]);
 
-  const stats = useMemo(() => ({
-    revenue: filteredBookings.reduce((s, b) => s + b.totalAmount, 0),
-    adults: filteredBookings.reduce((s, b) => s + b.adults, 0),
-    kids: filteredBookings.reduce((s, b) => s + b.kids, 0),
-    tickets: filteredBookings.length
-  }), [filteredBookings]);
-
-  const manualRefresh = async () => {
-    setIsSyncing(true);
-    try {
-      const remoteSettings = await cloudSync.fetchSettings();
-      if (remoteSettings) onUpdateSettings(remoteSettings);
-      await cloudSync.fetchData(syncId || MASTER_SYNC_ID);
-      setLastUpdated(new Date().toLocaleTimeString());
-    } catch (e) {
-      console.error("Manual refresh failed", e);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const addBlackout = () => {
-    if (!blkDate) return alert("Select a date");
-    const currentShift = blkSlot.toLowerCase().includes('morning') ? 'morning' : 'evening';
-    const newSlot: BlockedSlot = { date: blkDate, shift: currentShift as ShiftType };
-    const currentBlocked = draft.blockedSlots || [];
-
-    if (currentBlocked.some(s => s.date === blkDate && (s.shift === currentShift || s.shift === 'all'))) {
-        return alert("This slot or full day is already blocked.");
-    }
-    setDraft({ ...draft, blockedSlots: [...currentBlocked, newSlot] });
-  };
-
-  const addFullDayBlackout = () => {
-    if (!blkDate) return alert("Select a date");
-    const currentBlocked = draft.blockedSlots || [];
-    const updatedSlots = currentBlocked.filter(s => s.date !== blkDate);
-    setDraft({ ...draft, blockedSlots: [...updatedSlots, { date: blkDate, shift: 'all' }] });
-  };
-
-  const removeBlackout = (index: number) => {
-    const updated = (draft.blockedSlots || []).filter((_, i) => i !== index);
-    setDraft({ ...draft, blockedSlots: updated });
-  };
-
-  // CRITICAL FIX: Actually push to Google Sheets
-  const handleSaveSettings = async () => {
-    if (isSaving) return;
+  const saveSettings = async () => {
     setIsSaving(true);
+    const success = await cloudSync.saveSettings(draft);
+    if (success) {
+      onUpdateSettings(draft);
+      alert("Config Synced Successfully!");
+    } else {
+      alert("Sync failed. Check cloud connection.");
+    }
+    setIsSaving(false);
+  };
+
+  const handleTest = async () => {
+    if (!testMobile || testMobile.length < 10) return alert("Enter 10 digit number.");
+    setDiag({status: 'loading', msg: 'Contacting Meta Servers...'});
+
     try {
-      const success = await cloudSync.saveSettings(draft);
-      if (success) {
-        onUpdateSettings(draft); // Update parent state
-        alert("Success: Resort settings synced to cloud!");
-        setActiveTab('bookings');
+      const res = await fetch('/api/booking?type=test_config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobile: testMobile, testConfig: draft })
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        setDiag({status: 'success', msg: 'Meta Handshake Successful! Check your WhatsApp.'});
       } else {
-        alert("Error: Cloud Sync failed. Check your connection and try again.");
+        setDiag({status: 'fail', msg: data.details || 'Rejected by Meta', hint: data.hint, raw: data.raw});
       }
-    } catch (err) {
-      alert("An unexpected error occurred while saving settings.");
-    } finally {
-      setIsSaving(false);
+    } catch (e: any) {
+      setDiag({status: 'fail', msg: e.message});
     }
   };
+
+  const stats = useMemo(() => {
+    const list = bookings.filter(b => b.createdAt.includes(new Date().toLocaleDateString("en-IN")));
+    return {
+      revenue: list.reduce((s, b) => s + b.totalAmount, 0),
+      tickets: list.length
+    };
+  }, [bookings]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-10">
-      {/* HEADER */}
-      <div className="bg-[#1B2559] text-white p-6 sm:p-10 rounded-3xl shadow-xl flex flex-col lg:flex-row justify-between items-center gap-6">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.4em] opacity-70 flex items-center gap-2">
-            Live Sales Dashboard
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          </p>
-          <h2 className="text-3xl sm:text-5xl font-black mt-2">₹{stats.revenue.toLocaleString()}</h2>
-          <p className="text-blue-200 text-sm font-bold mt-1">{viewMode === 'sales_today' ? "Today's Revenue" : viewMode === 'visit_today' ? "Revenue for Visitors Today" : "Total Revenue"}</p>
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-10 animate-fade">
+      {/* Header Bar */}
+      <div className="bg-[#0F172A] text-white p-10 rounded-[3rem] shadow-2xl flex flex-col md:flex-row justify-between items-center gap-8 border border-white/10">
+        <div className="text-center md:text-left">
+          <p className="text-blue-400 text-[9px] font-black uppercase tracking-[0.5em] mb-2">Resort Revenue (Today)</p>
+          <h2 className="text-5xl font-black tracking-tighter">₹{stats.revenue.toLocaleString()}</h2>
         </div>
-
-        <div className="flex flex-col sm:flex-row gap-4 items-center">
-          <div className="flex gap-2">
-            <button onClick={() => setViewMode('sales_today')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/20 transition-all ${viewMode==='sales_today' ? 'bg-white text-slate-900' : 'hover:bg-white/10'}`}>Today Sales</button>
-            <button onClick={() => setViewMode('visit_today')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/20 transition-all ${viewMode==='visit_today' ? 'bg-white text-slate-900' : 'hover:bg-white/10'}`}>Today Visits</button>
-            <button onClick={() => setViewMode('all')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/20 transition-all ${viewMode==='all' ? 'bg-white text-slate-900' : 'hover:bg-white/10'}`}>All Data</button>
-          </div>
+        <div className="flex bg-white/5 p-2 rounded-[1.5rem] border border-white/10 backdrop-blur-xl">
+            <button onClick={() => setActiveTab('bookings')} className={`px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='bookings' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50 hover:text-white'}`}>Bookings</button>
+            <button onClick={() => setActiveTab('settings')} className={`px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='settings' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50 hover:text-white'}`}>Meta API</button>
         </div>
       </div>
 
-      {/* STATS */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Stat label="Total Tickets" value={stats.tickets} />
-        <Stat label="Adults" value={stats.adults} />
-        <Stat label="Kids" value={stats.kids} />
-        <Stat label="Last Sync" value={lastUpdated} />
-      </div>
-
-      {/* BOOKINGS TABLE */}
-      <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
-        <div className="overflow-x-auto custom-scrollbar">
-          <table className="min-w-[900px] w-full text-center">
-            <thead className="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
-              <tr>
-                <th className="p-5 text-left">Timestamp</th>
-                <th>Guest Name</th>
-                <th>Mobile</th>
-                <th>Visit Date</th>
-                <th>Passes</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredBookings.length === 0 ? (
-                <tr><td colSpan={6} className="p-20 text-slate-300 font-bold uppercase text-xs tracking-widest">No matching records found</td></tr>
-              ) : filteredBookings.map((b, i) => (
-                <tr key={i} className="border-t hover:bg-slate-50 transition-colors text-sm">
-                  <td className="p-5 text-left font-medium text-slate-400 text-[10px]">{b.createdAt}</td>
-                  <td className="font-semibold">{b.name}</td>
-                  <td className="font-medium text-slate-500">{b.mobile}</td>
-                  <td className="font-bold text-blue-600">{b.date}</td>
-                  <td>{b.adults + b.kids}</td>
-                  <td className="font-black text-slate-900">₹{b.totalAmount}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ACTIONS */}
-      <div className="flex flex-wrap justify-center gap-4">
-        <button onClick={manualRefresh} disabled={isSyncing} className="btn-resort !px-8 h-14 !bg-slate-800 disabled:opacity-50">
-           <i className={`fas fa-sync-alt mr-2 text-xs ${isSyncing ? 'fa-spin' : ''}`}></i> {isSyncing ? 'Refreshing...' : 'Refresh Cloud Data'}
-        </button>
-        <button onClick={() => setActiveTab('settings')} className="btn-resort !px-8 h-14">
-           <i className="fas fa-cog mr-2 text-xs"></i> Rates & Blackout Dates
-        </button>
-
-        <button
-          onClick={() => window.location.hash = '#/admin-lockers'}
-          className="btn-resort !px-8 h-14 !bg-emerald-600 hover:!bg-emerald-700"
-        >
-          <i className="fas fa-box mr-2 text-xs"></i>
-          CO&LO LOGIN
-        </button>
-      </div>
-
-      {/* SETTINGS MODAL */}
-      {activeTab === 'settings' && (
-        <Modal title="Configure Resort" onClose={() => setActiveTab('bookings')}>
-          <div className="space-y-8 max-h-[60vh] overflow-y-auto px-2 custom-scrollbar">
-            {/* PRICING */}
-            <div className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Ticket Rates (₹)</h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Morning Adult</label>
-                  <input type="number" className="input-premium py-3" value={draft.morningAdultRate} onChange={e => setDraft({...draft, morningAdultRate: Number(e.target.value)})} />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Evening Adult</label>
-                  <input type="number" className="input-premium py-3" value={draft.eveningAdultRate} onChange={e => setDraft({...draft, eveningAdultRate: Number(e.target.value)})} />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Morning Kid</label>
-                  <input type="number" className="input-premium py-3" value={draft.morningKidRate} onChange={e => setDraft({...draft, morningKidRate: Number(e.target.value)})} />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Evening Kid</label>
-                  <input type="number" className="input-premium py-3" value={draft.eveningKidRate} onChange={e => setDraft({...draft, eveningKidRate: Number(e.target.value)})} />
-                </div>
-              </div>
-            </div>
-
-            {/* BLACKOUTS */}
-            <div className="space-y-6 pt-6 border-t border-slate-100">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Blackout Management</h4>
-              <div className="bg-slate-50 p-6 rounded-2xl space-y-5 border border-slate-200">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase text-slate-500 ml-1">Date</label>
-                    <input type="date" className="input-premium py-3" value={blkDate} onChange={e => setBlkDate(e.target.value)} />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase text-slate-500 ml-1">Shift</label>
-                    <select className="input-premium py-3 bg-white" value={blkSlot} onChange={e => setBlkSlot(e.target.value)}>
-                      {TIME_SLOTS.map(t => <option key={t} value={t}>{t.split(':')[0]}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <button onClick={addBlackout} className="flex-1 bg-slate-900 text-white text-[10px] font-black uppercase py-4 rounded-xl shadow-lg">Block Slot</button>
-                  <button onClick={addFullDayBlackout} className="flex-1 border-2 border-slate-900 text-slate-900 text-[10px] font-black uppercase py-4 rounded-xl">Block Full Day</button>
-                </div>
+      {activeTab === 'settings' ? (
+        <div className="grid lg:grid-cols-2 gap-10">
+          <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 space-y-8 animate-slide-up">
+              <div className="flex justify-between items-start border-b pb-8">
+                 <div>
+                    <h3 className="text-2xl font-black uppercase text-slate-900 tracking-tight">API Setup</h3>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Live Message Configuration</p>
+                 </div>
+                 <button onClick={saveSettings} disabled={isSaving} className="bg-blue-600 text-white px-8 py-3 rounded-xl text-[10px] font-black uppercase shadow-lg hover:bg-blue-700 transition-all">
+                    {isSaving ? 'Syncing...' : 'Save Config'}
+                 </button>
               </div>
 
-              <div className="space-y-3">
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Current Active Blackouts</p>
-                {(!draft.blockedSlots || draft.blockedSlots.length === 0) ? (
-                  <p className="text-xs text-slate-400 text-center py-4">All dates are open for booking</p>
-                ) : (
-                  <div className="grid grid-cols-1 gap-2">
-                    {draft.blockedSlots.map((bs, i) => (
-                      <div key={i} className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200">
-                        <div>
-                          <p className="text-sm font-black text-slate-900 uppercase">{bs.date}</p>
-                          <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest">{bs.shift}</p>
+              <div className="space-y-6">
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Permanent Phone ID</label>
+                        <input value={draft.waPhoneId || ''} onChange={e => setDraft({...draft, waPhoneId: e.target.value})} className="input-premium text-xs font-bold" placeholder="E.g. 947519298437599" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Template Name</label>
+                        <input value={draft.waTemplateName} onChange={e => setDraft({...draft, waTemplateName: e.target.value})} className="input-premium text-xs font-bold" placeholder="E.g. booked_ticket" />
+                    </div>
+                 </div>
+
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">System Access Token</label>
+                    <textarea value={draft.waToken || ''} onChange={e => setDraft({...draft, waToken: e.target.value})} className="input-premium h-28 text-[10px] font-mono leading-relaxed bg-slate-50" placeholder="Paste Permanent Token here..." />
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-4 border-b pb-8">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Lang Code</label>
+                        <input value={draft.waLangCode} onChange={e => setDraft({...draft, waLangCode: e.target.value})} className="input-premium text-xs font-bold" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Variables</label>
+                        <select value={draft.waVarCount} onChange={e => setDraft({...draft, waVarCount: parseInt(e.target.value)})} className="input-premium text-xs font-bold bg-white">
+                           <option value={0}>No Variables</option>
+                           <option value={1}>1 Variable (Guest Name)</option>
+                        </select>
+                    </div>
+                 </div>
+
+                 <div className="space-y-4">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] text-center">Connection Diagnostics</p>
+                    <div className="flex gap-2">
+                        <input value={testMobile} onChange={e => setTestMobile(e.target.value.replace(/\D/g,''))} placeholder="Verify 10-digit number" className="flex-1 input-premium text-xs font-black" />
+                        <button onClick={handleTest} disabled={diag.status === 'loading'} className="bg-slate-900 text-white px-8 rounded-xl font-black text-[10px] uppercase transition-all shadow-md">
+                          {diag.status === 'loading' ? 'Testing...' : 'Test API'}
+                        </button>
+                    </div>
+                    
+                    {diag.status !== 'idle' && (
+                      <div className={`p-6 rounded-3xl border-2 ${diag.status === 'success' ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
+                        <div className="flex items-center gap-3">
+                           <i className={`fas ${diag.status === 'success' ? 'fa-check-double text-emerald-500' : 'fa-exclamation-triangle text-red-500'}`}></i>
+                           <p className={`text-[11px] font-black uppercase ${diag.status === 'success' ? 'text-emerald-700' : 'text-red-700'}`}>
+                              {diag.status === 'success' ? 'Handshake Success' : 'Handshake Failed'}
+                           </p>
                         </div>
-                        <button onClick={() => removeBlackout(i)} className="w-10 h-10 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"><i className="fas fa-trash-alt text-xs"></i></button>
+                        <p className="text-[10px] font-bold text-slate-600 mt-2">{diag.msg}</p>
+                        
+                        {diag.hint && (
+                           <div className="mt-4 p-4 bg-white/60 rounded-2xl border border-red-100">
+                              <p className="text-[9px] font-black text-red-600 uppercase mb-1">Troubleshooting Tip:</p>
+                              <p className="text-[10px] font-bold text-slate-800 leading-relaxed">{diag.hint}</p>
+                           </div>
+                        )}
+
+                        {diag.raw && (
+                           <div className="mt-4 p-4 bg-slate-900 rounded-xl overflow-hidden">
+                              <p className="text-[8px] font-black text-white/40 uppercase mb-2">Raw API Response (Tech Debug):</p>
+                              <pre className="text-[9px] text-blue-300 font-mono whitespace-pre-wrap">{JSON.stringify(diag.raw, null, 2)}</pre>
+                           </div>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    )}
+                 </div>
               </div>
-            </div>
           </div>
-          
-          <div className="pt-8 border-t border-slate-100 mt-6 space-y-4">
-            <p className="text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest">Settings will be saved to 'Settings' tab in Google Sheets.</p>
-            <button 
-              onClick={handleSaveSettings} 
-              disabled={isSaving}
-              className="btn-resort w-full h-16 shadow-2xl disabled:opacity-50"
-            >
-              {isSaving ? <><i className="fas fa-circle-notch fa-spin mr-2"></i> Syncing to Cloud...</> : 'Save & Sync Global Settings'}
-            </button>
+
+          <div className="space-y-6">
+              <div className="bg-slate-900 p-10 rounded-[3.5rem] text-white space-y-10 shadow-2xl border border-white/5 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-10 opacity-5 rotate-12"><i className="fas fa-microchip text-9xl"></i></div>
+                <h3 className="text-2xl font-black uppercase tracking-tight text-blue-400">Spray Water Park Live ID</h3>
+                
+                <div className="space-y-8 relative z-10">
+                   <div className="space-y-2">
+                      <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest">1. Permanent ID Detection</p>
+                      <p className="text-xs text-slate-300">Ensure Phone ID <b>947519298437599</b> is in the left box.</p>
+                   </div>
+                   <div className="space-y-2">
+                      <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest">2. Token Security</p>
+                      <p className="text-xs text-slate-300">If using a Test Token, it expires every 24 hours. Ensure you have a <b>Permanent Token</b>.</p>
+                   </div>
+                   <div className="space-y-2">
+                      <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest">3. Language Match</p>
+                      <p className="text-xs text-slate-300">Lang Code must be exactly <b>en</b> as per your template screenshot.</p>
+                   </div>
+                </div>
+              </div>
+              
+              <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-lg text-center flex flex-col items-center gap-4">
+                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.5em]">System Status</p>
+                  <div className={`px-8 py-4 rounded-2xl border-2 transition-all ${settings.waToken ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-slate-200 bg-slate-50 text-slate-400'}`}>
+                      <i className={`fas fa-bolt mr-3 ${settings.waToken ? 'animate-pulse' : ''}`}></i>
+                      <span className="text-[10px] font-black uppercase tracking-widest">{settings.waToken ? 'API Linked' : 'Awaiting Config'}</span>
+                  </div>
+              </div>
           </div>
-        </Modal>
+        </div>
+      ) : (
+        <div className="bg-white rounded-[3rem] shadow-xl overflow-hidden border border-slate-100 animate-slide-up">
+          <div className="p-10 border-b bg-slate-50/50 flex justify-between items-center">
+              <div>
+                <h3 className="text-2xl font-black uppercase text-slate-900 tracking-tight">Today's Guest List</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Terminal Activity Feed</p>
+              </div>
+              <div className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">{bookings.length} Total</div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-center">
+              <thead className="bg-slate-100 text-[11px] font-black uppercase text-slate-500 border-b">
+                <tr><th className="p-8 text-left">Ref ID</th><th className="text-left">Guest</th><th>Status</th></tr>
+              </thead>
+              <tbody className="text-sm font-bold divide-y divide-slate-100">
+                {bookings.map(b => (
+                  <tr key={b.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="p-8 text-left text-blue-600 font-black">{b.id}</td>
+                    <td className="text-left">
+                        <p className="text-slate-900 font-black">{b.name}</p>
+                        <p className="text-[10px] text-slate-400">{b.mobile}</p>
+                    </td>
+                    <td><span className="bg-emerald-100 text-emerald-700 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">Paid</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
+
+      <div className="flex flex-col sm:flex-row justify-center gap-4 py-10">
+          <button onClick={() => window.location.hash = '#/admin-lockers'} className="bg-emerald-600 text-white px-12 py-5 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-2xl hover:scale-[1.02] transition-all">Locker Inventory</button>
+          <button onClick={onLogout} className="bg-slate-100 text-slate-900 px-12 py-5 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-red-50">Log Out</button>
+      </div>
     </div>
   );
 };
-
-const Stat = ({label, value}:{label:string, value:any}) => (
-  <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 text-center">
-    <p className="text-[10px] uppercase text-slate-400 font-black tracking-[0.2em] mb-1">{label}</p>
-    <p className="text-2xl font-black text-[#1B2559]">{value}</p>
-  </div>
-);
-
-const Modal = ({title, children, onClose}:{title:string, children:any, onClose: () => void}) => (
-  <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-6 z-[1000] no-print">
-    <div className="bg-white rounded-[2.5rem] p-10 md:p-14 w-full max-w-xl shadow-2xl animate-slide-up relative border border-white/20">
-      <button onClick={onClose} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900"><i className="fas fa-times text-2xl"></i></button>
-      <div className="mb-10"><h3 className="text-3xl font-black uppercase text-slate-900 mb-2">{title}</h3></div>
-      {children}
-    </div>
-  </div>
-);
 
 export default AdminPortal;
