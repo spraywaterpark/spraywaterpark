@@ -1,150 +1,255 @@
 import { google } from "googleapis";
 
+/* =========================================================
+   CONFIG
+========================================================= */
+
+const LOCKER_SHEET_NAME = "Lockers";
+const SETTINGS_SHEET_NAME = "Settings";
+const BOOKING_SHEET_NAME = "Sheet1";
+
+/* =========================================================
+   MAIN HANDLER
+========================================================= */
+
 export default async function handler(req: any, res: any) {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+
+  /* ================= HEALTH CHECK ================= */
+
+  if (req.query.type === "health") {
+    return res.status(200).json({
+      whatsapp_token: !!process.env.WHATSAPP_TOKEN,
+      whatsapp_phone_id: !!process.env.WHATSAPP_PHONE_ID,
+      google_credentials: !!process.env.GOOGLE_CREDENTIALS,
+      sheet_id: !!process.env.SHEET_ID
+    });
+  }
 
   if (!process.env.GOOGLE_CREDENTIALS || !process.env.SHEET_ID) {
-    return res.status(500).json({ error: "Server Configuration Missing (Sheets)" });
+    return res.status(500).json({ error: "SERVER_CONFIG_MISSING" });
   }
+
+  /* ================= GOOGLE AUTH ================= */
 
   const auth = new google.auth.GoogleAuth({
     credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"]
   });
+
   const sheets = google.sheets({ version: "v4", auth });
   const type = req.query.type;
 
-  const getLatestSettings = async () => {
+  /* =========================================================
+     WHATSAPP TEMPLATE MESSAGE (META OFFICIAL)
+  ========================================================= */
+
+  if (type === "whatsapp" && req.method === "POST") {
     try {
-      const response = await sheets.spreadsheets.values.get({
-        spreadsheetId: process.env.SHEET_ID,
-        range: "Settings!A1",
-      });
-      const data = response.data.values?.[0]?.[0];
-      return data ? JSON.parse(data) : null;
-    } catch (e) { return null; }
-  };
+      const { mobile, templateName, language = "en" } = req.body;
 
-  if (type === 'whatsapp' || type === 'test_config') {
-    const { mobile, booking, testConfig } = req.body;
-    const cloudSettings = await getLatestSettings();
-    const settings = type === 'test_config' ? testConfig : cloudSettings;
-    
-    // Credentials Strategy: Cloud Settings OVERRIDES Vercel Env
-    const token = (settings?.waToken || process.env.WA_TOKEN || "").trim();
-    const phoneId = (settings?.waPhoneId || process.env.WA_PHONE_ID || "").trim();
-    const templateName = (settings?.waTemplateName || "booked_ticket").trim();
-    const langCode = (settings?.waLangCode || "en").trim();
-    const varCount = settings?.waVarCount || 0;
-
-    if (!token || !phoneId) {
-      return res.status(400).json({ 
-        success: false, 
-        details: "Missing Credentials. Please check Token and Phone ID in Admin Settings." 
-      });
-    }
-
-    // Clean phone number (Ensure 91 prefix)
-    let cleanMobile = mobile.replace(/\D/g, '');
-    if (cleanMobile.length === 10) cleanMobile = `91${cleanMobile}`;
-    else if (cleanMobile.startsWith('0')) cleanMobile = `91${cleanMobile.substring(1)}`;
-
-    try {
-      const payload: any = {
-        messaging_product: "whatsapp",
-        to: cleanMobile,
-        type: "template",
-        template: { 
-          name: templateName, 
-          language: { code: langCode }
-        }
-      };
-
-      if (varCount > 0) {
-        payload.template.components = [{
-          type: "body",
-          parameters: [{ type: "text", text: booking?.name || testConfig?.name || "Guest" }]
-        }];
+      if (!mobile || !templateName) {
+        return res.status(400).json({ error: "MISSING_PARAMS" });
       }
 
-      const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`, 
-          'Content-Type': 'application/json' 
-        },
-        body: JSON.stringify(payload)
-      });
-      
-      const waData = await waRes.json();
-      
-      if (!waRes.ok) {
-        let errorHint = "Meta Error";
-        const code = waData.error?.code;
-        if (code === 131030) errorHint = "Template name mismatch or not approved.";
-        else if (code === 100) errorHint = "Invalid Phone Number ID or URL.";
-        else if (code === 190) errorHint = "Access Token expired or invalid.";
+      const WA_TOKEN = process.env.WHATSAPP_TOKEN!;
+      const PHONE_ID = process.env.WHATSAPP_PHONE_ID!;
 
-        return res.status(waRes.status).json({ 
-          success: false, 
-          details: waData.error?.message || errorHint,
-          hint: errorHint,
-          full_error: waData
-        });
-      }
-
-      // If it's a real booking, also send QR code
-      if (booking && !type.includes('test')) {
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking.id}`;
-        await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      const response = await fetch(
+        `https://graph.facebook.com/v21.0/${PHONE_ID}/messages`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${WA_TOKEN}`,
+            "Content-Type": "application/json"
+          },
           body: JSON.stringify({
             messaging_product: "whatsapp",
-            to: cleanMobile,
-            type: "image",
-            image: { link: qrUrl, caption: `Ticket ID: ${booking.id}\nThank you for choosing Spray Aqua Resort!` }
+            to: mobile.startsWith("91") ? mobile : `91${mobile}`,
+            type: "template",
+            template: {
+              name: templateName,
+              language: { code: language }
+            }
           })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return res.status(400).json({
+          success: false,
+          meta_error: data.error?.message,
+          meta_code: data.error?.code,
+          fb_trace_id: data.error?.fbtrace_id
         });
       }
 
-      return res.status(200).json({ success: true, meta_id: waData.messages?.[0]?.id });
-    } catch (e: any) {
-      return res.status(500).json({ success: false, details: e.message });
+      return res.status(200).json({
+        success: true,
+        message_id: data.messages?.[0]?.id
+      });
+
+    } catch (err: any) {
+      return res.status(500).json({
+        error: "WHATSAPP_SEND_FAILED",
+        details: err.message
+      });
     }
   }
 
-  if (type === 'settings') {
+  /* =========================================================
+     LOCKERS (STAFF → GOOGLE SHEET)
+  ========================================================= */
+
+  if (type === "rentals") {
+
+    /* ---------- GET ALL LOCKER RECORDS ---------- */
     if (req.method === "GET") {
-      const data = await getLatestSettings();
-      return res.status(200).json(data);
+      try {
+        const response = await sheets.spreadsheets.values.get({
+          spreadsheetId: process.env.SHEET_ID,
+          range: `${LOCKER_SHEET_NAME}!A2:P2000`
+        });
+
+        return res.status(200).json(response.data.values || []);
+      } catch (e: any) {
+        return res.status(500).json({ error: e.message });
+      }
     }
+
+    /* ---------- POST NEW / UPDATE ---------- */
+    if (req.method === "POST") {
+      const rental = req.body;
+      const action = req.query.action;
+
+      try {
+        /* UPDATE RETURN STATUS */
+        if (action === "update") {
+          const rows = await sheets.spreadsheets.values.get({
+            spreadsheetId: process.env.SHEET_ID,
+            range: `${LOCKER_SHEET_NAME}!A:A`
+          });
+
+          const index = rows.data.values?.findIndex(
+            (r: any) => r[0] === rental.receiptNo
+          );
+
+          if (index === -1) {
+            return res.status(404).json({ error: "RECEIPT_NOT_FOUND" });
+          }
+
+          const rowNo = index + 1;
+
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: process.env.SHEET_ID,
+            range: `${LOCKER_SHEET_NAME}!N${rowNo}:P${rowNo}`,
+            valueInputOption: "USER_ENTERED",
+            requestBody: {
+              values: [[rental.status, rental.createdAt, rental.returnedAt || ""]]
+            }
+          });
+
+          return res.status(200).json({ success: true });
+        }
+
+        /* INSERT NEW ISSUE */
+        await sheets.spreadsheets.values.append({
+          spreadsheetId: process.env.SHEET_ID,
+          range: `${LOCKER_SHEET_NAME}!A:P`,
+          valueInputOption: "RAW",
+          requestBody: {
+            values: [[
+              rental.receiptNo,
+              rental.guestName,
+              rental.guestMobile,
+              rental.date,
+              rental.shift,
+              JSON.stringify(rental.maleLockers),
+              JSON.stringify(rental.femaleLockers),
+              rental.maleCostumes,
+              rental.femaleCostumes,
+              rental.rentAmount,
+              rental.securityDeposit,
+              rental.totalCollected,
+              rental.refundableAmount,
+              rental.status,
+              rental.createdAt,
+              ""
+            ]]
+          }
+        });
+
+        return res.status(200).json({ success: true });
+
+      } catch (e: any) {
+        return res.status(500).json({ error: e.message });
+      }
+    }
+  }
+
+  /* =========================================================
+     SETTINGS
+  ========================================================= */
+
+  if (type === "settings") {
+    if (req.method === "GET") {
+      const resData = await sheets.spreadsheets.values.get({
+        spreadsheetId: process.env.SHEET_ID,
+        range: `${SETTINGS_SHEET_NAME}!A1`
+      });
+
+      return res.status(200).json(resData.data.values?.[0]?.[0] || null);
+    }
+
     if (req.method === "POST") {
       await sheets.spreadsheets.values.update({
         spreadsheetId: process.env.SHEET_ID,
-        range: "Settings!A1",
+        range: `${SETTINGS_SHEET_NAME}!A1`,
         valueInputOption: "RAW",
         requestBody: { values: [[JSON.stringify(req.body)]] }
       });
+
       return res.status(200).json({ success: true });
     }
   }
 
-  // Bookings list
-  if (req.method === "GET" && !type) {
-    const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Sheet1!A2:J1000" });
-    const rows = response.data.values || [];
-    return res.status(200).json(rows.map((row: any) => ({
-      id: row[0], name: row[1] || "Guest", mobile: row[2] || "", adults: parseInt(row[3])||0, kids: parseInt(row[4])||0, totalAmount: parseInt(row[6])||0, date: row[7] || "", time: row[8] || "", status: "confirmed", createdAt: row[0] || "",
-    })).reverse());
-  }
+  /* =========================================================
+     BOOKINGS (TICKET BOOKING)
+  ========================================================= */
 
-  if (req.method === "POST" && !type) {
+  if (!type && req.method === "POST") {
     const { name, mobile, adults, kids, amount, date, time } = req.body;
-    const values = [[new Date().toLocaleString("en-IN"), name, mobile, adults, kids, (adults + kids), amount, date, time, "PAID"]];
-    await sheets.spreadsheets.values.append({ spreadsheetId: process.env.SHEET_ID, range: "Sheet1!A:J", valueInputOption: "USER_ENTERED", requestBody: { values } });
+
+    const timestamp = new Date().toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata"
+    });
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: process.env.SHEET_ID,
+      range: `${BOOKING_SHEET_NAME}!A:J`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: {
+        values: [[
+          timestamp,
+          name,
+          mobile,
+          adults,
+          kids,
+          adults + kids,
+          amount,
+          date,
+          time,
+          "PAID"
+        ]]
+      }
+    });
+
     return res.status(200).json({ success: true });
   }
 
-  return res.status(405).json({ error: "Method not allowed" });
+  return res.status(405).json({ error: "METHOD_NOT_ALLOWED" });
 }
