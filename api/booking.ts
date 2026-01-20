@@ -14,7 +14,6 @@ export default async function handler(req: any, res: any) {
   const sheets = google.sheets({ version: "v4", auth });
   const type = req.query.type;
 
-  // --- HELPER: GET LATEST SETTINGS FROM SHEET ---
   const getLatestSettings = async () => {
     try {
       const response = await sheets.spreadsheets.values.get({
@@ -26,29 +25,28 @@ export default async function handler(req: any, res: any) {
     } catch (e) { return null; }
   };
 
-  // --- WHATSAPP SENDING LOGIC (TEST & REAL) ---
   if (type === 'whatsapp' || type === 'test_config') {
     const { mobile, booking, testConfig } = req.body;
-    
-    // 1. Get credentials (either from test input or from Sheets)
     const settings = type === 'test_config' ? testConfig : await getLatestSettings();
     
-    const token = settings?.waToken;
-    const phoneId = settings?.waPhoneId;
-    const templateName = settings?.waTemplateName || "booked_ticket";
-    const langCode = settings?.waLangCode || "en";
+    const token = settings?.waToken?.trim();
+    const phoneId = settings?.waPhoneId?.trim();
+    const templateName = settings?.waTemplateName?.trim() || "booked_ticket";
+    const langCode = settings?.waLangCode?.trim() || "en";
 
     if (!token || !phoneId) {
-      return res.status(400).json({ success: false, details: "WhatsApp Credentials (Token/ID) not found in Settings." });
+      return res.status(400).json({ success: false, details: "WhatsApp Credentials (Token/ID) are missing." });
     }
 
+    // Strict number cleaning: remove all non-digits, then handle 10-digit cases
     let cleanMobile = mobile.replace(/\D/g, '');
-    if (cleanMobile.length === 10) cleanMobile = `91${cleanMobile}`;
-
-    const qrImageUrl = booking ? `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking.id}` : null;
+    if (cleanMobile.length === 10) {
+      cleanMobile = `91${cleanMobile}`;
+    } else if (cleanMobile.length > 10 && cleanMobile.startsWith('0')) {
+      cleanMobile = `91${cleanMobile.substring(1)}`;
+    }
 
     try {
-      // Step A: Send Template Message
       const payload: any = {
         messaging_product: "whatsapp",
         to: cleanMobile,
@@ -59,28 +57,37 @@ export default async function handler(req: any, res: any) {
         }
       };
 
-      // Add variable if needed (Guest Name)
-      if (settings.waVarCount > 0 && (booking?.name || testConfig?.name)) {
+      if (settings.waVarCount > 0) {
         payload.template.components = [{
           type: "body",
-          parameters: [{ type: "text", text: booking?.name || "Guest" }]
+          parameters: [{ type: "text", text: booking?.name || testConfig?.name || "Guest" }]
         }];
       }
 
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 
+          'Authorization': `Bearer ${token}`, 
+          'Content-Type': 'application/json' 
+        },
         body: JSON.stringify(payload)
       });
       
       const waData = await waRes.json();
+      
       if (!waRes.ok) {
-        return res.status(waRes.status).json({ success: false, details: waData.error?.message, code: waData.error?.code });
+        // Return full Meta error for debugging
+        return res.status(waRes.status).json({ 
+          success: false, 
+          details: waData.error?.message || "Meta API Error",
+          code: waData.error?.code,
+          fullError: waData
+        });
       }
 
-      // Step B: Send QR Code (Only for real bookings)
-      if (booking && qrImageUrl) {
-        await new Promise(r => setTimeout(r, 1000)); // Delay
+      // If it's a real booking, send the QR Code image as well
+      if (booking && !type.includes('test')) {
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking.id}`;
         await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -88,18 +95,17 @@ export default async function handler(req: any, res: any) {
             messaging_product: "whatsapp",
             to: cleanMobile,
             type: "image",
-            image: { link: qrImageUrl, caption: `Your official entry QR for booking ${booking.id}` }
+            image: { link: qrUrl, caption: `Booking ID: ${booking.id}\nScan this at the entrance.` }
           })
         });
       }
 
-      return res.status(200).json({ success: true });
+      return res.status(200).json({ success: true, metaResponse: waData });
     } catch (e: any) {
       return res.status(500).json({ success: false, details: e.message });
     }
   }
 
-  // --- STANDARD SETTINGS LOGIC ---
   if (type === 'settings') {
     if (req.method === "GET") {
       const data = await getLatestSettings();
@@ -116,7 +122,7 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // --- BOOKING RECORDS LOGIC ---
+  // --- GET ALL BOOKINGS ---
   if (req.method === "GET" && !type) {
     const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Sheet1!A2:J1000" });
     const rows = response.data.values || [];
@@ -125,6 +131,7 @@ export default async function handler(req: any, res: any) {
     })).reverse());
   }
 
+  // --- SAVE NEW BOOKING ---
   if (req.method === "POST" && !type) {
     const { name, mobile, adults, kids, amount, date, time } = req.body;
     const values = [[new Date().toLocaleString("en-IN"), name, mobile, adults, kids, (adults + kids), amount, date, time, "PAID"]];
