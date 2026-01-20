@@ -1,5 +1,4 @@
 import { Booking, AdminSettings } from "../types";
-import { DEFAULT_ADMIN_SETTINGS } from "../constants";
 
 export interface WhatsAppResponse {
   success: boolean;
@@ -11,19 +10,25 @@ export interface WhatsAppResponse {
 }
 
 export const notificationService = {
-  sendWhatsAppTicket: async (booking: Booking): Promise<WhatsAppResponse> => {
-    // Attempt to get saved settings for template config
+  sendWhatsAppTicket: async (booking: Booking, settings?: AdminSettings): Promise<WhatsAppResponse> => {
+    // Default values if settings not provided
     let templateName = 'booked_ticket';
-    let langCode = 'en_US';
+    let langCode = 'en';
+    let hasVariables = false;
     
-    try {
-      const saved = localStorage.getItem('swp_settings');
-      if (saved) {
-        const settings = JSON.parse(saved);
-        templateName = settings.waTemplateName || templateName;
-        langCode = settings.waLangCode || langCode;
-      }
-    } catch (e) {}
+    // Use provided settings or fallback to localStorage
+    const currentSettings = settings || (() => {
+      try {
+        const saved = localStorage.getItem('swp_settings');
+        return saved ? JSON.parse(saved) : null;
+      } catch (e) { return null; }
+    })();
+
+    if (currentSettings) {
+      templateName = currentSettings.waTemplateName || templateName;
+      langCode = currentSettings.waLangCode || langCode;
+      hasVariables = (currentSettings.waVarCount || 0) > 0;
+    }
 
     try {
       const response = await fetch('/api/booking?type=whatsapp', {
@@ -33,7 +38,8 @@ export const notificationService = {
           mobile: booking.mobile,
           booking: booking,
           templateName,
-          langCode
+          langCode,
+          hasVariables
         })
       });
 
