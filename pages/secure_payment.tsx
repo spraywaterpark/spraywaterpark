@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Booking } from '../types';
+import { Booking, AdminSettings } from '../types';
 import { cloudSync } from '../services/cloud_sync';
 import { notificationService } from '../services/notification_service';
 
@@ -31,8 +30,11 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
     setWaError(null);
 
     try {
+      // 1. Fetch LATEST settings from cloud (not localStorage)
       const latestSettings = await cloudSync.fetchSettings();
+      
       if (latestSettings) {
+        // Capacity Check
         const currentShift = draft.time.toLowerCase().includes('morning') ? 'morning' : 'evening';
         const isBlocked = (latestSettings.blockedSlots || []).some(bs => 
           bs.date === draft.date && (bs.shift === currentShift || bs.shift === 'all')
@@ -57,11 +59,13 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
         createdAt: new Date().toISOString()
       };
 
+      // 2. Save to Google Sheets
       const success = await cloudSync.saveBooking(final);
       if (!success) throw new Error("SERVER_REJECTED");
 
+      // 3. Send WhatsApp using the SAME LATEST SETTINGS
       setWaStatus('sending');
-      const waRes = await notificationService.sendWhatsAppTicket(final);
+      const waRes = await notificationService.sendWhatsAppTicket(final, latestSettings || undefined);
       
       addBooking(final);
       sessionStorage.removeItem('swp_draft_booking');
@@ -131,23 +135,16 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
                   <i className="fas fa-exclamation-triangle text-red-400 text-xl"></i>
                   <div>
                     <p className="text-[11px] font-black uppercase tracking-widest text-red-200">
-                      {waError?.error === 'BILLING_REQUIRED' ? '⚠️ BILLING ISSUE DETECTED' : 'Meta API Diagnostic Error'}
+                      {waError?.meta_code === 132001 ? 'Meta API Language Mismatch (132001)' : 'Meta API Diagnostic Error'}
                     </p>
-                    <p className="text-[10px] text-white/70 font-bold leading-tight">{waError?.details}</p>
+                    <p className="text-[10px] text-white/70 font-bold leading-tight">
+                      {waError?.meta_code === 132001 
+                        ? "Bhai, template 'en' language mein nahi mil raha. Admin Portal mein jaakar en_GB ya en_US try karein aur Save karein."
+                        : waError?.details}
+                    </p>
                   </div>
                </div>
                
-               {waError?.error === 'BILLING_REQUIRED' && (
-                 <div className="bg-yellow-500/10 border border-yellow-500/30 p-5 rounded-xl space-y-3">
-                    <p className="text-[10px] text-yellow-200 font-black uppercase tracking-widest">Action Required:</p>
-                    <p className="text-[9px] text-white/80 leading-relaxed font-medium">
-                      Meta has rejected this message because your business account is missing a valid Payment Method. 
-                      Since the app is LIVE, Meta requires a card to be linked to your WhatsApp API.
-                    </p>
-                    <p className="text-[9px] text-yellow-500 font-bold">Go to: WhatsApp Manager {" -> "} Settings {" -> "} Payment Settings</p>
-                 </div>
-               )}
-
                <div className="bg-black/20 p-4 rounded-xl space-y-2 border border-white/5">
                   <div className="flex justify-between text-[9px] font-black uppercase">
                      <span className="text-white/40">FB Trace ID:</span>
@@ -155,7 +152,7 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
                   </div>
                   <div className="flex justify-between text-[9px] font-black uppercase">
                      <span className="text-white/40">Meta Code:</span>
-                     <span className="text-red-400">{waError?.meta_code || '---'}</span>
+                     <span className="text-red-400">{waError?.meta_code || waError?.code || '---'}</span>
                   </div>
                </div>
 
