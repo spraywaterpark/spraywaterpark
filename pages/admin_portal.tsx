@@ -1,7 +1,8 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Booking, AdminSettings } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Booking, AdminSettings, BlockedSlot, ShiftType } from '../types';
 import { cloudSync } from '../services/cloud_sync';
+import { TIME_SLOTS, MASTER_SYNC_ID } from '../constants';
 
 interface AdminPanelProps {
   bookings: Booking[];
@@ -12,216 +13,284 @@ interface AdminPanelProps {
   onLogout: () => void;
 }
 
-const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings, onLogout }) => {
+const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings, syncId, onLogout }) => {
   const [activeTab, setActiveTab] = useState<'bookings' | 'settings'>('bookings');
-  
-  // Keep local draft separate. Initialize only once or when tab changes back from 'bookings'
+  const [viewMode, setViewMode] = useState<'sales_today' | 'visit_today' | 'all'>('sales_today');
   const [draft, setDraft] = useState<AdminSettings>(settings);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [testMobile, setTestMobile] = useState('');
-  const [diagStatus, setDiagStatus] = useState<'idle' | 'loading' | 'success' | 'fail'>('idle');
-  const [diagError, setDiagError] = useState('');
+  const [lastUpdated, setLastUpdated] = useState<string>(new Date().toLocaleTimeString());
 
-  // IMPORTANT: Only update draft from props IF the user is NOT on the settings tab
-  // This prevents background syncs from wiping out the data you are currently typing.
+  const [blkDate, setBlkDate] = useState('');
+  const [blkSlot, setBlkSlot] = useState(TIME_SLOTS[0]);
+
   useEffect(() => {
-    if (activeTab !== 'settings') {
-      setDraft(settings);
+    setDraft(settings);
+  }, [settings]);
+
+  useEffect(() => setLastUpdated(new Date().toLocaleTimeString()), [bookings]);
+
+  const today = new Date();
+  const todayISO = today.toISOString().split('T')[0];
+  const todayLocale = today.toLocaleDateString("en-IN");
+
+  const filteredBookings = useMemo(() => {
+    let list = [...bookings];
+    if (viewMode === 'sales_today') {
+      return list.filter(b => b.createdAt.includes(todayLocale) || b.createdAt.startsWith(todayISO));
     }
-  }, [settings, activeTab]);
-
-  const saveSettings = async () => {
-    setIsSaving(true);
-    const success = await cloudSync.saveSettings(draft);
-    if (success) {
-      onUpdateSettings(draft);
-      alert("All API Credentials Saved to Cloud Successfully!");
-    } else {
-      alert("Failed to save settings to Google Sheets.");
+    if (viewMode === 'visit_today') {
+      return list.filter(b => b.date === todayISO);
     }
-    setIsSaving(false);
-  };
+    return list;
+  }, [bookings, viewMode, todayLocale, todayISO]);
 
-  const handleTest = async () => {
-    if (!testMobile) return alert("Please enter a mobile number for the test.");
-    setDiagStatus('loading');
-    setDiagError('');
+  const stats = useMemo(() => ({
+    revenue: filteredBookings.reduce((s, b) => s + b.totalAmount, 0),
+    adults: filteredBookings.reduce((s, b) => s + b.adults, 0),
+    kids: filteredBookings.reduce((s, b) => s + b.kids, 0),
+    tickets: filteredBookings.length
+  }), [filteredBookings]);
 
+  const manualRefresh = async () => {
+    setIsSyncing(true);
     try {
-      const res = await fetch('/api/booking?type=test_config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          mobile: testMobile,
-          testConfig: draft // Test the data currently in the UI
-        })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setDiagStatus('success');
-      } else {
-        setDiagStatus('fail');
-        setDiagError(data.details || "Meta rejected the message. Check Phone ID or Token.");
-        console.error("Meta Full Error:", data.fullError);
-      }
-    } catch (e: any) {
-      setDiagStatus('fail');
-      setDiagError(e.message);
+      const remoteSettings = await cloudSync.fetchSettings();
+      if (remoteSettings) onUpdateSettings(remoteSettings);
+      await cloudSync.fetchData(syncId || MASTER_SYNC_ID);
+      setLastUpdated(new Date().toLocaleTimeString());
+    } catch (e) {
+      console.error("Manual refresh failed", e);
+    } finally {
+      setIsSyncing(false);
     }
   };
 
-  const stats = useMemo(() => {
-    const list = bookings.filter(b => b.createdAt.includes(new Date().toLocaleDateString("en-IN")));
-    return {
-      revenue: list.reduce((s, b) => s + b.totalAmount, 0),
-      tickets: list.length
-    };
-  }, [bookings]);
+  const addBlackout = () => {
+    if (!blkDate) return alert("Select a date");
+    const currentShift = blkSlot.toLowerCase().includes('morning') ? 'morning' : 'evening';
+    const newSlot: BlockedSlot = { date: blkDate, shift: currentShift as ShiftType };
+    const currentBlocked = draft.blockedSlots || [];
+
+    if (currentBlocked.some(s => s.date === blkDate && (s.shift === currentShift || s.shift === 'all'))) {
+        return alert("This slot or full day is already blocked.");
+    }
+    setDraft({ ...draft, blockedSlots: [...currentBlocked, newSlot] });
+  };
+
+  const addFullDayBlackout = () => {
+    if (!blkDate) return alert("Select a date");
+    const currentBlocked = draft.blockedSlots || [];
+    const updatedSlots = currentBlocked.filter(s => s.date !== blkDate);
+    setDraft({ ...draft, blockedSlots: [...updatedSlots, { date: blkDate, shift: 'all' }] });
+  };
+
+  const removeBlackout = (index: number) => {
+    const updated = (draft.blockedSlots || []).filter((_, i) => i !== index);
+    setDraft({ ...draft, blockedSlots: updated });
+  };
+
+  // CRITICAL FIX: Actually push to Google Sheets
+  const handleSaveSettings = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      const success = await cloudSync.saveSettings(draft);
+      if (success) {
+        onUpdateSettings(draft); // Update parent state
+        alert("Success: Resort settings synced to cloud!");
+        setActiveTab('bookings');
+      } else {
+        alert("Error: Cloud Sync failed. Check your connection and try again.");
+      }
+    } catch (err) {
+      alert("An unexpected error occurred while saving settings.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-10 animate-fade">
-      {/* Dashboard Stat Header */}
-      <div className="bg-[#1B2559] text-white p-10 rounded-[2.5rem] shadow-2xl flex flex-col md:flex-row justify-between items-center gap-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-10">
+      {/* HEADER */}
+      <div className="bg-[#1B2559] text-white p-6 sm:p-10 rounded-3xl shadow-xl flex flex-col lg:flex-row justify-between items-center gap-6">
         <div>
-          <h2 className="text-4xl font-black">₹{stats.revenue.toLocaleString()}</h2>
-          <p className="text-blue-200 text-[10px] font-bold uppercase tracking-[0.4em] mt-1">Live Revenue Tracker</p>
+          <p className="text-[10px] uppercase tracking-[0.4em] opacity-70 flex items-center gap-2">
+            Live Sales Dashboard
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          </p>
+          <h2 className="text-3xl sm:text-5xl font-black mt-2">₹{stats.revenue.toLocaleString()}</h2>
+          <p className="text-blue-200 text-sm font-bold mt-1">{viewMode === 'sales_today' ? "Today's Revenue" : viewMode === 'visit_today' ? "Revenue for Visitors Today" : "Total Revenue"}</p>
         </div>
-        <div className="flex bg-white/10 p-1.5 rounded-2xl border border-white/10 backdrop-blur-md">
-            <button onClick={() => setActiveTab('bookings')} className={`px-10 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='bookings' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/60'}`}>Sales</button>
-            <button onClick={() => setActiveTab('settings')} className={`px-10 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='settings' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/60'}`}>Migration</button>
+
+        <div className="flex flex-col sm:flex-row gap-4 items-center">
+          <div className="flex gap-2">
+            <button onClick={() => setViewMode('sales_today')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/20 transition-all ${viewMode==='sales_today' ? 'bg-white text-slate-900' : 'hover:bg-white/10'}`}>Today Sales</button>
+            <button onClick={() => setViewMode('visit_today')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/20 transition-all ${viewMode==='visit_today' ? 'bg-white text-slate-900' : 'hover:bg-white/10'}`}>Today Visits</button>
+            <button onClick={() => setViewMode('all')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/20 transition-all ${viewMode==='all' ? 'bg-white text-slate-900' : 'hover:bg-white/10'}`}>All Data</button>
+          </div>
         </div>
       </div>
 
-      {activeTab === 'settings' ? (
-        <div className="grid lg:grid-cols-2 gap-10">
-          <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-8 animate-slide-up">
-              <div className="flex justify-between items-center border-b pb-6">
-                 <div>
-                    <h3 className="text-xl font-black uppercase text-slate-900">API Credentials</h3>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Meta WhatsApp Cloud API</p>
-                 </div>
-                 <button onClick={saveSettings} disabled={isSaving} className="bg-blue-600 text-white px-8 py-3 rounded-xl text-[10px] font-black uppercase shadow-lg disabled:opacity-50">
-                    {isSaving ? 'Saving...' : 'Save To Cloud'}
-                 </button>
-              </div>
+      {/* STATS */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Stat label="Total Tickets" value={stats.tickets} />
+        <Stat label="Adults" value={stats.adults} />
+        <Stat label="Kids" value={stats.kids} />
+        <Stat label="Last Sync" value={lastUpdated} />
+      </div>
 
-              <div className="space-y-6">
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Template Name</label>
-                        <input autoComplete="off" value={draft.waTemplateName} onChange={e => setDraft({...draft, waTemplateName: e.target.value})} className="input-premium text-xs" placeholder="booked_ticket" />
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Language Code</label>
-                        <input autoComplete="off" value={draft.waLangCode} onChange={e => setDraft({...draft, waLangCode: e.target.value})} className="input-premium text-xs" placeholder="en_GB" />
-                    </div>
-                 </div>
-
-                 <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Permanent Access Token</label>
-                    <textarea autoComplete="off" value={draft.waToken || ''} onChange={e => setDraft({...draft, waToken: e.target.value})} className="input-premium h-28 text-[10px] font-mono leading-relaxed" placeholder="EAAG..." />
-                 </div>
-
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Phone Number ID</label>
-                        <input autoComplete="off" value={draft.waPhoneId || ''} onChange={e => setDraft({...draft, waPhoneId: e.target.value})} className="input-premium text-xs" placeholder="138245..." />
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Variables</label>
-                        <select value={draft.waVarCount} onChange={e => setDraft({...draft, waVarCount: parseInt(e.target.value)})} className="input-premium text-xs">
-                           <option value={0}>No Variables</option>
-                           {/* Fixed line 133: Escaped curly braces to avoid being interpreted as a JS object literal */}
-                           <option value={1}>1 Variable ({"{{1}}"} for Name)</option>
-                        </select>
-                    </div>
-                 </div>
-
-                 <div className="pt-8 border-t border-slate-100 space-y-4">
-                    <p className="text-[10px] font-black text-slate-400 uppercase text-center tracking-[0.3em]">Direct API Test</p>
-                    <div className="flex gap-2">
-                        <input autoComplete="off" value={testMobile} onChange={e => setTestMobile(e.target.value)} placeholder="Test Mobile (91...)" className="flex-1 input-premium text-xs" />
-                        <button onClick={handleTest} disabled={diagStatus === 'loading'} className="bg-slate-900 text-white px-8 rounded-xl font-black text-[10px] uppercase shadow-md">
-                          {diagStatus === 'loading' ? 'Testing...' : 'Send Test'}
-                        </button>
-                    </div>
-                    
-                    {diagStatus === 'fail' && (
-                      <div className="p-4 bg-red-50 border border-red-100 rounded-2xl">
-                        <p className="text-[10px] font-black text-red-600 uppercase mb-1">Meta Error Details:</p>
-                        <p className="text-[10px] font-bold text-red-800 leading-relaxed">{diagError}</p>
-                      </div>
-                    )}
-                    
-                    {diagStatus === 'success' && (
-                      <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-center">
-                        <p className="text-[10px] font-black text-emerald-700 uppercase">Message Delivered to API!</p>
-                        <p className="text-[9px] text-emerald-600 mt-1">If you didn't receive it, check if the recipient number is added to Meta Sandbox list.</p>
-                      </div>
-                    )}
-                 </div>
-              </div>
-          </div>
-
-          <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white space-y-10 shadow-2xl">
-              <div className="space-y-4">
-                <h3 className="text-xl font-black uppercase text-blue-400">Owner's Checklist</h3>
-                <ul className="space-y-4">
-                  <li className="flex gap-4">
-                    <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-[10px] font-bold text-blue-400 border border-blue-400/30">1</div>
-                    <p className="text-xs text-slate-300">Apne Meta Dashboard se **Permanent Token** hi use karein.</p>
-                  </li>
-                  <li className="flex gap-4">
-                    <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-[10px] font-bold text-blue-400 border border-blue-400/30">2</div>
-                    <p className="text-xs text-slate-300">**Phone Number ID** sahi hona chahiye (Yeh App ID nahi hai).</p>
-                  </li>
-                  <li className="flex gap-4">
-                    <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-[10px] font-bold text-blue-400 border border-blue-400/30">3</div>
-                    <p className="text-xs text-slate-300">Template ka status Meta dashboard mein **Approved** hona chahiye.</p>
-                  </li>
-                </ul>
-              </div>
-              
-              <div className="p-8 bg-white/5 rounded-[2rem] border border-white/10">
-                <p className="text-[10px] font-black uppercase text-blue-300 mb-4 tracking-widest">Need help?</p>
-                <p className="text-xs text-slate-400 leading-relaxed italic">
-                  "Bhai, agar Meta response 'Success' kehta hai aur message nahi aata, toh check karein ki kya aapne woh number Meta Dashboard mein 'Test Recipients' mein add kiya hai (agar account sandbox mode mein hai)."
-                </p>
-              </div>
-          </div>
+      {/* BOOKINGS TABLE */}
+      <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="min-w-[900px] w-full text-center">
+            <thead className="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+              <tr>
+                <th className="p-5 text-left">Timestamp</th>
+                <th>Guest Name</th>
+                <th>Mobile</th>
+                <th>Visit Date</th>
+                <th>Passes</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredBookings.length === 0 ? (
+                <tr><td colSpan={6} className="p-20 text-slate-300 font-bold uppercase text-xs tracking-widest">No matching records found</td></tr>
+              ) : filteredBookings.map((b, i) => (
+                <tr key={i} className="border-t hover:bg-slate-50 transition-colors text-sm">
+                  <td className="p-5 text-left font-medium text-slate-400 text-[10px]">{b.createdAt}</td>
+                  <td className="font-semibold">{b.name}</td>
+                  <td className="font-medium text-slate-500">{b.mobile}</td>
+                  <td className="font-bold text-blue-600">{b.date}</td>
+                  <td>{b.adults + b.kids}</td>
+                  <td className="font-black text-slate-900">₹{b.totalAmount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      ) : (
-        <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border border-slate-100 animate-slide-up">
-          <div className="p-8 border-b flex justify-between items-center">
-              <h3 className="text-xl font-black uppercase text-slate-900">Recent Sales Stream</h3>
-              <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Total Bookings: {bookings.length}</span>
+      </div>
+
+      {/* ACTIONS */}
+      <div className="flex flex-wrap justify-center gap-4">
+        <button onClick={manualRefresh} disabled={isSyncing} className="btn-resort !px-8 h-14 !bg-slate-800 disabled:opacity-50">
+           <i className={`fas fa-sync-alt mr-2 text-xs ${isSyncing ? 'fa-spin' : ''}`}></i> {isSyncing ? 'Refreshing...' : 'Refresh Cloud Data'}
+        </button>
+        <button onClick={() => setActiveTab('settings')} className="btn-resort !px-8 h-14">
+           <i className="fas fa-cog mr-2 text-xs"></i> Rates & Blackout Dates
+        </button>
+
+        <button
+          onClick={() => window.location.hash = '#/admin-lockers'}
+          className="btn-resort !px-8 h-14 !bg-emerald-600 hover:!bg-emerald-700"
+        >
+          <i className="fas fa-box mr-2 text-xs"></i>
+          CO&LO LOGIN
+        </button>
+      </div>
+
+      {/* SETTINGS MODAL */}
+      {activeTab === 'settings' && (
+        <Modal title="Configure Resort" onClose={() => setActiveTab('bookings')}>
+          <div className="space-y-8 max-h-[60vh] overflow-y-auto px-2 custom-scrollbar">
+            {/* PRICING */}
+            <div className="space-y-4">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Ticket Rates (₹)</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Morning Adult</label>
+                  <input type="number" className="input-premium py-3" value={draft.morningAdultRate} onChange={e => setDraft({...draft, morningAdultRate: Number(e.target.value)})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Evening Adult</label>
+                  <input type="number" className="input-premium py-3" value={draft.eveningAdultRate} onChange={e => setDraft({...draft, eveningAdultRate: Number(e.target.value)})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Morning Kid</label>
+                  <input type="number" className="input-premium py-3" value={draft.morningKidRate} onChange={e => setDraft({...draft, morningKidRate: Number(e.target.value)})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Evening Kid</label>
+                  <input type="number" className="input-premium py-3" value={draft.eveningKidRate} onChange={e => setDraft({...draft, eveningKidRate: Number(e.target.value)})} />
+                </div>
+              </div>
+            </div>
+
+            {/* BLACKOUTS */}
+            <div className="space-y-6 pt-6 border-t border-slate-100">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Blackout Management</h4>
+              <div className="bg-slate-50 p-6 rounded-2xl space-y-5 border border-slate-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase text-slate-500 ml-1">Date</label>
+                    <input type="date" className="input-premium py-3" value={blkDate} onChange={e => setBlkDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase text-slate-500 ml-1">Shift</label>
+                    <select className="input-premium py-3 bg-white" value={blkSlot} onChange={e => setBlkSlot(e.target.value)}>
+                      {TIME_SLOTS.map(t => <option key={t} value={t}>{t.split(':')[0]}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={addBlackout} className="flex-1 bg-slate-900 text-white text-[10px] font-black uppercase py-4 rounded-xl shadow-lg">Block Slot</button>
+                  <button onClick={addFullDayBlackout} className="flex-1 border-2 border-slate-900 text-slate-900 text-[10px] font-black uppercase py-4 rounded-xl">Block Full Day</button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Current Active Blackouts</p>
+                {(!draft.blockedSlots || draft.blockedSlots.length === 0) ? (
+                  <p className="text-xs text-slate-400 text-center py-4">All dates are open for booking</p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2">
+                    {draft.blockedSlots.map((bs, i) => (
+                      <div key={i} className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200">
+                        <div>
+                          <p className="text-sm font-black text-slate-900 uppercase">{bs.date}</p>
+                          <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest">{bs.shift}</p>
+                        </div>
+                        <button onClick={() => removeBlackout(i)} className="w-10 h-10 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"><i className="fas fa-trash-alt text-xs"></i></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-center">
-              <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 border-b">
-                <tr><th className="p-6">Booking ID</th><th>Guest Name</th><th>Amount</th><th>Status</th></tr>
-              </thead>
-              <tbody className="text-xs font-bold divide-y divide-slate-50">
-                {bookings.map(b => (
-                  <tr key={b.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="p-6 text-blue-600">{b.id}</td>
-                    <td>{b.name} <span className="text-slate-400 ml-1">({b.mobile})</span></td>
-                    <td className="text-slate-900 font-black">₹{b.totalAmount}</td>
-                    <td><span className="bg-emerald-100 text-emerald-700 px-4 py-1.5 rounded-full text-[9px] uppercase">Confirmed</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          
+          <div className="pt-8 border-t border-slate-100 mt-6 space-y-4">
+            <p className="text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest">Settings will be saved to 'Settings' tab in Google Sheets.</p>
+            <button 
+              onClick={handleSaveSettings} 
+              disabled={isSaving}
+              className="btn-resort w-full h-16 shadow-2xl disabled:opacity-50"
+            >
+              {isSaving ? <><i className="fas fa-circle-notch fa-spin mr-2"></i> Syncing to Cloud...</> : 'Save & Sync Global Settings'}
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
-
-      <div className="flex justify-center gap-4 py-6">
-          <button onClick={() => window.location.hash = '#/admin-lockers'} className="bg-emerald-600 text-white px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl border border-emerald-500">Inventory Dashboard</button>
-          <button onClick={onLogout} className="bg-red-50 text-red-600 px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-red-100">Sign Out</button>
-      </div>
     </div>
   );
 };
+
+const Stat = ({label, value}:{label:string, value:any}) => (
+  <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 text-center">
+    <p className="text-[10px] uppercase text-slate-400 font-black tracking-[0.2em] mb-1">{label}</p>
+    <p className="text-2xl font-black text-[#1B2559]">{value}</p>
+  </div>
+);
+
+const Modal = ({title, children, onClose}:{title:string, children:any, onClose: () => void}) => (
+  <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-6 z-[1000] no-print">
+    <div className="bg-white rounded-[2.5rem] p-10 md:p-14 w-full max-w-xl shadow-2xl animate-slide-up relative border border-white/20">
+      <button onClick={onClose} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900"><i className="fas fa-times text-2xl"></i></button>
+      <div className="mb-10"><h3 className="text-3xl font-black uppercase text-slate-900 mb-2">{title}</h3></div>
+      {children}
+    </div>
+  </div>
+);
 
 export default AdminPortal;
