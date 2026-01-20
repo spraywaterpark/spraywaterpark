@@ -1,4 +1,3 @@
-
 export type UserRole = 'guest' | 'admin' | 'staff' | null;
 
 export interface Booking {
@@ -37,6 +36,9 @@ export interface AdminSettings {
   // WhatsApp Template Config
   waTemplateName: string;
   waLangCode: string;
+  waVarCount?: number;
+  waToken?: string;
+  waPhoneId?: string;
 }
 
 export interface AuthState {
