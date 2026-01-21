@@ -52,10 +52,10 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         setDiag({status: 'success', msg: data.info || 'Handshake Successful!'});
       } else {
         let errorHint = "";
-        if (data.details?.includes("ACCOUNT MISMATCH")) {
-          errorHint = "IMPORTANT: Meta Test Account aur Live Account alag hote hain. Aapko Live Account mein naya template create karna hoga.";
-        } else if (data.details?.includes("translation")) {
-          errorHint = "HINT: Language Code (hi/en) check karein. Meta Dashboard mein template kis bhasha mein hai?";
+        if (data.details?.includes("VARIABLE MISMATCH")) {
+          errorHint = "HINT: Aapke template mein variables ({{1}}) nahi hain. 'Variable Count' ko 0 karke Save karein.";
+        } else if (data.details?.includes("TEMPLATE NOT FOUND")) {
+          errorHint = "HINT: Template ka naam ya Language code galat hai. Meta Dashboard se copy-paste karein.";
         }
         setDiag({status: 'fail', msg: data.details || 'Meta Rejected Request', hint: errorHint, raw: data.raw});
       }
@@ -100,18 +100,11 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
               </div>
 
               <div className="space-y-6">
-                 <div className="bg-amber-50 p-6 rounded-2xl border border-amber-200">
-                    <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest mb-1">Live Account Note:</p>
-                    <p className="text-[10px] font-bold text-slate-600">
-                       Agar aap Permanent Phone ID use kar rahe hain, toh confirm karein ki aapne template ko <b>Live WABA Account</b> mein create aur approve karwa liya hai.
-                    </p>
-                 </div>
-
                  <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100 space-y-6">
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-blue-700 uppercase tracking-widest ml-1">Template Name (EXACT)</label>
-                            <input value={draft.waTemplateName} onChange={e => setDraft({...draft, waTemplateName: e.target.value})} className="input-premium text-xs font-black border-blue-200" placeholder="e.g. ticket_confirmed" />
+                            <label className="text-[10px] font-black text-blue-700 uppercase tracking-widest ml-1">Template Name</label>
+                            <input value={draft.waTemplateName} onChange={e => setDraft({...draft, waTemplateName: e.target.value})} className="input-premium text-xs font-black border-blue-200" placeholder="ticket_confirmed" />
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-blue-700 uppercase tracking-widest ml-1">Language Code</label>
@@ -121,20 +114,19 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Variable Type</label>
-                            <select value={draft.waVarType || 'text'} onChange={e => setDraft({...draft, waVarType: e.target.value as any})} className="input-premium text-xs font-bold bg-white">
-                               <option value="text">Text (Name)</option>
-                               <option value="number">Number (Numeric)</option>
-                            </select>
+                            {/* ESCAPING DOUBLE BRACES IN JSX: Using {"{{1}}"} to prevent parser from interpreting it as an object literal */}
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Variable Count ({"{{1}}"})</label>
+                            <input type="number" min={0} max={1} value={draft.waVarCount || 0} onChange={e => setDraft({...draft, waVarCount: parseInt(e.target.value) || 0})} className="input-premium text-xs font-bold" />
+                            <p className="text-[8px] text-slate-400 font-bold px-1">Plain text template = 0</p>
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone ID</label>
-                            <input value={draft.waPhoneId || ''} onChange={e => setDraft({...draft, waPhoneId: e.target.value})} className="input-premium text-xs font-bold" placeholder="Test or Live ID" />
+                            <input value={draft.waPhoneId || ''} onChange={e => setDraft({...draft, waPhoneId: e.target.value})} className="input-premium text-xs font-bold" placeholder="Permanent Phone ID" />
                         </div>
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Access Token</label>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Permanent Access Token</label>
                         <textarea value={draft.waToken || ''} onChange={e => setDraft({...draft, waToken: e.target.value})} className="input-premium h-24 text-[10px] font-mono leading-relaxed bg-white" placeholder="EAAB..." />
                     </div>
                  </div>
@@ -142,16 +134,16 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                  <div className="space-y-4 pt-4 border-t border-slate-100">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Test Delivery</p>
                     <div className="flex gap-2">
-                        <input value={testMobile} onChange={e => setTestMobile(e.target.value.replace(/\D/g,''))} placeholder="Enter your mobile" className="flex-1 input-premium text-xs font-black" />
+                        <input value={testMobile} onChange={e => setTestMobile(e.target.value.replace(/\D/g,''))} placeholder="Enter mobile" className="flex-1 input-premium text-xs font-black" />
                         <button onClick={handleTest} disabled={diag.status === 'loading'} className="bg-slate-900 text-white px-8 rounded-xl font-black text-[10px] uppercase transition-all shadow-md">
-                          {diag.status === 'loading' ? 'Testing...' : 'Verify API'}
+                          Verify API
                         </button>
                     </div>
                     
                     {diag.status !== 'idle' && (
                       <div className={`p-6 rounded-3xl border-2 ${diag.status === 'success' ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
                         <p className={`text-[11px] font-black uppercase ${diag.status === 'success' ? 'text-emerald-700' : 'text-red-700'}`}>
-                           {diag.status === 'success' ? 'Meta Accepted' : 'Meta Rejected'}
+                           {diag.status === 'success' ? 'Meta Success' : 'Meta Error #'+diag.raw?.error?.code}
                         </p>
                         <p className="text-[11px] font-black text-slate-800 mt-2">{diag.msg}</p>
                         {diag.hint && (
@@ -172,19 +164,15 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
           <div className="space-y-6">
               <div className="bg-slate-900 p-10 rounded-[3.5rem] text-white space-y-8 shadow-2xl border border-white/5">
-                <h3 className="text-2xl font-black uppercase tracking-tight text-blue-400">Step-by-Step Fix</h3>
+                <h3 className="text-2xl font-black uppercase tracking-tight text-blue-400">Quick Fix Guide</h3>
                 <div className="space-y-6">
                    <div className="space-y-1 p-5 bg-white/5 rounded-2xl border border-white/10">
-                      <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest">1. Open WhatsApp Manager</p>
-                      <p className="text-xs text-slate-300 font-medium">Meta Dashboard mein apne **Live Account** ko select karein (Test account ko nahi).</p>
+                      <p className="text-[10px] font-black text-amber-300 uppercase tracking-widest">Error #132000 (Param Mismatch)</p>
+                      <p className="text-xs text-slate-300 font-medium">Agar Meta Dashboard mein template mein <b>{"{{1}}"}</b> nahi dala hai, toh yahan <b>Variable Count</b> ko <b>0</b> karein.</p>
                    </div>
                    <div className="space-y-1 p-5 bg-white/5 rounded-2xl border border-white/10">
-                      <p className="text-[10px] font-black text-emerald-300 uppercase tracking-widest">2. Create Live Template</p>
-                      <p className="text-xs text-slate-300 font-medium">Live account mein `ticket_confirmed` naam ka template banayein aur usse approve hone dein.</p>
-                   </div>
-                   <div className="space-y-1 p-5 bg-white/5 rounded-2xl border border-white/10">
-                      <p className="text-[10px] font-black text-amber-300 uppercase tracking-widest">3. Match Language</p>
-                      <p className="text-xs text-slate-300 font-medium">Agar Meta mein Language 'English (US)' hai toh yahan code **en_US** ya sirf **en** daalein.</p>
+                      <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest">WABA Account Check</p>
+                      <p className="text-xs text-slate-300 font-medium">Ensure karein ki <b>Phone ID</b> usi account ka hai jahan template approved hai.</p>
                    </div>
                 </div>
               </div>
