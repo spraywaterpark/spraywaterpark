@@ -32,10 +32,9 @@ export default async function handler(req: any, res: any) {
     
     const token = (settings?.waToken || "").trim();
     const phoneId = (settings?.waPhoneId || "").trim();
-    const templateName = (settings?.waTemplateName || "ticket_confirmed").trim();
+    const templateName = (settings?.waTemplateName || "ticket").trim();
     const langCode = (settings?.waLangCode || "en").trim();
     const varCount = settings?.waVarCount !== undefined ? Number(settings.waVarCount) : 1;
-    const varType = settings?.waVarType || 'text';
     const shouldAdd91 = settings?.waAdd91 !== false;
 
     if (!token || !phoneId) {
@@ -45,9 +44,11 @@ export default async function handler(req: any, res: any) {
       });
     }
 
+    // Clean and Format Mobile Number
     let cleanMobile = String(mobile || "").replace(/\D/g, '');
     if (shouldAdd91) {
       if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
+      else if (cleanMobile.length === 12 && cleanMobile.startsWith('91')) { /* Correct */ }
       else if (cleanMobile.length === 11 && cleanMobile.startsWith('0')) cleanMobile = "91" + cleanMobile.substring(1);
     }
 
@@ -62,10 +63,9 @@ export default async function handler(req: any, res: any) {
         }
       };
 
-      // FIX FOR ERROR #132000:
-      // Only add components if variable count is greater than 0
+      // Add parameters if required
       if (varCount > 0) {
-        const val = varType === 'number' ? "1" : (booking?.name || testConfig?.name || "Guest");
+        const val = (booking?.name || testConfig?.name || "Guest");
         templatePayload.template.components = [{
           type: "body",
           parameters: [{ type: "text", text: val }]
@@ -84,17 +84,9 @@ export default async function handler(req: any, res: any) {
       const waData = await waRes.json();
       
       if (!waRes.ok) {
-        let customError = waData.error?.message || "Meta API Error";
-        
-        if (waData.error?.code === 132001) {
-          customError = `TEMPLATE NOT FOUND: Name '${templateName}' with Language '${langCode}' not found in WABA ID for Phone ID ${phoneId}. Check if it's Live/Approved.`;
-        } else if (waData.error?.code === 132000) {
-          customError = `VARIABLE MISMATCH: Meta expects ${waData.error?.error_data?.details?.match(/\((\d+)\)/)?.[1] || 'different'} variables. Please adjust 'Variable Count' in Settings.`;
-        }
-
         return res.status(waRes.status).json({ 
           success: false, 
-          details: customError,
+          details: waData.error?.message || "Meta API Error",
           raw: waData 
         });
       }
@@ -102,7 +94,13 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ 
         success: true, 
         meta_id: waData.messages?.[0]?.id,
-        info: `Success: Message sent to ${cleanMobile}!`
+        info: `Meta accepted the message for ${cleanMobile}. If not received, check Sandbox Verification.`,
+        debug: {
+          sent_to: cleanMobile,
+          template: templateName,
+          lang: langCode,
+          params_sent: varCount
+        }
       });
     } catch (e: any) {
       return res.status(500).json({ success: false, details: e.message });
