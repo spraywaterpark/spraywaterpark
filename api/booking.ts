@@ -34,6 +34,7 @@ export default async function handler(req: any, res: any) {
     const phoneId = (settings?.waPhoneId || "").trim();
     const templateName = (settings?.waTemplateName || "ticket_confirmed").trim();
     const langCode = (settings?.waLangCode || "en").trim();
+    const varCount = settings?.waVarCount !== undefined ? Number(settings.waVarCount) : 1;
     const varType = settings?.waVarType || 'text';
     const shouldAdd91 = settings?.waAdd91 !== false;
 
@@ -61,12 +62,15 @@ export default async function handler(req: any, res: any) {
         }
       };
 
-      // We always send 1 variable (Guest Name or a Placeholder)
-      const val = varType === 'number' ? "1" : (booking?.name || testConfig?.name || "Guest");
-      templatePayload.template.components = [{
-        type: "body",
-        parameters: [{ type: "text", text: val }]
-      }];
+      // FIX FOR ERROR #132000:
+      // Only add components if variable count is greater than 0
+      if (varCount > 0) {
+        const val = varType === 'number' ? "1" : (booking?.name || testConfig?.name || "Guest");
+        templatePayload.template.components = [{
+          type: "body",
+          parameters: [{ type: "text", text: val }]
+        }];
+      }
 
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
@@ -80,10 +84,12 @@ export default async function handler(req: any, res: any) {
       const waData = await waRes.json();
       
       if (!waRes.ok) {
-        // Enhanced debugging for the user
         let customError = waData.error?.message || "Meta API Error";
+        
         if (waData.error?.code === 132001) {
-          customError = `ACCOUNT MISMATCH: Template '${templateName}' is not found in the ${langCode === 'en' ? 'English' : 'Hindi'} translation for this Phone ID (${phoneId}). Please check if you created this template in the LIVE account.`;
+          customError = `TEMPLATE NOT FOUND: Name '${templateName}' with Language '${langCode}' not found in WABA ID for Phone ID ${phoneId}. Check if it's Live/Approved.`;
+        } else if (waData.error?.code === 132000) {
+          customError = `VARIABLE MISMATCH: Meta expects ${waData.error?.error_data?.details?.match(/\((\d+)\)/)?.[1] || 'different'} variables. Please adjust 'Variable Count' in Settings.`;
         }
 
         return res.status(waRes.status).json({ 
