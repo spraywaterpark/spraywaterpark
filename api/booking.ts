@@ -34,8 +34,8 @@ export default async function handler(req: any, res: any) {
     const phoneId = (settings?.waPhoneId || "").trim();
     const templateName = (settings?.waTemplateName || "ticket_confirmed").trim();
     const langCode = (settings?.waLangCode || "en").trim();
-    const varCount = settings?.waVarCount !== undefined ? Number(settings.waVarCount) : 1;
-    const shouldAdd91 = settings?.waAdd91 !== false; // Default true
+    const varType = settings?.waVarType || 'text';
+    const shouldAdd91 = settings?.waAdd91 !== false;
 
     if (!token || !phoneId) {
       return res.status(400).json({ 
@@ -44,19 +44,10 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    // ROBUST MOBILE CLEANING
     let cleanMobile = String(mobile || "").replace(/\D/g, '');
-    
     if (shouldAdd91) {
-      if (cleanMobile.length === 10) {
-        cleanMobile = "91" + cleanMobile;
-      } else if (cleanMobile.length === 11 && cleanMobile.startsWith('0')) {
-        cleanMobile = "91" + cleanMobile.substring(1);
-      } else if (cleanMobile.length === 12 && cleanMobile.startsWith('91')) {
-        // Already has 91
-      } else if (cleanMobile.length === 13 && cleanMobile.startsWith('0091')) {
-        cleanMobile = cleanMobile.substring(2);
-      }
+      if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
+      else if (cleanMobile.length === 11 && cleanMobile.startsWith('0')) cleanMobile = "91" + cleanMobile.substring(1);
     }
 
     try {
@@ -70,12 +61,12 @@ export default async function handler(req: any, res: any) {
         }
       };
 
-      if (varCount > 0) {
-        templatePayload.template.components = [{
-          type: "body",
-          parameters: [{ type: "text", text: booking?.name || testConfig?.name || "Guest" }]
-        }];
-      }
+      // We always send 1 variable (Guest Name or a Placeholder)
+      const val = varType === 'number' ? "1" : (booking?.name || testConfig?.name || "Guest");
+      templatePayload.template.components = [{
+        type: "body",
+        parameters: [{ type: "text", text: val }]
+      }];
 
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
@@ -89,22 +80,15 @@ export default async function handler(req: any, res: any) {
       const waData = await waRes.json();
       
       if (!waRes.ok) {
-        let hint = "Technical Error from Meta.";
-        const errorCode = waData.error?.code;
-        const subCode = waData.error?.error_subcode;
-        
-        if (errorCode === 132001 || subCode === 2494010) {
-          hint = "Variable Count Mismatch. Meta expects a variable but none were sent or vice-versa. Try switching between 'No Variables' and '1 Variable' in Admin.";
-        } else if (errorCode === 100) {
-          hint = `Meta rejected the phone number '${cleanMobile}'. Ensure it's a valid WhatsApp number with country code.`;
-        } else if (errorCode === 190) {
-          hint = "Token Invalid. Your Permanent Access Token is either wrong or expired.";
+        // Enhanced debugging for the user
+        let customError = waData.error?.message || "Meta API Error";
+        if (waData.error?.code === 132001) {
+          customError = `ACCOUNT MISMATCH: Template '${templateName}' is not found in the ${langCode === 'en' ? 'English' : 'Hindi'} translation for this Phone ID (${phoneId}). Please check if you created this template in the LIVE account.`;
         }
 
         return res.status(waRes.status).json({ 
           success: false, 
-          details: waData.error?.message || "Meta API Error",
-          hint: hint,
+          details: customError,
           raw: waData 
         });
       }
@@ -112,7 +96,7 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ 
         success: true, 
         meta_id: waData.messages?.[0]?.id,
-        info: `Sent to ${cleanMobile}`
+        info: `Success: Message sent to ${cleanMobile}!`
       });
     } catch (e: any) {
       return res.status(500).json({ success: false, details: e.message });
