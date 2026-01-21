@@ -40,37 +40,41 @@ export default async function handler(req: any, res: any) {
     if (!token || !phoneId) {
       return res.status(400).json({ 
         success: false, 
-        details: "Credentials Missing (Phone ID or Token)." 
+        details: "Credentials Missing: Check Phone Number ID and Token." 
       });
     }
 
-    // Clean and Format Mobile Number
+    // formatting for Meta
     let cleanMobile = String(mobile || "").replace(/\D/g, '');
     if (shouldAdd91) {
       if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
-      else if (cleanMobile.length === 12 && cleanMobile.startsWith('91')) { /* Correct */ }
+      else if (cleanMobile.length === 12 && cleanMobile.startsWith('91')) { /* ok */ }
       else if (cleanMobile.length === 11 && cleanMobile.startsWith('0')) cleanMobile = "91" + cleanMobile.substring(1);
     }
 
     try {
+      // Base Template
       const templatePayload: any = {
         messaging_product: "whatsapp",
         to: cleanMobile,
         type: "template",
         template: { 
           name: templateName, 
-          language: { code: langCode }
+          language: { code: langCode },
+          components: []
         }
       };
 
-      // Add parameters if required
+      // Add Body Parameters if required ({{1}})
       if (varCount > 0) {
-        const val = (booking?.name || testConfig?.name || "Guest");
-        templatePayload.template.components = [{
+        templatePayload.template.components.push({
           type: "body",
-          parameters: [{ type: "text", text: val }]
-        }];
+          parameters: [{ type: "text", text: (booking?.name || testConfig?.name || "Guest") }]
+        });
       }
+
+      // Important: If Meta log shows 'Header mismatch', it means we need to explicitly send header params
+      // Even if the header is static, sometimes Meta requires an empty parameters array for it.
 
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
@@ -86,27 +90,26 @@ export default async function handler(req: any, res: any) {
       if (!waRes.ok) {
         return res.status(waRes.status).json({ 
           success: false, 
-          details: waData.error?.message || "Meta API Error",
-          raw: waData 
+          details: waData.error?.message || "Meta API Rejection",
+          raw: waData,
+          debug_sent: templatePayload
         });
       }
 
+      // If success but no message, delivery is failing at Meta's end
       return res.status(200).json({ 
         success: true, 
         meta_id: waData.messages?.[0]?.id,
-        info: `Meta accepted the message for ${cleanMobile}. If not received, check Sandbox Verification.`,
-        debug: {
-          sent_to: cleanMobile,
-          template: templateName,
-          lang: langCode,
-          params_sent: varCount
-        }
+        info: "Meta accepted the request. Check 'Delivery Insights' in Meta Dashboard if message still doesn't arrive.",
+        debug_sent: templatePayload,
+        meta_response: waData
       });
     } catch (e: any) {
       return res.status(500).json({ success: false, details: e.message });
     }
   }
 
+  // Settings Handlers
   if (type === 'settings') {
     if (req.method === "GET") {
       const data = await getLatestSettings();
@@ -123,6 +126,7 @@ export default async function handler(req: any, res: any) {
     }
   }
 
+  // Default Sheet Fetching (Bookings)
   if (req.method === "GET" && !type) {
     const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Sheet1!A2:J1000" });
     const rows = response.data.values || [];
@@ -131,6 +135,7 @@ export default async function handler(req: any, res: any) {
     })).reverse());
   }
 
+  // Booking Creation
   if (req.method === "POST" && !type) {
     const { name, mobile, adults, kids, amount, date, time } = req.body;
     const values = [[new Date().toLocaleString("en-IN"), name, mobile, adults, kids, (adults + kids), amount, date, time, "PAID"]];
