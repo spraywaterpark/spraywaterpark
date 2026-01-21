@@ -51,10 +51,11 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       if (res.ok) {
         setDiag({status: 'success', msg: data.info || 'Handshake Successful!'});
       } else {
-        // Here we extract the specific error for the user
         let errorHint = "";
-        if (data.details?.includes("translation")) {
-          errorHint = "HINT: Language Code ya Template Name galat hai. Meta Dashboard mein check karein (hi or en).";
+        if (data.details?.includes("ACCOUNT MISMATCH")) {
+          errorHint = "IMPORTANT: Meta Test Account aur Live Account alag hote hain. Aapko Live Account mein naya template create karna hoga.";
+        } else if (data.details?.includes("translation")) {
+          errorHint = "HINT: Language Code (hi/en) check karein. Meta Dashboard mein template kis bhasha mein hai?";
         }
         setDiag({status: 'fail', msg: data.details || 'Meta Rejected Request', hint: errorHint, raw: data.raw});
       }
@@ -99,6 +100,13 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
               </div>
 
               <div className="space-y-6">
+                 <div className="bg-amber-50 p-6 rounded-2xl border border-amber-200">
+                    <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest mb-1">Live Account Note:</p>
+                    <p className="text-[10px] font-bold text-slate-600">
+                       Agar aap Permanent Phone ID use kar rahe hain, toh confirm karein ki aapne template ko <b>Live WABA Account</b> mein create aur approve karwa liya hai.
+                    </p>
+                 </div>
+
                  <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100 space-y-6">
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -164,19 +172,19 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
           <div className="space-y-6">
               <div className="bg-slate-900 p-10 rounded-[3.5rem] text-white space-y-8 shadow-2xl border border-white/5">
-                <h3 className="text-2xl font-black uppercase tracking-tight text-blue-400">Error Guide</h3>
+                <h3 className="text-2xl font-black uppercase tracking-tight text-blue-400">Step-by-Step Fix</h3>
                 <div className="space-y-6">
                    <div className="space-y-1 p-5 bg-white/5 rounded-2xl border border-white/10">
-                      <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest">Error #132001 (Translation)</p>
-                      <p className="text-xs text-slate-300 font-medium">Iska matlab Meta ko <b>Template Name</b> ya <b>Language Code</b> nahi mil raha. Dashboard se exact copy karein.</p>
+                      <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest">1. Open WhatsApp Manager</p>
+                      <p className="text-xs text-slate-300 font-medium">Meta Dashboard mein apne **Live Account** ko select karein (Test account ko nahi).</p>
                    </div>
                    <div className="space-y-1 p-5 bg-white/5 rounded-2xl border border-white/10">
-                      <p className="text-[10px] font-black text-emerald-300 uppercase tracking-widest">Error #100 (Invalid Parameter)</p>
-                      <p className="text-xs text-slate-300 font-medium">Variable mismatch. Yahan <b>Variable Type</b> (Text or Number) badal kar dekhein.</p>
+                      <p className="text-[10px] font-black text-emerald-300 uppercase tracking-widest">2. Create Live Template</p>
+                      <p className="text-xs text-slate-300 font-medium">Live account mein `ticket_confirmed` naam ka template banayein aur usse approve hone dein.</p>
                    </div>
                    <div className="space-y-1 p-5 bg-white/5 rounded-2xl border border-white/10">
-                      <p className="text-[10px] font-black text-amber-300 uppercase tracking-widest">Error #190 (Token Expired)</p>
-                      <p className="text-xs text-slate-300 font-medium">Temporary Token khatam ho gaya hai. Facebook Dashboard se naya Generate karein.</p>
+                      <p className="text-[10px] font-black text-amber-300 uppercase tracking-widest">3. Match Language</p>
+                      <p className="text-xs text-slate-300 font-medium">Agar Meta mein Language 'English (US)' hai toh yahan code **en_US** ya sirf **en** daalein.</p>
                    </div>
                 </div>
               </div>
