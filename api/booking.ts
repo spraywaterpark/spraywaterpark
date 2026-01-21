@@ -44,16 +44,16 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    // formatting for Meta
+    // formatting for Meta (Target Mobile)
     let cleanMobile = String(mobile || "").replace(/\D/g, '');
     if (shouldAdd91) {
       if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
-      else if (cleanMobile.length === 12 && cleanMobile.startsWith('91')) { /* ok */ }
+      else if (cleanMobile.length === 12 && cleanMobile.startsWith('91')) { /* already correct */ }
       else if (cleanMobile.length === 11 && cleanMobile.startsWith('0')) cleanMobile = "91" + cleanMobile.substring(1);
     }
 
     try {
-      // Base Template
+      // Build Meta Payload
       const templatePayload: any = {
         messaging_product: "whatsapp",
         to: cleanMobile,
@@ -65,16 +65,23 @@ export default async function handler(req: any, res: any) {
         }
       };
 
-      // Add Body Parameters if required ({{1}})
+      // 1. Check for Header (If your template has a text header, Meta sometimes expects a parameter for it)
+      // If we don't know, we send an empty header component to avoid 'component mismatch'
+      templatePayload.template.components.push({
+        type: "header",
+        parameters: [] 
+      });
+
+      // 2. Add Body Parameters ({{1}})
       if (varCount > 0) {
         templatePayload.template.components.push({
           type: "body",
-          parameters: [{ type: "text", text: (booking?.name || testConfig?.name || "Guest") }]
+          parameters: [{ 
+            type: "text", 
+            text: (booking?.name || testConfig?.name || "Guest") 
+          }]
         });
       }
-
-      // Important: If Meta log shows 'Header mismatch', it means we need to explicitly send header params
-      // Even if the header is static, sometimes Meta requires an empty parameters array for it.
 
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
@@ -90,17 +97,17 @@ export default async function handler(req: any, res: any) {
       if (!waRes.ok) {
         return res.status(waRes.status).json({ 
           success: false, 
-          details: waData.error?.message || "Meta API Rejection",
+          details: waData.error?.message || "Meta API Rejected",
           raw: waData,
           debug_sent: templatePayload
         });
       }
 
-      // If success but no message, delivery is failing at Meta's end
+      // 200 OK from Meta means they have the message and will attempt delivery
       return res.status(200).json({ 
         success: true, 
         meta_id: waData.messages?.[0]?.id,
-        info: "Meta accepted the request. Check 'Delivery Insights' in Meta Dashboard if message still doesn't arrive.",
+        info: "Meta accepted the message. If not delivered, check 'Account Quality' or 'Billing' in Meta Dashboard.",
         debug_sent: templatePayload,
         meta_response: waData
       });
