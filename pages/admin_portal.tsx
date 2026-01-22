@@ -29,7 +29,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     const success = await cloudSync.saveSettings(draft);
     if (success) {
       onUpdateSettings(draft);
-      alert("Settings Updated in Cloud!");
+      alert("Settings Synced!");
     } else {
       alert("Failed to sync settings.");
     }
@@ -38,7 +38,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
   const handleTest = async () => {
     if (!testMobile || testMobile.length < 10) return alert("Enter 10 digit mobile.");
-    setDiag({status: 'loading', msg: 'Checking Meta Handshake...'});
+    setDiag({status: 'loading', msg: 'Checking Meta Cloud connection...'});
 
     try {
       const res = await fetch('/api/booking?type=test_config', {
@@ -50,7 +50,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       
       setDiag({
         status: res.ok ? 'success' : 'fail',
-        msg: data.details || (res.ok ? 'Meta API accepted the request.' : 'Request Rejected.'),
+        msg: data.details || (res.ok ? 'Meta accepted the payload.' : 'Meta rejected the request.'),
         payload: data.sent_payload,
         response: data.raw || data
       });
@@ -69,15 +69,15 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-10 animate-fade">
-      {/* Revenue Header */}
+      {/* Overview Header */}
       <div className="bg-[#0F172A] text-white p-10 rounded-[3rem] shadow-2xl flex flex-col md:flex-row justify-between items-center gap-8 border border-white/10">
         <div className="text-center md:text-left">
-          <p className="text-blue-400 text-[9px] font-black uppercase tracking-[0.5em] mb-2">Daily Revenue Summary</p>
+          <p className="text-blue-400 text-[9px] font-black uppercase tracking-[0.5em] mb-2">Operational Summary</p>
           <h2 className="text-5xl font-black tracking-tighter">₹{stats.revenue.toLocaleString()}</h2>
         </div>
         <div className="flex bg-white/5 p-2 rounded-[1.5rem] border border-white/10 backdrop-blur-xl">
-            <button onClick={() => setActiveTab('bookings')} className={`px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='bookings' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50 hover:text-white'}`}>Bookings</button>
-            <button onClick={() => setActiveTab('settings')} className={`px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='settings' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50 hover:text-white'}`}>WhatsApp Config</button>
+            <button onClick={() => setActiveTab('bookings')} className={`px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='bookings' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50 hover:text-white'}`}>Records</button>
+            <button onClick={() => setActiveTab('settings')} className={`px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='settings' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50 hover:text-white'}`}>WhatsApp</button>
         </div>
       </div>
 
@@ -86,11 +86,11 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
           <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 space-y-8 animate-slide-up">
               <div className="flex justify-between items-start border-b pb-8">
                  <div>
-                    <h3 className="text-2xl font-black uppercase text-slate-900 tracking-tight">Cloud Integration</h3>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Official Meta Business API</p>
+                    <h3 className="text-2xl font-black uppercase text-slate-900 tracking-tight">API Configuration</h3>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Official Meta Business SDK</p>
                  </div>
                  <button onClick={saveSettings} disabled={isSaving} className="bg-blue-600 text-white px-8 py-3 rounded-xl text-[10px] font-black uppercase shadow-lg hover:bg-blue-700 transition-all">
-                    {isSaving ? 'Saving...' : 'Sync Config'}
+                    {isSaving ? 'Saving...' : 'Save Settings'}
                  </button>
               </div>
 
@@ -102,7 +102,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                             <input value={draft.waTemplateName} onChange={e => setDraft({...draft, waTemplateName: e.target.value})} className="input-premium text-xs font-black" placeholder="ticket" />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-blue-700 uppercase tracking-widest ml-1">Language Code</label>
+                            <label className="text-[10px] font-black text-blue-700 uppercase tracking-widest ml-1">Language</label>
                             <input value={draft.waLangCode} onChange={e => setDraft({...draft, waLangCode: e.target.value})} className="input-premium text-xs font-black" placeholder="en" />
                         </div>
                     </div>
@@ -119,15 +119,15 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Permanent System Token</label>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">System Access Token</label>
                         <textarea value={draft.waToken || ''} onChange={e => setDraft({...draft, waToken: e.target.value})} className="input-premium h-24 text-[10px] font-mono leading-relaxed" placeholder="EAAB..." />
                     </div>
                  </div>
 
                  <div className="space-y-4 pt-4 border-t border-slate-100">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Diagnostic Test Tool</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Live Handshake Test</p>
                     <div className="flex gap-2">
-                        <input value={testMobile} onChange={e => setTestMobile(e.target.value.replace(/\D/g,''))} placeholder="Enter mobile for test" className="flex-1 input-premium text-xs font-black" />
+                        <input value={testMobile} onChange={e => setTestMobile(e.target.value.replace(/\D/g,''))} placeholder="Enter your mobile" className="flex-1 input-premium text-xs font-black" />
                         <button onClick={handleTest} disabled={diag.status === 'loading'} className="bg-slate-900 text-white px-8 rounded-xl font-black text-[10px] uppercase transition-all shadow-md">
                           Run Test
                         </button>
@@ -136,17 +136,17 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                     {diag.status !== 'idle' && (
                       <div className={`p-6 rounded-3xl border-2 ${diag.status === 'success' ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
                         <p className={`text-[11px] font-black uppercase mb-2 ${diag.status === 'success' ? 'text-emerald-700' : 'text-red-700'}`}>
-                           {diag.status === 'success' ? '✅ Meta Accepted Request' : '❌ API Error'}
+                           {diag.status === 'success' ? '✅ Meta API Accepted' : '❌ Transmission Error'}
                         </p>
                         <p className="text-[11px] font-bold text-slate-700 mb-4">{diag.msg}</p>
                         
                         <div className="space-y-4">
                            <div className="bg-slate-900 p-4 rounded-2xl overflow-hidden">
-                              <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest mb-2">Payload Sent:</p>
+                              <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest mb-2">JSON Sent:</p>
                               <pre className="text-[9px] text-white/60 font-mono whitespace-pre-wrap">{JSON.stringify(diag.payload, null, 2)}</pre>
                            </div>
                            <div className="bg-slate-900 p-4 rounded-2xl overflow-hidden">
-                              <p className="text-[8px] font-black text-emerald-400 uppercase tracking-widest mb-2">Raw API Response:</p>
+                              <p className="text-[8px] font-black text-emerald-400 uppercase tracking-widest mb-2">Meta Raw Response:</p>
                               <pre className="text-[9px] text-white/60 font-mono whitespace-pre-wrap">{JSON.stringify(diag.response, null, 2)}</pre>
                            </div>
                         </div>
@@ -161,16 +161,16 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                 <h3 className="text-2xl font-black uppercase tracking-tight text-blue-400">Important Checklist</h3>
                 <div className="space-y-6">
                    <div className="space-y-2 p-5 bg-white/5 rounded-2xl border border-white/10">
-                      <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest flex items-center gap-2">1. Phone ID Verification</p>
-                      <p className="text-xs text-slate-300 leading-relaxed">Aapke screenshot mein ID **947519298437599** hai. Usey hi yahan Phone ID mein likhein.</p>
+                      <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest flex items-center gap-2">1. Phone ID Validation</p>
+                      <p className="text-xs text-slate-300 leading-relaxed">Check ID: <span className="text-white font-bold">947519298437599</span>. Make sure this matches your Meta Dashboard exactly.</p>
                    </div>
                    <div className="space-y-2 p-5 bg-white/5 rounded-2xl border border-white/10">
-                      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2">2. Payment Method</p>
-                      <p className="text-xs text-slate-300 leading-relaxed">Meta Dashboard -> WhatsApp -> **Payment Configuration** mein jaakar card link karein. Bina billing ke production message nahi jayenge.</p>
+                      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2">2. Mandatory Billing</p>
+                      <p className="text-xs text-slate-300 leading-relaxed">Meta Dashboard &rarr; WhatsApp &rarr; <strong>Payment Configuration</strong>. Without a linked credit/debit card, Meta will not deliver Utility messages (Tickets).</p>
                    </div>
                    <div className="space-y-2 p-5 bg-white/5 rounded-2xl border border-white/10">
                       <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-2">3. Permanent Token</p>
-                      <p className="text-xs text-slate-300 leading-relaxed">Temporary token 24 ghante mein khatam ho jata hai. Meta ke "System User" se **Permanent Token** hi generate karein.</p>
+                      <p className="text-xs text-slate-300 leading-relaxed">Avoid using "Temporary Tokens". Use the Meta System User to generate a <strong>Permanent Access Token</strong>.</p>
                    </div>
                 </div>
               </div>
@@ -179,13 +179,17 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       ) : (
         <div className="bg-white rounded-[3rem] shadow-xl overflow-hidden border border-slate-100 animate-slide-up">
           <div className="p-10 border-b bg-slate-50 flex justify-between items-center">
-              <h3 className="text-2xl font-black uppercase text-slate-900 tracking-tight">Booking Stream</h3>
-              <div className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">{bookings.length} Records</div>
+              <h3 className="text-2xl font-black uppercase text-slate-900 tracking-tight">Recent Activity</h3>
+              <div className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">{bookings.length} Bookings</div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-center">
               <thead className="bg-slate-100 text-[11px] font-black uppercase text-slate-500 border-b">
-                <tr><th className="p-8 text-left">Ref ID</th><th className="text-left">Guest</th><th>Status</th></tr>
+                <tr>
+                  <th className="p-8 text-left">Ref ID</th>
+                  <th className="text-left">Guest Name</th>
+                  <th>Status</th>
+                </tr>
               </thead>
               <tbody className="text-sm font-bold divide-y divide-slate-100">
                 {bookings.map(b => (
@@ -195,7 +199,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                         <p className="text-slate-900 font-black">{b.name}</p>
                         <p className="text-[10px] text-slate-400">{b.mobile}</p>
                     </td>
-                    <td><span className="bg-emerald-100 text-emerald-700 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">Active</span></td>
+                    <td><span className="bg-emerald-100 text-emerald-700 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">PAID</span></td>
                   </tr>
                 ))}
               </tbody>
