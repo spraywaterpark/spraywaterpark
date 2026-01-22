@@ -40,7 +40,7 @@ export default async function handler(req: any, res: any) {
     if (!token || !phoneId) {
       return res.status(400).json({ 
         success: false, 
-        details: "Credentials Missing: Check Phone Number ID and Token." 
+        details: "Missing Config: Phone ID or Token is empty." 
       });
     }
 
@@ -48,40 +48,35 @@ export default async function handler(req: any, res: any) {
     let cleanMobile = String(mobile || "").replace(/\D/g, '');
     if (shouldAdd91) {
       if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
-      else if (cleanMobile.length === 12 && cleanMobile.startsWith('91')) { /* already correct */ }
+      else if (cleanMobile.length === 12 && cleanMobile.startsWith('91')) { /* Correct */ }
       else if (cleanMobile.length === 11 && cleanMobile.startsWith('0')) cleanMobile = "91" + cleanMobile.substring(1);
     }
 
     try {
-      // Build Meta Payload
-      const templatePayload: any = {
+      // Build Precise Meta Payload
+      const components = [];
+      if (varCount > 0) {
+        components.push({
+          type: "body",
+          parameters: [
+            {
+              type: "text",
+              text: (booking?.name || testConfig?.name || "Guest")
+            }
+          ]
+        });
+      }
+
+      const templatePayload = {
         messaging_product: "whatsapp",
         to: cleanMobile,
         type: "template",
         template: { 
           name: templateName, 
           language: { code: langCode },
-          components: []
+          components: components
         }
       };
-
-      // 1. Check for Header (If your template has a text header, Meta sometimes expects a parameter for it)
-      // If we don't know, we send an empty header component to avoid 'component mismatch'
-      templatePayload.template.components.push({
-        type: "header",
-        parameters: [] 
-      });
-
-      // 2. Add Body Parameters ({{1}})
-      if (varCount > 0) {
-        templatePayload.template.components.push({
-          type: "body",
-          parameters: [{ 
-            type: "text", 
-            text: (booking?.name || testConfig?.name || "Guest") 
-          }]
-        });
-      }
 
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
@@ -97,26 +92,26 @@ export default async function handler(req: any, res: any) {
       if (!waRes.ok) {
         return res.status(waRes.status).json({ 
           success: false, 
-          details: waData.error?.message || "Meta API Rejected",
+          details: waData.error?.message || "Meta Rejected Request",
           raw: waData,
-          debug_sent: templatePayload
+          sent_payload: templatePayload
         });
       }
 
-      // 200 OK from Meta means they have the message and will attempt delivery
+      // Meta 200 OK
       return res.status(200).json({ 
         success: true, 
         meta_id: waData.messages?.[0]?.id,
-        info: "Meta accepted the message. If not delivered, check 'Account Quality' or 'Billing' in Meta Dashboard.",
-        debug_sent: templatePayload,
-        meta_response: waData
+        info: "Meta accepted the message. Check delivery on phone.",
+        raw: waData,
+        sent_payload: templatePayload
       });
     } catch (e: any) {
       return res.status(500).json({ success: false, details: e.message });
     }
   }
 
-  // Settings Handlers
+  // Settings & Sheet Handlers
   if (type === 'settings') {
     if (req.method === "GET") {
       const data = await getLatestSettings();
@@ -133,7 +128,6 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // Default Sheet Fetching (Bookings)
   if (req.method === "GET" && !type) {
     const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Sheet1!A2:J1000" });
     const rows = response.data.values || [];
@@ -142,7 +136,6 @@ export default async function handler(req: any, res: any) {
     })).reverse());
   }
 
-  // Booking Creation
   if (req.method === "POST" && !type) {
     const { name, mobile, adults, kids, amount, date, time } = req.body;
     const values = [[new Date().toLocaleString("en-IN"), name, mobile, adults, kids, (adults + kids), amount, date, time, "PAID"]];
