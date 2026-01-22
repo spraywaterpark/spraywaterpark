@@ -25,55 +25,35 @@ export default async function handler(req: any, res: any) {
     } catch (e) { return null; }
   };
 
-  if (type === 'whatsapp' || type === 'test_config') {
-    const { mobile, booking, testConfig } = req.body;
-    const cloudSettings = await getLatestSettings();
-    const settings = type === 'test_config' ? testConfig : cloudSettings;
+  if (type === 'whatsapp') {
+    const { mobile, booking } = req.body;
+    const settings = await getLatestSettings();
     
     const token = (settings?.waToken || "").trim();
     const phoneId = (settings?.waPhoneId || "").trim();
     const templateName = (settings?.waTemplateName || "ticket").trim();
     const langCode = (settings?.waLangCode || "en").trim();
-    const varCount = settings?.waVarCount !== undefined ? Number(settings.waVarCount) : 1;
 
     if (!token || !phoneId) {
-      return res.status(400).json({ success: false, details: "Missing Phone ID or Token in Settings." });
+      return res.status(400).json({ success: false, details: "API Config Missing" });
     }
 
     let cleanMobile = String(mobile || "").replace(/\D/g, '');
     if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
 
     try {
-      const components: any[] = [];
-      if (varCount > 0) {
-        const params = [];
-        // Add name as first variable
-        params.push({ type: "text", text: (booking?.name || testConfig?.name || "Guest") });
-        // Add booking ID as second variable if needed
-        if (varCount > 1) {
-          params.push({ type: "text", text: (booking?.id || "TEST-123") });
+      // Current Template: "hello {{guest_name}} ..."
+      // We send ONLY the guest_name parameter to match your Meta template exactly.
+      const params = [
+        { 
+          type: "text", 
+          parameter_name: "guest_name", 
+          text: String(booking?.name || "Guest") 
         }
-        // Fill remaining variables with generic text to avoid "Parameter Mismatch"
-        for (let i = params.length; i < varCount; i++) {
-          params.push({ type: "text", text: "Spray Water Park" });
-        }
+      ];
 
-        components.push({
-          type: "body",
-          parameters: params
-        });
-      }
-
-      const payload = {
-        messaging_product: "whatsapp",
-        to: cleanMobile,
-        type: "template",
-        template: { 
-          name: templateName, 
-          language: { code: langCode },
-          components: components
-        }
-      };
+      // Note: If you add more variables in Meta later like {{booking_id}}, 
+      // you can add them to this array.
 
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
@@ -81,31 +61,32 @@ export default async function handler(req: any, res: any) {
           'Authorization': `Bearer ${token}`, 
           'Content-Type': 'application/json' 
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to: cleanMobile,
+          type: "template",
+          template: { 
+            name: templateName, 
+            language: { code: langCode },
+            components: [{ 
+                type: "body", 
+                parameters: params 
+            }]
+          }
+        })
       });
       
       const waData = await waRes.json();
-      
-      if (!waRes.ok) {
-        return res.status(waRes.status).json({ 
-          success: false, 
-          details: waData.error?.message || "Meta API Rejected Request",
-          raw: waData
-        });
-      }
-
-      return res.status(200).json({ 
-        success: true, 
+      return res.status(waRes.ok ? 200 : 400).json({ 
+        success: waRes.ok, 
         meta_id: waData.messages?.[0]?.id,
-        raw: waData,
-        sent_to: cleanMobile
+        error: waData.error?.message 
       });
     } catch (e: any) {
       return res.status(500).json({ success: false, details: e.message });
     }
   }
 
-  // Other handlers...
   if (type === 'settings') {
     if (req.method === "GET") {
       const data = await getLatestSettings();
