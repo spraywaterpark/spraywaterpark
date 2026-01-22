@@ -4,7 +4,7 @@ export default async function handler(req: any, res: any) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
   if (!process.env.GOOGLE_CREDENTIALS || !process.env.SHEET_ID) {
-    return res.status(500).json({ error: "Server Configuration Missing (Sheets)" });
+    return res.status(500).json({ error: "Server Configuration Missing" });
   }
 
   const auth = new google.auth.GoogleAuth({
@@ -35,40 +35,36 @@ export default async function handler(req: any, res: any) {
     const templateName = (settings?.waTemplateName || "ticket").trim();
     const langCode = (settings?.waLangCode || "en").trim();
     const varCount = settings?.waVarCount !== undefined ? Number(settings.waVarCount) : 1;
-    const shouldAdd91 = settings?.waAdd91 !== false;
 
     if (!token || !phoneId) {
-      return res.status(400).json({ 
-        success: false, 
-        details: "Credentials Missing: Phone ID or Token not configured." 
-      });
+      return res.status(400).json({ success: false, details: "Missing Phone ID or Token in Settings." });
     }
 
-    // formatting for Meta (Target Mobile)
     let cleanMobile = String(mobile || "").replace(/\D/g, '');
-    if (shouldAdd91) {
-      if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
-      else if (cleanMobile.length === 12 && cleanMobile.startsWith('91')) { /* Correct */ }
-    }
+    if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
 
     try {
-      // Build Precise Meta Payload
       const components: any[] = [];
-      
-      // Meta usually expects a body component if the template has {{1}}
       if (varCount > 0) {
+        const params = [];
+        // Add name as first variable
+        params.push({ type: "text", text: (booking?.name || testConfig?.name || "Guest") });
+        // Add booking ID as second variable if needed
+        if (varCount > 1) {
+          params.push({ type: "text", text: (booking?.id || "TEST-123") });
+        }
+        // Fill remaining variables with generic text to avoid "Parameter Mismatch"
+        for (let i = params.length; i < varCount; i++) {
+          params.push({ type: "text", text: "Spray Water Park" });
+        }
+
         components.push({
           type: "body",
-          parameters: [
-            {
-              type: "text",
-              text: (booking?.name || testConfig?.name || "Guest")
-            }
-          ]
+          parameters: params
         });
       }
 
-      const templatePayload = {
+      const payload = {
         messaging_product: "whatsapp",
         to: cleanMobile,
         type: "template",
@@ -85,7 +81,7 @@ export default async function handler(req: any, res: any) {
           'Authorization': `Bearer ${token}`, 
           'Content-Type': 'application/json' 
         },
-        body: JSON.stringify(templatePayload)
+        body: JSON.stringify(payload)
       });
       
       const waData = await waRes.json();
@@ -93,26 +89,23 @@ export default async function handler(req: any, res: any) {
       if (!waRes.ok) {
         return res.status(waRes.status).json({ 
           success: false, 
-          details: waData.error?.message || "Meta API Error",
-          raw: waData,
-          sent_payload: templatePayload
+          details: waData.error?.message || "Meta API Rejected Request",
+          raw: waData
         });
       }
 
-      // Success from API (Handover to Meta complete)
       return res.status(200).json({ 
         success: true, 
         meta_id: waData.messages?.[0]?.id,
-        info: "Request accepted by Meta Cloud.",
         raw: waData,
-        sent_payload: templatePayload
+        sent_to: cleanMobile
       });
     } catch (e: any) {
       return res.status(500).json({ success: false, details: e.message });
     }
   }
 
-  // Settings & Sheet Handlers
+  // Other handlers...
   if (type === 'settings') {
     if (req.method === "GET") {
       const data = await getLatestSettings();
@@ -129,7 +122,6 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // Default Sheet Fetching (Bookings)
   if (req.method === "GET" && !type) {
     const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Sheet1!A2:J1000" });
     const rows = response.data.values || [];
@@ -138,7 +130,6 @@ export default async function handler(req: any, res: any) {
     })).reverse());
   }
 
-  // Booking Creation
   if (req.method === "POST" && !type) {
     const { name, mobile, adults, kids, amount, date, time } = req.body;
     const values = [[new Date().toLocaleString("en-IN"), name, mobile, adults, kids, (adults + kids), amount, date, time, "PAID"]];
