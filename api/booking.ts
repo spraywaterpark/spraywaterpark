@@ -40,7 +40,7 @@ export default async function handler(req: any, res: any) {
     if (!token || !phoneId) {
       return res.status(400).json({ 
         success: false, 
-        details: "Missing Config: Phone ID or Token is empty." 
+        details: "Credentials Missing: Phone ID or Token not configured." 
       });
     }
 
@@ -49,12 +49,13 @@ export default async function handler(req: any, res: any) {
     if (shouldAdd91) {
       if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
       else if (cleanMobile.length === 12 && cleanMobile.startsWith('91')) { /* Correct */ }
-      else if (cleanMobile.length === 11 && cleanMobile.startsWith('0')) cleanMobile = "91" + cleanMobile.substring(1);
     }
 
     try {
       // Build Precise Meta Payload
-      const components = [];
+      const components: any[] = [];
+      
+      // Meta usually expects a body component if the template has {{1}}
       if (varCount > 0) {
         components.push({
           type: "body",
@@ -92,17 +93,17 @@ export default async function handler(req: any, res: any) {
       if (!waRes.ok) {
         return res.status(waRes.status).json({ 
           success: false, 
-          details: waData.error?.message || "Meta Rejected Request",
+          details: waData.error?.message || "Meta API Error",
           raw: waData,
           sent_payload: templatePayload
         });
       }
 
-      // Meta 200 OK
+      // Success from API (Handover to Meta complete)
       return res.status(200).json({ 
         success: true, 
         meta_id: waData.messages?.[0]?.id,
-        info: "Meta accepted the message. Check delivery on phone.",
+        info: "Request accepted by Meta Cloud.",
         raw: waData,
         sent_payload: templatePayload
       });
@@ -128,6 +129,7 @@ export default async function handler(req: any, res: any) {
     }
   }
 
+  // Default Sheet Fetching (Bookings)
   if (req.method === "GET" && !type) {
     const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Sheet1!A2:J1000" });
     const rows = response.data.values || [];
@@ -136,6 +138,7 @@ export default async function handler(req: any, res: any) {
     })).reverse());
   }
 
+  // Booking Creation
   if (req.method === "POST" && !type) {
     const { name, mobile, adults, kids, amount, date, time } = req.body;
     const values = [[new Date().toLocaleString("en-IN"), name, mobile, adults, kids, (adults + kids), amount, date, time, "PAID"]];
