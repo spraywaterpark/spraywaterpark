@@ -1,20 +1,33 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Booking } from '../types';
+import { notificationService } from '../services/notification_service';
 
 const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ bookings, mobile }) => {
   const userList = bookings.filter(b => b.mobile === mobile);
-  const lastAiMessage = sessionStorage.getItem('last_ai_message') || "Booking Confirmed!";
+  const [resending, setResending] = useState<string | null>(null);
 
-  const sendWhatsApp = (msg: string, phone: string) => {
-    const encoded = encodeURIComponent(msg);
-    window.open(`https://wa.me/${phone}?text=${encoded}`, '_blank');
+  const handleResend = async (booking: Booking) => {
+    setResending(booking.id);
+    try {
+      const res = await notificationService.sendWhatsAppTicket(booking);
+      if (res.success) {
+        alert("Success! Ticket sent to your WhatsApp.");
+      } else {
+        // Show the specific error details from the API
+        alert(`Failed: ${res.details || "Please check Admin Settings (Token/ID/Template Name)"}`);
+      }
+    } catch (e) {
+      alert("Error occurred while connecting to server.");
+    } finally {
+      setResending(null);
+    }
   };
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-8 py-8 animate-fade space-y-10">
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 no-print">
         <div>
           <h2 className="text-3xl sm:text-5xl font-black text-[#1B2559] uppercase tracking-tight">
             My Tickets
@@ -48,36 +61,46 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
       ) : (
         <div className="space-y-12">
           {userList.map((b, idx) => (
-            <div key={b.id}>
+            <div key={b.id} className="relative">
 
+              {/* Thank you Message */}
               {idx === 0 && (
-                <div className="bg-emerald-50 p-6 sm:p-10 rounded-3xl border border-emerald-200 mb-10 flex flex-col sm:flex-row items-center justify-between gap-6 shadow">
-                  <div className="flex items-center gap-4 text-center sm:text-left">
-                    <div className="w-14 h-14 bg-emerald-600 text-white rounded-xl flex items-center justify-center text-2xl">
-                      <i className="fab fa-whatsapp"></i>
+                <div className="bg-emerald-50 p-8 sm:p-12 rounded-[2.5rem] border border-emerald-200 mb-10 shadow-lg relative overflow-hidden no-print">
+                  <i className="fab fa-whatsapp absolute -right-4 -bottom-4 text-8xl text-emerald-100/50 -rotate-12"></i>
+                  
+                  <div className="relative z-10 flex flex-col items-center text-center space-y-6">
+                    <div className="w-20 h-20 bg-emerald-600 text-white rounded-full flex items-center justify-center text-3xl shadow-lg shadow-emerald-200">
+                      <i className="fas fa-check-circle"></i>
                     </div>
-                    <div>
-                      <p className="text-emerald-900 font-black text-xs uppercase tracking-widest">
-                        Booking Verified
+                    
+                    <div className="max-w-xl space-y-3">
+                      <h3 className="text-2xl font-black text-emerald-900 uppercase tracking-tight">Booking Confirmed!</h3>
+                      <p className="text-emerald-700 font-semibold text-base leading-relaxed">
+                        Thank you for booking with us! 🌊 Click below to receive your ticket on WhatsApp.
                       </p>
-                      <p className="text-emerald-700 text-sm font-semibold">
-                        Send your ticket on WhatsApp
-                      </p>
+                    </div>
+
+                    <div className="pt-4 w-full max-w-xs">
+                      <button
+                        onClick={() => handleResend(b)}
+                        disabled={resending === b.id}
+                        className="w-full bg-emerald-600 text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition shadow-xl hover:shadow-emerald-200 flex items-center justify-center gap-3 disabled:opacity-50"
+                      >
+                        {resending === b.id ? (
+                          <><i className="fas fa-circle-notch fa-spin"></i> Sending...</>
+                        ) : (
+                          <><i className="fab fa-whatsapp text-lg"></i> Get Ticket on WhatsApp</>
+                        )}
+                      </button>
                     </div>
                   </div>
-
-                  <button
-                    onClick={() => sendWhatsApp(lastAiMessage, b.mobile)}
-                    className="bg-emerald-600 text-white px-10 py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition"
-                  >
-                    Get on WhatsApp
-                  </button>
                 </div>
               )}
 
+              {/* Ticket Card */}
               <div className="bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col lg:flex-row border border-slate-200">
 
-                <div className="blue-gradient lg:w-64 p-10 flex flex-col justify-center items-center text-white text-center">
+                <div className="bg-[#1B2559] lg:w-64 p-10 flex flex-col justify-center items-center text-white text-center">
                   <p className="text-[10px] font-black uppercase opacity-70 mb-2 tracking-[0.3em]">
                     Entrance Pass
                   </p>
@@ -86,9 +109,12 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
                   </p>
                   <img
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${b.id}`}
-                    alt="QR"
+                    alt="Booking QR Code"
                     className="w-28 h-28 bg-white p-2 rounded-xl"
                   />
+                  <p className="mt-4 text-[9px] font-black uppercase opacity-50 tracking-widest">
+                    One QR per Booking
+                  </p>
                 </div>
 
                 <div className="flex-1 p-8 sm:p-12 flex flex-col sm:flex-row justify-between items-center gap-10">
@@ -102,10 +128,10 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
 
                     <div className="flex gap-3 justify-center sm:justify-start">
                       <span className="bg-slate-100 px-4 py-2 rounded-lg text-xs font-black uppercase">
-                        Adults: {b.adults}
+                        {b.adults} Adults
                       </span>
                       <span className="bg-slate-100 px-4 py-2 rounded-lg text-xs font-black uppercase">
-                        Kids: {b.kids}
+                        {b.kids} Kids
                       </span>
                     </div>
                   </div>
@@ -126,8 +152,8 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
         </div>
       )}
 
-      <div className="bg-[#1B2559] p-8 rounded-2xl text-center text-white/50 font-black text-[10px] uppercase tracking-[0.4em] border border-white/5">
-        Spray Aqua Resort • Jaipur
+      <div className="bg-[#1B2559] p-8 rounded-2xl text-center text-white/50 font-black text-[10px] uppercase tracking-[0.4em] border border-white/5 no-print">
+        Spray Aqua Resort • Official Booking Receipt
       </div>
     </div>
   );
