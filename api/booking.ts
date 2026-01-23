@@ -42,13 +42,13 @@ export default async function handler(req: any, res: any) {
     if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
 
     try {
-      // Mapping the parameter. 
-      // If your Meta template uses named parameter {{guest_name}}, 
-      // some accounts still require the indexed order. 
-      // We send it in a way that is most compatible.
+      // META NAMED VARIABLE LOGIC:
+      // Based on the screenshot, the variable is a named one.
+      // We must provide the parameter_name that matches {{guest_name}}
       const params = [
         { 
           type: "text", 
+          parameter_name: "guest_name", // This must match exactly what you typed in Meta {{...}}
           text: String(booking?.name || "Guest") 
         }
       ];
@@ -77,12 +77,15 @@ export default async function handler(req: any, res: any) {
       const waData = await waRes.json();
 
       if (!waRes.ok) {
-        // Return exact error from Meta
+        // Log the full error to Vercel console
+        console.error("Meta API Error Details:", JSON.stringify(waData));
+        
         const errorMsg = waData.error?.message || "Unknown Meta Error";
+        const errorCode = waData.error?.code || "N/A";
+        
         return res.status(400).json({ 
           success: false, 
-          details: `Meta API Error: ${errorMsg}`,
-          debug: waData 
+          details: `Meta Error (${errorCode}): ${errorMsg}`
         });
       }
 
