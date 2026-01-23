@@ -35,25 +35,23 @@ export default async function handler(req: any, res: any) {
     const langCode = (settings?.waLangCode || "en").trim();
 
     if (!token || !phoneId) {
-      return res.status(400).json({ success: false, details: "API Config Missing" });
+      return res.status(400).json({ success: false, details: "WhatsApp API Token or Phone ID is missing in Admin Settings." });
     }
 
     let cleanMobile = String(mobile || "").replace(/\D/g, '');
     if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
 
     try {
-      // Current Template: "hello {{guest_name}} ..."
-      // We send ONLY the guest_name parameter to match your Meta template exactly.
+      // Mapping the parameter. 
+      // If your Meta template uses named parameter {{guest_name}}, 
+      // some accounts still require the indexed order. 
+      // We send it in a way that is most compatible.
       const params = [
         { 
           type: "text", 
-          parameter_name: "guest_name", 
           text: String(booking?.name || "Guest") 
         }
       ];
-
-      // Note: If you add more variables in Meta later like {{booking_id}}, 
-      // you can add them to this array.
 
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
@@ -77,13 +75,23 @@ export default async function handler(req: any, res: any) {
       });
       
       const waData = await waRes.json();
-      return res.status(waRes.ok ? 200 : 400).json({ 
-        success: waRes.ok, 
-        meta_id: waData.messages?.[0]?.id,
-        error: waData.error?.message 
+
+      if (!waRes.ok) {
+        // Return exact error from Meta
+        const errorMsg = waData.error?.message || "Unknown Meta Error";
+        return res.status(400).json({ 
+          success: false, 
+          details: `Meta API Error: ${errorMsg}`,
+          debug: waData 
+        });
+      }
+
+      return res.status(200).json({ 
+        success: true, 
+        meta_id: waData.messages?.[0]?.id 
       });
     } catch (e: any) {
-      return res.status(500).json({ success: false, details: e.message });
+      return res.status(500).json({ success: false, details: `Server Error: ${e.message}` });
     }
   }
 
