@@ -96,12 +96,16 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                         <input value={draft.waTemplateName} onChange={e => setDraft({...draft, waTemplateName: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="ticket" />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Language Code</label>
-                        <input value={draft.waLangCode} onChange={e => setDraft({...draft, waLangCode: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="en" />
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Variable Name</label>
+                        <input value={draft.waVariableName || 'guest_name'} onChange={e => setDraft({...draft, waVariableName: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="guest_name" />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Language Code</label>
+                        <input value={draft.waLangCode} onChange={e => setDraft({...draft, waLangCode: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="en" />
+                    </div>
                     <div className="space-y-2">
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Phone Number ID</label>
                         <input value={draft.waPhoneId || ''} onChange={e => setDraft({...draft, waPhoneId: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="ID from Meta Dashboard" />
@@ -131,7 +135,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                   <div className="space-y-4">
                     <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
                         <p className="text-[9px] text-white/40 font-black uppercase mb-2">Variables in Template</p>
-                        <p className="text-[11px] font-bold text-white">This app sends <code className="text-blue-400">{"{{guest_name}}"}</code> to Meta. Ensure your template has this variable name.</p>
+                        <p className="text-[11px] font-bold text-white">This app sends <code className="text-blue-400">{"{{" + (draft.waVariableName || 'guest_name') + "}}"}</code> to Meta. Ensure your template matches this.</p>
                     </div>
 
                     <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
