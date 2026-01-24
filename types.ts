@@ -37,7 +37,9 @@ export interface AdminSettings {
   // WhatsApp Template Config
   waTemplateName: string;
   waLangCode: string;
+  waVariableName: string; // New: To match {{guest_name}} or others
   waVarCount?: number;
+  waVarType?: 'text' | 'number';
   waToken?: string;
   waPhoneId?: string;
   waAdd91?: boolean;
