@@ -11,8 +11,7 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
     try {
       const res = await notificationService.sendWhatsAppTicket(booking);
       if (res.success) {
-        // Now showing the Meta Message ID to prove delivery attempt
-        alert(`Success! Ticket sent to Meta Queue.\n\nMeta ID: ${res.details || "N/A"}\n\nNote: If you don't receive it, verify your Phone Number ID (different from WABA ID) in Meta Dashboard.`);
+        alert(`Success! Ticket sent to Meta Queue.\n\nMeta ID: ${res.details || "N/A"}`);
       } else {
         alert(`Failed: ${res.details || "Please check Admin Settings."}`);
       }
@@ -25,7 +24,6 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-8 py-8 animate-fade space-y-10">
-
       {/* Header */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 no-print">
         <div>
@@ -62,24 +60,19 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
         <div className="space-y-12">
           {userList.map((b, idx) => (
             <div key={b.id} className="relative">
-
-              {/* Thank you Message */}
               {idx === 0 && (
                 <div className="bg-emerald-50 p-8 sm:p-12 rounded-[2.5rem] border border-emerald-200 mb-10 shadow-lg relative overflow-hidden no-print">
                   <i className="fab fa-whatsapp absolute -right-4 -bottom-4 text-8xl text-emerald-100/50 -rotate-12"></i>
-                  
                   <div className="relative z-10 flex flex-col items-center text-center space-y-6">
                     <div className="w-20 h-20 bg-emerald-600 text-white rounded-full flex items-center justify-center text-3xl shadow-lg shadow-emerald-200">
                       <i className="fas fa-check-circle"></i>
                     </div>
-                    
                     <div className="max-w-xl space-y-3">
                       <h3 className="text-2xl font-black text-emerald-900 uppercase tracking-tight">Booking Confirmed!</h3>
                       <p className="text-emerald-700 font-semibold text-base leading-relaxed">
                         Thank you for booking with us! 🌊 Click below to receive your ticket on WhatsApp.
                       </p>
                     </div>
-
                     <div className="pt-4 w-full max-w-xs">
                       <button
                         onClick={() => handleResend(b)}
@@ -97,9 +90,7 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
                 </div>
               )}
 
-              {/* Ticket Card */}
               <div className="bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col lg:flex-row border border-slate-200">
-
                 <div className="bg-[#1B2559] lg:w-64 p-10 flex flex-col justify-center items-center text-white text-center">
                   <p className="text-[10px] font-black uppercase opacity-70 mb-2 tracking-[0.3em]">
                     Entrance Pass
@@ -112,11 +103,7 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
                     alt="Booking QR Code"
                     className="w-28 h-28 bg-white p-2 rounded-xl"
                   />
-                  <p className="mt-4 text-[9px] font-black uppercase opacity-50 tracking-widest">
-                    One QR per Booking
-                  </p>
                 </div>
-
                 <div className="flex-1 p-8 sm:p-12 flex flex-col sm:flex-row justify-between items-center gap-10">
                   <div className="text-center sm:text-left space-y-4">
                     <h4 className="text-3xl font-black text-[#1B2559] uppercase">
@@ -125,7 +112,6 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
                     <p className="text-blue-700 font-black text-xs uppercase tracking-[0.3em]">
                       {b.time}
                     </p>
-
                     <div className="flex gap-3 justify-center sm:justify-start">
                       <span className="bg-slate-100 px-4 py-2 rounded-lg text-xs font-black uppercase">
                         {b.adults} Adults
@@ -135,7 +121,6 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
                       </span>
                     </div>
                   </div>
-
                   <div className="text-center sm:text-right">
                     <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-1">
                       Fully Paid
@@ -145,16 +130,11 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
                     </h3>
                   </div>
                 </div>
-
               </div>
             </div>
           ))}
         </div>
       )}
-
-      <div className="bg-[#1B2559] p-8 rounded-2xl text-center text-white/50 font-black text-[10px] uppercase tracking-[0.4em] border border-white/5 no-print">
-        Spray Aqua Resort • Official Booking Receipt
-      </div>
     </div>
   );
 };
