@@ -15,6 +15,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const [activeTab, setActiveTab] = useState<'bookings' | 'settings'>('bookings');
   const [draft, setDraft] = useState<AdminSettings>(settings);
   const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'settings') {
@@ -37,10 +38,36 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const applyQuickFix = () => {
     setDraft({
       ...draft,
-      waLangCode: 'en',
+      waLangCode: 'en_US',
       waTemplateName: 'ticket_confirmation'
     });
-    alert("Quick Fix Applied! Now click 'Save Changes' to update the cloud.");
+    alert("Quick Fix Applied! Language set to en_US. Now click 'Save Changes'.");
+  };
+
+  const testConnection = async () => {
+    const testMobile = prompt("Enter 10-digit mobile number to send TEST message:");
+    if (!testMobile || testMobile.length !== 10) return alert("Invalid number");
+
+    setIsTesting(true);
+    try {
+      const response = await fetch('/api/booking?type=whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mobile: testMobile,
+          booking: { id: 'TEST-123', name: 'Test Guest', totalAmount: 0, date: 'Today' }
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        alert("Success! Meta ID: " + data.messageId + "\n\nIf message still not received, check the Troubleshooting Checklist on the right.");
+      } else {
+        alert("Failed: " + data.details);
+      }
+    } catch (e) {
+      alert("Network Error");
+    }
+    setIsTesting(false);
   };
 
   const stats = useMemo(() => {
@@ -75,9 +102,14 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                   <h3 className="text-2xl font-black uppercase text-slate-900 tracking-tight">Configuration</h3>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">System & API Management</p>
               </div>
-              <button onClick={saveSettings} disabled={isSaving} className="bg-blue-600 text-white px-10 py-4 rounded-2xl text-[10px] font-black uppercase shadow-lg hover:bg-blue-700 transition-all">
-                  {isSaving ? 'Updating...' : 'Save Changes'}
-              </button>
+              <div className="flex gap-3">
+                <button onClick={testConnection} disabled={isTesting} className="bg-slate-100 text-slate-600 px-6 py-4 rounded-2xl text-[10px] font-black uppercase hover:bg-slate-200 transition-all">
+                    {isTesting ? 'Sending...' : 'Test Connection'}
+                </button>
+                <button onClick={saveSettings} disabled={isSaving} className="bg-blue-600 text-white px-10 py-4 rounded-2xl text-[10px] font-black uppercase shadow-lg hover:bg-blue-700 transition-all">
+                    {isSaving ? 'Updating...' : 'Save Changes'}
+                </button>
+              </div>
             </div>
 
             <div className="space-y-8">
@@ -96,9 +128,9 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                     </div>
                     <div className="space-y-2">
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                           Language Code <span className="text-[8px] text-blue-500">Standard is 'en'</span>
+                           Language Code <span className="text-[8px] text-blue-500">Expert suggest 'en_US'</span>
                         </label>
-                        <input value={draft.waLangCode} onChange={e => setDraft({...draft, waLangCode: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="en" />
+                        <input value={draft.waLangCode} onChange={e => setDraft({...draft, waLangCode: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="en_US" />
                     </div>
                   </div>
 
@@ -144,29 +176,30 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
           <div className="space-y-6">
               <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-xl border border-white/10">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-red-400 mb-8 flex items-center gap-2">
-                      <i className="fas fa-exclamation-triangle"></i> Solve Error #132001
+                  <h4 className="text-xs font-black uppercase tracking-widest text-amber-400 mb-8 flex items-center gap-2">
+                      <i className="fas fa-magic"></i> Expert Payload Fix
                   </h4>
                   
-                  <div className="space-y-8">
-                    <div className="space-y-2">
-                        <p className="text-[9px] text-white/40 font-black uppercase tracking-widest">Action Required</p>
-                        <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-4">
-                           <p className="text-[11px] font-bold text-amber-400 uppercase tracking-tight leading-relaxed">Aapke logs mein Language 'en_us' hai par Meta dashboard mein template sirf 'en' par hoga.</p>
-                           
-                           <button onClick={applyQuickFix} className="w-full bg-blue-600 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-blue-500 transition-all">
-                              Apply One-Click Fix
-                           </button>
-                           
-                           <hr className="opacity-10" />
-                           
-                           <p className="text-[10px] opacity-70 leading-relaxed uppercase">Manual check: Dashboard mein 'ticket_confirmation' ki spelling aur language (usually 'en') check karein.</p>
-                        </div>
+                  <div className="space-y-6">
+                    <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-4">
+                       <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-tight">Expert ne 'en_US' (Capital) recommend kiya hai:</p>
+                       
+                       <div className="space-y-3">
+                          <p className="text-[10px] leading-relaxed">Aapka pichla log <b>en_us</b> (small) bhej raha tha jo fail ho raha tha.</p>
+                          <hr className="opacity-10" />
+                          <p className="text-[10px] leading-relaxed">Naya system ab case-sensitive hai, yaani aap jo likhenge wahi Meta ko jayega.</p>
+                       </div>
+
+                       <button onClick={applyQuickFix} className="w-full bg-blue-600 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-blue-500 transition-all">
+                          Apply en_US Fix
+                       </button>
                     </div>
 
-                    <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
-                        <p className="text-[9px] font-black uppercase text-emerald-400 tracking-widest">Status Update</p>
-                        <p className="text-[10px] mt-1 opacity-80">API now has auto-mapping logic to force 'en' when 'en_us' is detected.</p>
+                    <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
+                        <p className="text-[9px] font-black uppercase text-blue-400 tracking-widest">Template Note</p>
+                        <p className="text-[10px] mt-2 opacity-80 leading-relaxed uppercase">
+                           Make sure your template <b>ticket_confirmation</b> is approved in Meta Dashboard with exactly 1 variable for the body.
+                        </p>
                     </div>
                   </div>
               </div>
