@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Booking, AdminSettings } from '../types';
 import { cloudSync } from '../services/cloud_sync';
 
@@ -94,8 +94,8 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Variable Count</label>
                         <select value={draft.waVarCount || 1} onChange={e => setDraft({...draft, waVarCount: parseInt(e.target.value)})} className="input-premium !bg-white text-xs font-bold">
                            <option value={0}>0 - No Variables</option>
-                           <option value={1}>1 - Guest Name ({{1}})</option>
-                           <option value={2}>2 - Name & ID ({{2}})</option>
+                           <option value={1}>1 - Guest Name ({'{{1}}'})</option>
+                           <option value={2}>2 - Name & ID ({'{{2}}'})</option>
                         </select>
                     </div>
                     <div className="space-y-2">
