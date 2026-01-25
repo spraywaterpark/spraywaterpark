@@ -45,7 +45,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-10 animate-fade">
-      {/* Premium Dashboard Header */}
+      {/* Header */}
       <div className="bg-[#0F172A] text-white p-10 rounded-[3rem] shadow-2xl flex flex-col md:flex-row justify-between items-center gap-8 border border-white/10">
         <div className="text-center md:text-left">
           <p className="text-blue-400 text-[9px] font-black uppercase tracking-[0.5em] mb-2">Today's Performance</p>
@@ -59,7 +59,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       </div>
 
       {activeTab === 'settings' ? (
-        <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 animate-slide-up">
+        <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 animate-slide-up">
           <div className="lg:col-span-2 bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 space-y-10">
             <div className="flex justify-between items-center border-b pb-8">
               <div>
@@ -72,6 +72,57 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
             </div>
 
             <div className="space-y-8">
+              {/* WhatsApp Section */}
+              <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-200 space-y-6">
+                  <p className="text-[11px] font-black text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <i className="fab fa-whatsapp"></i> WhatsApp API Settings
+                  </p>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Template Name</label>
+                        <input value={draft.waTemplateName} onChange={e => setDraft({...draft, waTemplateName: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="ticket_confirmation" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Variable Name (Mapping)</label>
+                        <input value={draft.waVariableName} onChange={e => setDraft({...draft, waVariableName: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="KEEP BLANK for {{1}}" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Variable Count</label>
+                        <select value={draft.waVarCount || 1} onChange={e => setDraft({...draft, waVarCount: parseInt(e.target.value)})} className="input-premium !bg-white text-xs font-bold">
+                           <option value={0}>0 - No Variables</option>
+                           <option value={1}>1 - Guest Name ({{1}})</option>
+                           <option value={2}>2 - Name & ID ({{2}})</option>
+                        </select>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Language Code</label>
+                        <input value={draft.waLangCode} onChange={e => setDraft({...draft, waLangCode: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="en" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Phone Number ID</label>
+                        <input value={draft.waPhoneId || ''} onChange={e => setDraft({...draft, waPhoneId: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="From Meta Dashboard" />
+                    </div>
+                    <div className="flex items-end pb-1">
+                      <div className="flex items-center gap-3 p-4 bg-white rounded-xl border border-slate-200 w-full">
+                        <input type="checkbox" checked={draft.waAdd91} onChange={e => setDraft({...draft, waAdd91: e.target.checked})} className="w-5 h-5 accent-blue-600" id="add91" />
+                        <label htmlFor="add91" className="text-[10px] font-black text-slate-600 uppercase tracking-widest cursor-pointer">Auto-add 91 Prefix</label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Permanent API Token</label>
+                      <textarea value={draft.waToken || ''} onChange={e => setDraft({...draft, waToken: e.target.value})} className="input-premium !bg-white h-24 text-[10px] font-mono leading-relaxed" placeholder="EAAB..." />
+                  </div>
+              </div>
+
               {/* Pricing Section */}
               <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
@@ -83,71 +134,40 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                     <input type="number" value={draft.eveningAdultRate} onChange={e => setDraft({...draft, eveningAdultRate: parseInt(e.target.value)})} className="input-premium font-bold" />
                   </div>
               </div>
-
-              {/* WhatsApp Section */}
-              <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-200 space-y-6">
-                  <p className="text-[11px] font-black text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <i className="fab fa-whatsapp"></i> WhatsApp API Settings
-                  </p>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Template Name</label>
-                        <input value={draft.waTemplateName} onChange={e => setDraft({...draft, waTemplateName: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="ticket" />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Variable Name</label>
-                        <input value={draft.waVariableName || 'guest_name'} onChange={e => setDraft({...draft, waVariableName: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="guest_name" />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Language Code</label>
-                        <input value={draft.waLangCode} onChange={e => setDraft({...draft, waLangCode: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="en" />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Phone Number ID</label>
-                        <input value={draft.waPhoneId || ''} onChange={e => setDraft({...draft, waPhoneId: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="ID from Meta Dashboard" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Permanent API Token</label>
-                      <textarea value={draft.waToken || ''} onChange={e => setDraft({...draft, waToken: e.target.value})} className="input-premium !bg-white h-24 text-[10px] font-mono leading-relaxed" placeholder="EAAB..." />
-                  </div>
-
-                  <div className="flex items-center gap-3 p-4 bg-white rounded-xl border border-slate-200">
-                    <input type="checkbox" checked={draft.waAdd91} onChange={e => setDraft({...draft, waAdd91: e.target.checked})} className="w-5 h-5 accent-blue-600" id="add91" />
-                    <label htmlFor="add91" className="text-[10px] font-black text-slate-600 uppercase tracking-widest cursor-pointer">Auto-add 91 prefix to numbers</label>
-                  </div>
-              </div>
             </div>
           </div>
 
-          {/* Guide Sidebar */}
           <div className="space-y-6">
               <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-xl border border-white/10">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-blue-400 mb-6 flex items-center gap-2">
-                      <i className="fas fa-lightbulb"></i> Config Help
+                  <h4 className="text-xs font-black uppercase tracking-widest text-blue-400 mb-8 flex items-center gap-2">
+                      <i className="fas fa-check-circle"></i> Meta Success Guide
                   </h4>
                   
-                  <div className="space-y-4">
-                    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                        <p className="text-[9px] text-white/40 font-black uppercase mb-2">Variables in Template</p>
-                        <p className="text-[11px] font-bold text-white">This app sends <code className="text-blue-400">{"{{" + (draft.waVariableName || 'guest_name') + "}}"}</code> to Meta. Ensure your template matches this.</p>
+                  <div className="space-y-8">
+                    <div className="space-y-2">
+                        <p className="text-[9px] text-white/40 font-black uppercase tracking-widest">Step 1: Meta Setup</p>
+                        <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-2">
+                           <p className="text-[11px] font-bold"><i className="fas fa-hashtag text-blue-400 mr-2"></i> Variable: <b>{"{{1}}"}</b></p>
+                           <p className="text-[11px] font-bold"><i className="fas fa-list-ol text-blue-400 mr-2"></i> Type: <b>Number</b> ✅</p>
+                           <p className="text-[11px] font-bold"><i className="fas fa-pen text-blue-400 mr-2"></i> Sample: <b>Amit</b></p>
+                        </div>
                     </div>
 
-                    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                        <p className="text-[9px] text-white/40 font-black uppercase mb-2">Language</p>
-                        <p className="text-[11px] font-bold text-white">Use <code className="text-blue-400">en</code> for English templates and <code className="text-blue-400">hi</code> for Hindi.</p>
+                    <div className="space-y-2">
+                        <p className="text-[9px] text-white/40 font-black uppercase tracking-widest">Step 2: App Settings</p>
+                        <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-2">
+                           <p className="text-[11px] font-bold"><i className="fas fa-times-circle text-red-400 mr-2"></i> Variable Name: <b>Khali Chhodein</b></p>
+                           <p className="text-[11px] font-bold text-blue-400"><i className="fas fa-info-circle mr-2"></i> Is se API sirf ordered data bhejegi (Expert Choice).</p>
+                        </div>
                     </div>
-                  </div>
 
-                  <div className="mt-8 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                      <p className="text-[9px] text-blue-400 font-bold leading-relaxed uppercase">
-                          Make sure to "Save Changes" after editing.
-                      </p>
+                    <div className="space-y-2">
+                        <p className="text-[9px] text-white/40 font-black uppercase tracking-widest">Step 3: Billing Check</p>
+                        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
+                           <p className="text-[11px] font-bold text-emerald-400"><i className="fas fa-credit-card mr-2"></i> Your Billing is OK ✅</p>
+                           <p className="text-[9px] text-white/60 mt-1 uppercase tracking-tighter">Messages will deliver after template approval.</p>
+                        </div>
+                    </div>
                   </div>
               </div>
           </div>
