@@ -40,9 +40,8 @@ export default async function handler(req: any, res: any) {
     const phoneId = (settings?.waPhoneId || "").trim();
     const templateName = (settings?.waTemplateName || "ticket_confirmation").trim();
     
-    // AUTO-FIX for Error #132001: Map en_us to en
-    let langCode = (settings?.waLangCode || "en").trim().toLowerCase();
-    if (langCode === 'en_us') langCode = 'en'; 
+    // Use exact casing from settings (e.g., en_US) as Meta API can be case-sensitive
+    const langCode = (settings?.waLangCode || "en_US").trim();
 
     const varCount = parseInt(settings?.waVarCount || "1");
     const shouldAdd91 = settings?.waAdd91 !== false;
