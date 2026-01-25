@@ -28,11 +28,16 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     const success = await cloudSync.saveSettings(draft);
     if (success) {
       onUpdateSettings(draft);
-      alert("Settings Updated! Now try the 'Test Connection' button.");
+      alert("Settings Updated! Please click 'Test Connection' to verify.");
     } else {
       alert("Update Failed. Check connection.");
     }
     setIsSaving(false);
+  };
+
+  const applyEnFix = () => {
+    setDraft({ ...draft, waLangCode: 'en' });
+    alert("Language Code reset to 'en' (Standard). Click 'Save Changes' to apply.");
   };
 
   const setLang = (code: string) => {
@@ -55,9 +60,9 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       });
       const data = await response.json();
       if (data.success) {
-        alert("Success! Meta ID: " + data.messageId + "\n\nMessage sent to queue.");
+        alert("Success! Meta ID: " + data.messageId + "\n\nMessage sent successfully.");
       } else {
-        alert("Failed with Error: " + data.details + "\n\nTip: Agar error 132001 hai, toh Language Code badal kar 'en' try karein.");
+        alert("Failed: " + data.details + "\n\nTip: Agar error 132001 hai, toh 'en' code hi sahi hai. 'en_US' use na karein.");
       }
     } catch (e) {
       alert("Network Error");
@@ -95,7 +100,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
             <div className="flex justify-between items-center border-b pb-8">
               <div>
                   <h3 className="text-2xl font-black uppercase text-slate-900 tracking-tight">Configuration</h3>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">System & API Management</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">WhatsApp & Rates</p>
               </div>
               <div className="flex gap-3">
                 <button onClick={testConnection} disabled={isTesting} className="bg-slate-100 text-slate-600 px-6 py-4 rounded-2xl text-[10px] font-black uppercase hover:bg-slate-200 transition-all">
@@ -110,9 +115,14 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
             <div className="space-y-8">
               {/* WhatsApp Section */}
               <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-200 space-y-6">
-                  <p className="text-[11px] font-black text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <i className="fab fa-whatsapp"></i> WhatsApp Cloud API
-                  </p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[11px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
+                      <i className="fab fa-whatsapp"></i> WhatsApp Cloud API
+                    </p>
+                    <button onClick={applyEnFix} className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-emerald-200 transition-all">
+                       Reset to 'en'
+                    </button>
+                  </div>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -123,11 +133,11 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                     </div>
                     <div className="space-y-2">
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                           Language Code (Current: {draft.waLangCode})
+                           Language Code (Use 'en')
                         </label>
                         <div className="flex gap-2">
-                            <button onClick={() => setLang('en')} className={`flex-1 py-3 rounded-xl text-[10px] font-black border ${draft.waLangCode === 'en' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>en</button>
-                            <button onClick={() => setLang('en_US')} className={`flex-1 py-3 rounded-xl text-[10px] font-black border ${draft.waLangCode === 'en_US' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>en_US</button>
+                            <button onClick={() => setLang('en')} className={`flex-1 py-3 rounded-xl text-[10px] font-black border ${draft.waLangCode === 'en' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-900 border-slate-200'}`}>en</button>
+                            <button onClick={() => setLang('en_US')} className={`flex-1 py-3 rounded-xl text-[10px] font-black border ${draft.waLangCode === 'en_US' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-900 border-slate-200'}`}>en_US</button>
                         </div>
                     </div>
                   </div>
@@ -169,25 +179,29 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
           <div className="space-y-6">
               <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-xl border border-white/10">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-amber-400 mb-8 flex items-center gap-2">
-                      <i className="fas fa-exclamation-triangle"></i> Error #132001 FIX
+                  <h4 className="text-xs font-black uppercase tracking-widest text-emerald-400 mb-8 flex items-center gap-2">
+                      <i className="fas fa-check-circle"></i> Standard Configuration
                   </h4>
                   
                   <div className="space-y-6">
                     <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-4">
-                       <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-tight">Iska matlab Language mismatch hai:</p>
+                       <p className="text-[11px] font-bold text-blue-400 uppercase tracking-tight">Why use 'en'?</p>
                        
                        <div className="space-y-3">
-                          <p className="text-[10px] leading-relaxed">Meta mein template banate waqt aapne jo language select ki thi, wahi yahan honi chahiye.</p>
+                          <p className="text-[10px] leading-relaxed">India based Meta accounts mein template hamesha <b>"English" (en)</b> category mein approve hote hain.</p>
                           <hr className="opacity-10" />
-                          <p className="text-[10px] leading-relaxed"><b className="text-white">Solution:</b> Agar <b>en_US</b> fail ho raha hai, toh <b>en</b> (sirf en) select karein aur Save karke Test karein.</p>
+                          <p className="text-[10px] leading-relaxed font-bold text-white">Result:</p>
+                          <ul className="text-[10px] space-y-2 list-disc pl-4 opacity-80">
+                            <li><b>en:</b> Hamesha kaam karega agar template active hai.</li>
+                            <li><b>en_US:</b> Error 132001 dega kyunki Meta ise alag language maanta hai.</li>
+                          </ul>
                        </div>
                     </div>
 
-                    <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
-                        <p className="text-[9px] font-black uppercase text-blue-400 tracking-widest">How to check?</p>
+                    <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
+                        <p className="text-[9px] font-black uppercase text-emerald-400 tracking-widest">Confirm on Meta:</p>
                         <p className="text-[10px] mt-2 opacity-80 leading-relaxed uppercase">
-                           Meta Dashboard &gt; WhatsApp &gt; Message Templates mein jaiye. Wahan "Language" column mein dekhiye kya likha hai.
+                           Meta Dashboard &gt; Message Templates mein check karein. Agar wahan Language column mein sirf "English" likha hai, toh code hamesha **en** hi hoga.
                         </p>
                     </div>
                   </div>
