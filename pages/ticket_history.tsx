@@ -11,10 +11,10 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
     try {
       const res = await notificationService.sendWhatsAppTicket(booking);
       if (res.success) {
-        alert("Success! Ticket sent to your WhatsApp.");
+        // Now showing the Meta Message ID to prove delivery attempt
+        alert(`Success! Ticket sent to Meta Queue.\n\nMeta ID: ${res.details || "N/A"}\n\nNote: If you don't receive it, verify your Phone Number ID (different from WABA ID) in Meta Dashboard.`);
       } else {
-        // Show the specific error details from the API
-        alert(`Failed: ${res.details || "Please check Admin Settings (Token/ID/Template Name)"}`);
+        alert(`Failed: ${res.details || "Please check Admin Settings."}`);
       }
     } catch (e) {
       alert("Error occurred while connecting to server.");
