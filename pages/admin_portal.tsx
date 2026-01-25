@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Booking, AdminSettings } from '../types';
 import { cloudSync } from '../services/cloud_sync';
 
@@ -75,7 +75,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
               {/* WhatsApp Section */}
               <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-200 space-y-6">
                   <p className="text-[11px] font-black text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <i className="fab fa-whatsapp"></i> WhatsApp API Settings
+                    <i className="fab fa-whatsapp"></i> WhatsApp Cloud API
                   </p>
                   
                   <div className="grid grid-cols-2 gap-4">
@@ -84,8 +84,8 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                         <input value={draft.waTemplateName} onChange={e => setDraft({...draft, waTemplateName: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="ticket_confirmation" />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Variable Name (Mapping)</label>
-                        <input value={draft.waVariableName} onChange={e => setDraft({...draft, waVariableName: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="KEEP BLANK for {{1}}" />
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Language Code</label>
+                        <input value={draft.waLangCode} onChange={e => setDraft({...draft, waLangCode: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="en" />
                     </div>
                   </div>
 
@@ -99,22 +99,14 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                         </select>
                     </div>
                     <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Language Code</label>
-                        <input value={draft.waLangCode} onChange={e => setDraft({...draft, waLangCode: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="en" />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Phone Number ID</label>
                         <input value={draft.waPhoneId || ''} onChange={e => setDraft({...draft, waPhoneId: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="From Meta Dashboard" />
                     </div>
-                    <div className="flex items-end pb-1">
-                      <div className="flex items-center gap-3 p-4 bg-white rounded-xl border border-slate-200 w-full">
-                        <input type="checkbox" checked={draft.waAdd91} onChange={e => setDraft({...draft, waAdd91: e.target.checked})} className="w-5 h-5 accent-blue-600" id="add91" />
-                        <label htmlFor="add91" className="text-[10px] font-black text-slate-600 uppercase tracking-widest cursor-pointer">Auto-add 91 Prefix</label>
-                      </div>
-                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-4 bg-white rounded-xl border border-slate-200 w-full">
+                    <input type="checkbox" checked={draft.waAdd91} onChange={e => setDraft({...draft, waAdd91: e.target.checked})} className="w-5 h-5 accent-blue-600" id="add91" />
+                    <label htmlFor="add91" className="text-[10px] font-black text-slate-600 uppercase tracking-widest cursor-pointer">Auto-add 91 Prefix</label>
                   </div>
 
                   <div className="space-y-2">
@@ -139,33 +131,27 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
           <div className="space-y-6">
               <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-xl border border-white/10">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-blue-400 mb-8 flex items-center gap-2">
-                      <i className="fas fa-check-circle"></i> Meta Success Guide
+                  <h4 className="text-xs font-black uppercase tracking-widest text-emerald-400 mb-8 flex items-center gap-2">
+                      <i className="fas fa-shield-check"></i> Expert Config Mode
                   </h4>
                   
                   <div className="space-y-8">
                     <div className="space-y-2">
-                        <p className="text-[9px] text-white/40 font-black uppercase tracking-widest">Step 1: Meta Setup</p>
+                        <p className="text-[9px] text-white/40 font-black uppercase tracking-widest">Rule Summary</p>
                         <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-2">
-                           <p className="text-[11px] font-bold"><i className="fas fa-hashtag text-blue-400 mr-2"></i> Variable: <b>{"{{1}}"}</b></p>
-                           <p className="text-[11px] font-bold"><i className="fas fa-list-ol text-blue-400 mr-2"></i> Type: <b>Number</b> ✅</p>
-                           <p className="text-[11px] font-bold"><i className="fas fa-pen text-blue-400 mr-2"></i> Sample: <b>Amit</b></p>
+                           <p className="text-[11px] font-bold"><i className="fas fa-check-circle text-blue-400 mr-2"></i> Variable: <b>Number Mode</b></p>
+                           <p className="text-[11px] font-bold"><i className="fas fa-times-circle text-red-400 mr-2"></i> Parameter Name: <b>DISABLED</b></p>
+                           <p className="text-[10px] text-white/50 leading-relaxed mt-2 uppercase">Hum Meta ko bina kisi naam ke sirf ordered text bhej rahe hain (Amit). Ye expert ki recommended setting hai.</p>
                         </div>
                     </div>
 
                     <div className="space-y-2">
-                        <p className="text-[9px] text-white/40 font-black uppercase tracking-widest">Step 2: App Settings</p>
-                        <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-2">
-                           <p className="text-[11px] font-bold"><i className="fas fa-times-circle text-red-400 mr-2"></i> Variable Name: <b>Khali Chhodein</b></p>
-                           <p className="text-[11px] font-bold text-blue-400"><i className="fas fa-info-circle mr-2"></i> Is se API sirf ordered data bhejegi (Expert Choice).</p>
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <p className="text-[9px] text-white/40 font-black uppercase tracking-widest">Step 3: Billing Check</p>
-                        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
-                           <p className="text-[11px] font-bold text-emerald-400"><i className="fas fa-credit-card mr-2"></i> Your Billing is OK ✅</p>
-                           <p className="text-[9px] text-white/60 mt-1 uppercase tracking-tighter">Messages will deliver after template approval.</p>
+                        <p className="text-[9px] text-white/40 font-black uppercase tracking-widest">Debug Info</p>
+                        <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1">
+                           <p className="text-[10px] font-bold">If #100 persists:</p>
+                           <p className="text-[10px] text-emerald-400">1. Check Template Name</p>
+                           <p className="text-[10px] text-emerald-400">2. Verify Token Validity</p>
+                           <p className="text-[10px] text-emerald-400">3. Match Var Count with Meta</p>
                         </div>
                     </div>
                   </div>
