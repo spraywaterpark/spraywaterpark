@@ -187,7 +187,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                     <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
                         <p className="text-[9px] font-black uppercase text-blue-400 tracking-widest">How to check?</p>
                         <p className="text-[10px] mt-2 opacity-80 leading-relaxed uppercase">
-                           Meta Dashboard > WhatsApp > Message Templates mein jaiye. Wahan "Language" column mein dekhiye kya likha hai.
+                           Meta Dashboard &gt; WhatsApp &gt; Message Templates mein jaiye. Wahan "Language" column mein dekhiye kya likha hai.
                         </p>
                     </div>
                   </div>
