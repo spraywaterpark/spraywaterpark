@@ -28,20 +28,15 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     const success = await cloudSync.saveSettings(draft);
     if (success) {
       onUpdateSettings(draft);
-      alert("Settings Updated Successfully!");
+      alert("Settings Updated! Now try the 'Test Connection' button.");
     } else {
       alert("Update Failed. Check connection.");
     }
     setIsSaving(false);
   };
 
-  const applyQuickFix = () => {
-    setDraft({
-      ...draft,
-      waLangCode: 'en_US',
-      waTemplateName: 'ticket_confirmation'
-    });
-    alert("Quick Fix Applied! Language set to en_US. Now click 'Save Changes'.");
+  const setLang = (code: string) => {
+    setDraft({ ...draft, waLangCode: code });
   };
 
   const testConnection = async () => {
@@ -55,14 +50,14 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mobile: testMobile,
-          booking: { id: 'TEST-123', name: 'Test Guest', totalAmount: 0, date: 'Today' }
+          booking: { id: 'TEST-786', name: 'Test Guest', totalAmount: 500, date: '2025-01-01' }
         })
       });
       const data = await response.json();
       if (data.success) {
-        alert("Success! Meta ID: " + data.messageId + "\n\nIf message still not received, check the Troubleshooting Checklist on the right.");
+        alert("Success! Meta ID: " + data.messageId + "\n\nMessage sent to queue.");
       } else {
-        alert("Failed: " + data.details);
+        alert("Failed with Error: " + data.details + "\n\nTip: Agar error 132001 hai, toh Language Code badal kar 'en' try karein.");
       }
     } catch (e) {
       alert("Network Error");
@@ -121,16 +116,19 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex justify-between">
-                           Template Name <span className="text-[8px] text-red-500">Must match exactly*</span>
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                           Template Name
                         </label>
                         <input value={draft.waTemplateName} onChange={e => setDraft({...draft, waTemplateName: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="ticket_confirmation" />
                     </div>
                     <div className="space-y-2">
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                           Language Code <span className="text-[8px] text-blue-500">Expert suggest 'en_US'</span>
+                           Language Code (Current: {draft.waLangCode})
                         </label>
-                        <input value={draft.waLangCode} onChange={e => setDraft({...draft, waLangCode: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="en_US" />
+                        <div className="flex gap-2">
+                            <button onClick={() => setLang('en')} className={`flex-1 py-3 rounded-xl text-[10px] font-black border ${draft.waLangCode === 'en' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>en</button>
+                            <button onClick={() => setLang('en_US')} className={`flex-1 py-3 rounded-xl text-[10px] font-black border ${draft.waLangCode === 'en_US' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>en_US</button>
+                        </div>
                     </div>
                   </div>
 
@@ -139,7 +137,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Variable Count</label>
                         <select value={draft.waVarCount || 1} onChange={e => setDraft({...draft, waVarCount: parseInt(e.target.value)})} className="input-premium !bg-white text-xs font-bold">
                            <option value={0}>0 - No Variables</option>
-                           <option value={1}>1 - Guest Name ({"{{1}}"})</option>
+                           <option value={1}>1 - Name Only ({"{{1}}"})</option>
                            <option value={2}>2 - Name & ID ({"{{2}}"})</option>
                         </select>
                     </div>
@@ -147,11 +145,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Phone Number ID</label>
                         <input value={draft.waPhoneId || ''} onChange={e => setDraft({...draft, waPhoneId: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="123456789..." />
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 p-4 bg-white rounded-xl border border-slate-200 w-full">
-                    <input type="checkbox" checked={draft.waAdd91} onChange={e => setDraft({...draft, waAdd91: e.target.checked})} className="w-5 h-5 accent-blue-600" id="add91" />
-                    <label htmlFor="add91" className="text-[10px] font-black text-slate-600 uppercase tracking-widest cursor-pointer">Auto-add 91 Prefix</label>
                   </div>
 
                   <div className="space-y-2">
@@ -177,28 +170,24 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
           <div className="space-y-6">
               <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-xl border border-white/10">
                   <h4 className="text-xs font-black uppercase tracking-widest text-amber-400 mb-8 flex items-center gap-2">
-                      <i className="fas fa-magic"></i> Expert Payload Fix
+                      <i className="fas fa-exclamation-triangle"></i> Error #132001 FIX
                   </h4>
                   
                   <div className="space-y-6">
                     <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-4">
-                       <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-tight">Expert ne 'en_US' (Capital) recommend kiya hai:</p>
+                       <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-tight">Iska matlab Language mismatch hai:</p>
                        
                        <div className="space-y-3">
-                          <p className="text-[10px] leading-relaxed">Aapka pichla log <b>en_us</b> (small) bhej raha tha jo fail ho raha tha.</p>
+                          <p className="text-[10px] leading-relaxed">Meta mein template banate waqt aapne jo language select ki thi, wahi yahan honi chahiye.</p>
                           <hr className="opacity-10" />
-                          <p className="text-[10px] leading-relaxed">Naya system ab case-sensitive hai, yaani aap jo likhenge wahi Meta ko jayega.</p>
+                          <p className="text-[10px] leading-relaxed"><b className="text-white">Solution:</b> Agar <b>en_US</b> fail ho raha hai, toh <b>en</b> (sirf en) select karein aur Save karke Test karein.</p>
                        </div>
-
-                       <button onClick={applyQuickFix} className="w-full bg-blue-600 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-blue-500 transition-all">
-                          Apply en_US Fix
-                       </button>
                     </div>
 
                     <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
-                        <p className="text-[9px] font-black uppercase text-blue-400 tracking-widest">Template Note</p>
+                        <p className="text-[9px] font-black uppercase text-blue-400 tracking-widest">How to check?</p>
                         <p className="text-[10px] mt-2 opacity-80 leading-relaxed uppercase">
-                           Make sure your template <b>ticket_confirmation</b> is approved in Meta Dashboard with exactly 1 variable for the body.
+                           Meta Dashboard > WhatsApp > Message Templates mein jaiye. Wahan "Language" column mein dekhiye kya likha hai.
                         </p>
                     </div>
                   </div>
