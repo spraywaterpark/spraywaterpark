@@ -14,58 +14,49 @@ export default async function handler(req: any, res: any) {
   const sheets = google.sheets({ version: "v4", auth });
   const type = req.query.type;
 
+  // Function to log events to the "Logs" sheet
+  const logToSheet = async (data: any[]) => {
+    try {
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: process.env.SHEET_ID,
+        range: "Logs!A:E",
+        valueInputOption: "USER_ENTERED",
+        requestBody: { values: [data] }
+      });
+    } catch (e) {
+      console.error("Logging failed:", e);
+    }
+  };
+
   // --- 1. WEBHOOK VERIFICATION (GET REQUEST FROM META) ---
-  // Meta asks for this to verify your server. 
-  // You must use 'spray_water_park_secure' as the verify token in Meta Dashboard.
   if (req.method === "GET" && type === "webhook") {
     const mode = req.query["hub.mode"];
     const token = req.query["hub.verify_token"];
     const challenge = req.query["hub.challenge"];
 
     if (mode === "subscribe" && token === "spray_water_park_secure") {
-      console.log("WEBHOOK_VERIFIED_SUCCESSFULLY");
       return res.status(200).send(challenge);
-    } else {
-      console.error("WEBHOOK_VERIFICATION_FAILED: Token Mismatch");
-      return res.status(403).end();
     }
+    return res.status(403).end();
   }
 
   // --- 2. WEBHOOK DATA RECEIVER (POST REQUEST FROM META) ---
-  // Meta sends delivery status (sent, delivered, read, failed) here.
   if (req.method === "POST" && type === "webhook") {
     const body = req.body;
-    
     try {
       const entry = body.entry?.[0]?.changes?.[0]?.value;
       if (entry?.statuses?.[0]) {
         const statusUpdate = entry.statuses[0];
-        
-        // We only care about failures to debug why messages aren't arriving
-        if (statusUpdate.status === "failed") {
-          const error = statusUpdate.errors?.[0];
-          const logData = [
-            new Date().toLocaleString("en-IN"), 
-            statusUpdate.id,          // Message ID (wamid)
-            statusUpdate.recipient_id, // Phone Number
-            error?.code || "N/A",     // Error Code (e.g. 131026)
-            error?.message || "Unknown Failure" // Error Detail
-          ];
-
-          // Append to Google Sheet tab named "Logs"
-          // User MUST create a tab named "Logs" in their spreadsheet
-          await sheets.spreadsheets.values.append({
-            spreadsheetId: process.env.SHEET_ID,
-            range: "Logs!A:E",
-            valueInputOption: "USER_ENTERED",
-            requestBody: { values: [logData] }
-          });
-        }
+        // Log every status change to the Sheet for debugging (Sent, Delivered, Read, Failed)
+        await logToSheet([
+          new Date().toLocaleString("en-IN"), 
+          statusUpdate.id, 
+          statusUpdate.recipient_id, 
+          statusUpdate.status.toUpperCase(), 
+          statusUpdate.errors?.[0]?.message || "Status Update"
+        ]);
       }
-    } catch (e) {
-      console.error("WEBHOOK_LOG_ERROR:", e);
-    }
-    
+    } catch (e) {}
     return res.status(200).json({ status: "ok" });
   }
 
@@ -80,6 +71,7 @@ export default async function handler(req: any, res: any) {
     } catch (e) { return {}; }
   };
 
+  // --- 3. WHATSAPP SENDING LOGIC ---
   if (type === 'whatsapp') {
     const { mobile, booking } = req.body;
     const settings = await getLatestSettings();
@@ -91,7 +83,7 @@ export default async function handler(req: any, res: any) {
     const shouldAdd91 = settings?.waAdd91 !== false;
 
     if (!token || !phoneId) {
-      return res.status(400).json({ success: false, details: "Settings incomplete. Check Token/PhoneID." });
+      return res.status(400).json({ success: false, details: "Settings incomplete." });
     }
 
     let cleanMobile = String(mobile || "").replace(/\D/g, '');
@@ -109,7 +101,6 @@ export default async function handler(req: any, res: any) {
               type: "body",
               parameters: [{
                   type: "text",
-                  parameter_name: varName,
                   text: String(booking?.name || "Guest")
               }]
           }]
@@ -123,8 +114,18 @@ export default async function handler(req: any, res: any) {
       });
 
       const waData = await waRes.json();
+      
+      // Log the attempt to the sheet
+      await logToSheet([
+        new Date().toLocaleString("en-IN"), 
+        waData.messages?.[0]?.id || "FAILED", 
+        cleanMobile, 
+        waRes.ok ? "API_ACCEPTED" : "API_REJECTED", 
+        waRes.ok ? `Template: ${templateName}` : (waData.error?.message || "Unknown Meta Error")
+      ]);
+
       if (!waRes.ok) {
-        return res.status(400).json({ success: false, details: `Meta Error: ${waData.error?.message}` });
+        return res.status(400).json({ success: false, details: waData.error?.message });
       }
 
       return res.status(200).json({ success: true, messageId: waData.messages?.[0]?.id });
@@ -133,6 +134,7 @@ export default async function handler(req: any, res: any) {
     }
   }
 
+  // --- 4. SETTINGS & BOOKING DATA ---
   if (type === 'settings') {
     if (req.method === "GET") return res.status(200).json(await getLatestSettings());
     if (req.method === "POST") {
