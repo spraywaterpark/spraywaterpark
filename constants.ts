@@ -29,7 +29,7 @@ export const DEFAULT_ADMIN_SETTINGS = {
 
   blockedSlots: [],
   waTemplateName: 'ticket_confirmation', 
-  waLangCode: 'en_US', // Updated to match expert's payload exactly
+  waLangCode: 'en', // Changed from en_US to en as requested
   waVariableName: '', 
   waVarCount: 1,
   waAdd91: true
