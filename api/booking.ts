@@ -39,7 +39,11 @@ export default async function handler(req: any, res: any) {
     const token = (settings?.waToken || "").trim();
     const phoneId = (settings?.waPhoneId || "").trim();
     const templateName = (settings?.waTemplateName || "ticket_confirmation").trim();
-    const langCode = (settings?.waLangCode || "en").trim();
+    
+    // AUTO-FIX for Error #132001: Map en_us to en
+    let langCode = (settings?.waLangCode || "en").trim().toLowerCase();
+    if (langCode === 'en_us') langCode = 'en'; 
+
     const varCount = parseInt(settings?.waVarCount || "1");
     const shouldAdd91 = settings?.waAdd91 !== false;
 
@@ -48,7 +52,6 @@ export default async function handler(req: any, res: any) {
     let cleanMobile = String(mobile || "").replace(/\D/g, '');
     if (shouldAdd91 && cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
 
-    // Create parameters list - STRICTLY NO parameter_name as per Expert Advice for numbered variables ({{1}})
     const params: any[] = [];
     if (varCount >= 1) {
       params.push({ type: "text", text: String(booking?.name || "Guest") });
@@ -86,7 +89,6 @@ export default async function handler(req: any, res: any) {
 
       const waData = await waRes.json();
       
-      // LOG ACTUAL JSON for the Expert if it fails
       await logToSheet([
         new Date().toLocaleString("en-IN"), 
         waData.messages?.[0]?.id || "FAILED", 
@@ -97,7 +99,7 @@ export default async function handler(req: any, res: any) {
           : `Sent JSON: ${JSON.stringify(waPayload)} | Meta Error: (#${waData.error?.code}) ${waData.error?.message}`
       ]);
 
-      if (!waRes.ok) return res.status(waRes.status).json({ success: false, details: waData.error?.message });
+      if (!waRes.ok) return res.status(waRes.status).json({ success: false, details: `(#${waData.error?.code}) ${waData.error?.message}` });
       return res.status(200).json({ success: true, messageId: waData.messages?.[0]?.id });
     } catch (e: any) {
       return res.status(500).json({ success: false, details: e.message });
