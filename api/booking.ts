@@ -35,70 +35,66 @@ export default async function handler(req: any, res: any) {
   if (type === 'whatsapp') {
     const { mobile, booking } = req.body;
     const settings = await getLatestSettings();
+    
     const token = (settings?.waToken || "").trim();
     const phoneId = (settings?.waPhoneId || "").trim();
     const templateName = (settings?.waTemplateName || "ticket_confirmation").trim();
     const langCode = (settings?.waLangCode || "en").trim();
     const varCount = parseInt(settings?.waVarCount || "1");
-    const waVarName = (settings?.waVariableName || "").trim(); 
     const shouldAdd91 = settings?.waAdd91 !== false;
 
-    if (!token || !phoneId) return res.status(400).json({ success: false, details: "Missing API Token or Phone ID in Settings." });
+    if (!token || !phoneId) return res.status(400).json({ success: false, details: "Missing API Token or Phone ID." });
 
     let cleanMobile = String(mobile || "").replace(/\D/g, '');
     if (shouldAdd91 && cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
 
-    let components: any[] = [];
-    if (varCount > 0) {
-      const params: any[] = [];
-      
-      /**
-       * AS PER EXPERT ADVICE:
-       * If waVarName is EMPTY, we do NOT send 'parameter_name'.
-       * This is mandatory for templates where variable type is 'Number' ({{1}}).
-       */
-      if (varCount >= 1) {
-        const p: any = { type: "text", text: String(booking?.name || "Guest") };
-        if (waVarName) p.parameter_name = waVarName;
-        params.push(p);
+    // Create parameters list - STRICTLY NO parameter_name as per Expert Advice for numbered variables ({{1}})
+    const params: any[] = [];
+    if (varCount >= 1) {
+      params.push({ type: "text", text: String(booking?.name || "Guest") });
+    }
+    if (varCount >= 2) {
+      params.push({ type: "text", text: String(booking?.id || "N/A") });
+    }
+
+    const waPayload: any = {
+      messaging_product: "whatsapp",
+      to: cleanMobile,
+      type: "template",
+      template: {
+        name: templateName,
+        language: { code: langCode }
       }
-      
-      if (varCount >= 2) {
-        params.push({ type: "text", text: String(booking?.id || "N/A") });
-      }
-      
-      components.push({
+    };
+
+    if (params.length > 0) {
+      waPayload.template.components = [{
         type: "body",
         parameters: params
-      });
+      }];
     }
 
     try {
-      const waPayload = {
-        messaging_product: "whatsapp",
-        to: cleanMobile,
-        type: "template",
-        template: {
-          name: templateName,
-          language: { code: langCode },
-          components: components.length > 0 ? components : undefined
-        }
-      };
-
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 
+          'Authorization': `Bearer ${token}`, 
+          'Content-Type': 'application/json' 
+        },
         body: JSON.stringify(waPayload)
       });
 
       const waData = await waRes.json();
       
+      // LOG ACTUAL JSON for the Expert if it fails
       await logToSheet([
         new Date().toLocaleString("en-IN"), 
         waData.messages?.[0]?.id || "FAILED", 
         cleanMobile, 
         waRes.ok ? "SUCCESS" : "ERROR", 
-        waRes.ok ? `Sent Template: ${templateName}` : `Meta Error: ${waData.error?.message || "Check Logs"}`
+        waRes.ok 
+          ? `Sent: ${templateName}` 
+          : `Sent JSON: ${JSON.stringify(waPayload)} | Meta Error: (#${waData.error?.code}) ${waData.error?.message}`
       ]);
 
       if (!waRes.ok) return res.status(waRes.status).json({ success: false, details: waData.error?.message });
@@ -108,7 +104,6 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // ... rest of handler (settings, GET/POST logs) remains the same
   if (type === 'settings') {
     if (req.method === "GET") return res.status(200).json(await getLatestSettings());
     if (req.method === "POST") {
