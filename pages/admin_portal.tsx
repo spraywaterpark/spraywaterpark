@@ -34,6 +34,15 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     setIsSaving(false);
   };
 
+  const applyQuickFix = () => {
+    setDraft({
+      ...draft,
+      waLangCode: 'en',
+      waTemplateName: 'ticket_confirmation'
+    });
+    alert("Quick Fix Applied! Now click 'Save Changes' to update the cloud.");
+  };
+
   const stats = useMemo(() => {
     const today = new Date().toLocaleDateString("en-IN");
     const list = bookings.filter(b => b.createdAt.includes(today));
@@ -80,11 +89,15 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Template Name</label>
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex justify-between">
+                           Template Name <span className="text-[8px] text-red-500">Must match exactly*</span>
+                        </label>
                         <input value={draft.waTemplateName} onChange={e => setDraft({...draft, waTemplateName: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="ticket_confirmation" />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Language Code</label>
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                           Language Code <span className="text-[8px] text-blue-500">Standard is 'en'</span>
+                        </label>
                         <input value={draft.waLangCode} onChange={e => setDraft({...draft, waLangCode: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="en" />
                     </div>
                   </div>
@@ -94,13 +107,13 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Variable Count</label>
                         <select value={draft.waVarCount || 1} onChange={e => setDraft({...draft, waVarCount: parseInt(e.target.value)})} className="input-premium !bg-white text-xs font-bold">
                            <option value={0}>0 - No Variables</option>
-                           <option value={1}>1 - Guest Name ({'{{1}}'})</option>
-                           <option value={2}>2 - Name & ID ({'{{2}}'})</option>
+                           <option value={1}>1 - Guest Name ({"{{1}}"})</option>
+                           <option value={2}>2 - Name & ID ({"{{2}}"})</option>
                         </select>
                     </div>
                     <div className="space-y-2">
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Phone Number ID</label>
-                        <input value={draft.waPhoneId || ''} onChange={e => setDraft({...draft, waPhoneId: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="From Meta Dashboard" />
+                        <input value={draft.waPhoneId || ''} onChange={e => setDraft({...draft, waPhoneId: e.target.value})} className="input-premium !bg-white text-xs font-bold" placeholder="123456789..." />
                     </div>
                   </div>
 
@@ -131,28 +144,29 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
           <div className="space-y-6">
               <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-xl border border-white/10">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-emerald-400 mb-8 flex items-center gap-2">
-                      <i className="fas fa-shield-check"></i> Expert Config Mode
+                  <h4 className="text-xs font-black uppercase tracking-widest text-red-400 mb-8 flex items-center gap-2">
+                      <i className="fas fa-exclamation-triangle"></i> Solve Error #132001
                   </h4>
                   
                   <div className="space-y-8">
                     <div className="space-y-2">
-                        <p className="text-[9px] text-white/40 font-black uppercase tracking-widest">Rule Summary</p>
-                        <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-2">
-                           <p className="text-[11px] font-bold"><i className="fas fa-check-circle text-blue-400 mr-2"></i> Variable: <b>Number Mode</b></p>
-                           <p className="text-[11px] font-bold"><i className="fas fa-times-circle text-red-400 mr-2"></i> Parameter Name: <b>DISABLED</b></p>
-                           <p className="text-[10px] text-white/50 leading-relaxed mt-2 uppercase">Hum Meta ko bina kisi naam ke sirf ordered text bhej rahe hain (Amit). Ye expert ki recommended setting hai.</p>
+                        <p className="text-[9px] text-white/40 font-black uppercase tracking-widest">Action Required</p>
+                        <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-4">
+                           <p className="text-[11px] font-bold text-amber-400 uppercase tracking-tight leading-relaxed">Aapke logs mein Language 'en_us' hai par Meta dashboard mein template sirf 'en' par hoga.</p>
+                           
+                           <button onClick={applyQuickFix} className="w-full bg-blue-600 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-blue-500 transition-all">
+                              Apply One-Click Fix
+                           </button>
+                           
+                           <hr className="opacity-10" />
+                           
+                           <p className="text-[10px] opacity-70 leading-relaxed uppercase">Manual check: Dashboard mein 'ticket_confirmation' ki spelling aur language (usually 'en') check karein.</p>
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <p className="text-[9px] text-white/40 font-black uppercase tracking-widest">Debug Info</p>
-                        <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1">
-                           <p className="text-[10px] font-bold">If #100 persists:</p>
-                           <p className="text-[10px] text-emerald-400">1. Check Template Name</p>
-                           <p className="text-[10px] text-emerald-400">2. Verify Token Validity</p>
-                           <p className="text-[10px] text-emerald-400">3. Match Var Count with Meta</p>
-                        </div>
+                    <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
+                        <p className="text-[9px] font-black uppercase text-emerald-400 tracking-widest">Status Update</p>
+                        <p className="text-[10px] mt-1 opacity-80">API now has auto-mapping logic to force 'en' when 'en_us' is detected.</p>
                     </div>
                   </div>
               </div>
