@@ -14,6 +14,61 @@ export default async function handler(req: any, res: any) {
   const sheets = google.sheets({ version: "v4", auth });
   const type = req.query.type;
 
+  // --- 1. WEBHOOK VERIFICATION (GET REQUEST FROM META) ---
+  // Meta asks for this to verify your server. 
+  // You must use 'spray_water_park_secure' as the verify token in Meta Dashboard.
+  if (req.method === "GET" && type === "webhook") {
+    const mode = req.query["hub.mode"];
+    const token = req.query["hub.verify_token"];
+    const challenge = req.query["hub.challenge"];
+
+    if (mode === "subscribe" && token === "spray_water_park_secure") {
+      console.log("WEBHOOK_VERIFIED_SUCCESSFULLY");
+      return res.status(200).send(challenge);
+    } else {
+      console.error("WEBHOOK_VERIFICATION_FAILED: Token Mismatch");
+      return res.status(403).end();
+    }
+  }
+
+  // --- 2. WEBHOOK DATA RECEIVER (POST REQUEST FROM META) ---
+  // Meta sends delivery status (sent, delivered, read, failed) here.
+  if (req.method === "POST" && type === "webhook") {
+    const body = req.body;
+    
+    try {
+      const entry = body.entry?.[0]?.changes?.[0]?.value;
+      if (entry?.statuses?.[0]) {
+        const statusUpdate = entry.statuses[0];
+        
+        // We only care about failures to debug why messages aren't arriving
+        if (statusUpdate.status === "failed") {
+          const error = statusUpdate.errors?.[0];
+          const logData = [
+            new Date().toLocaleString("en-IN"), 
+            statusUpdate.id,          // Message ID (wamid)
+            statusUpdate.recipient_id, // Phone Number
+            error?.code || "N/A",     // Error Code (e.g. 131026)
+            error?.message || "Unknown Failure" // Error Detail
+          ];
+
+          // Append to Google Sheet tab named "Logs"
+          // User MUST create a tab named "Logs" in their spreadsheet
+          await sheets.spreadsheets.values.append({
+            spreadsheetId: process.env.SHEET_ID,
+            range: "Logs!A:E",
+            valueInputOption: "USER_ENTERED",
+            requestBody: { values: [logData] }
+          });
+        }
+      }
+    } catch (e) {
+      console.error("WEBHOOK_LOG_ERROR:", e);
+    }
+    
+    return res.status(200).json({ status: "ok" });
+  }
+
   const getLatestSettings = async () => {
     try {
       const response = await sheets.spreadsheets.values.get({
@@ -28,7 +83,6 @@ export default async function handler(req: any, res: any) {
   if (type === 'whatsapp') {
     const { mobile, booking } = req.body;
     const settings = await getLatestSettings();
-    
     const token = (settings?.waToken || "").trim();
     const phoneId = (settings?.waPhoneId || "").trim();
     const templateName = (settings?.waTemplateName || "ticket").trim();
@@ -37,62 +91,48 @@ export default async function handler(req: any, res: any) {
     const shouldAdd91 = settings?.waAdd91 !== false;
 
     if (!token || !phoneId) {
-      return res.status(400).json({ success: false, details: "WhatsApp Token or Phone ID is missing in Admin Settings." });
+      return res.status(400).json({ success: false, details: "Settings incomplete. Check Token/PhoneID." });
     }
 
     let cleanMobile = String(mobile || "").replace(/\D/g, '');
     if (shouldAdd91 && cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
 
     try {
-      // Dynamic Named Parameter Payload
       const waPayload = {
         messaging_product: "whatsapp",
-        recipient_type: "individual",
         to: cleanMobile,
         type: "template",
         template: {
           name: templateName,
           language: { code: langCode },
           components: [{
-            type: "body",
-            parameters: [
-              {
-                type: "text",
-                parameter_name: varName, // Using the variable name from settings
-                text: String(booking?.name || "Guest")
-              }
-            ]
+              type: "body",
+              parameters: [{
+                  type: "text",
+                  parameter_name: varName,
+                  text: String(booking?.name || "Guest")
+              }]
           }]
         }
       };
 
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`, 
-          'Content-Type': 'application/json' 
-        },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(waPayload)
       });
 
       const waData = await waRes.json();
-
       if (!waRes.ok) {
-        const error = waData.error || {};
-        return res.status(400).json({ 
-          success: false, 
-          details: `Meta Error: ${error.message} (Code: ${error.code})` 
-        });
+        return res.status(400).json({ success: false, details: `Meta Error: ${waData.error?.message}` });
       }
 
-      return res.status(200).json({ success: true, metaResponse: waData });
-
+      return res.status(200).json({ success: true, messageId: waData.messages?.[0]?.id });
     } catch (e: any) {
-      return res.status(500).json({ success: false, details: `Internal Fetch Error: ${e.message}` });
+      return res.status(500).json({ success: false, details: e.message });
     }
   }
 
-  // --- SETTINGS & BOOKINGS LOGIC ---
   if (type === 'settings') {
     if (req.method === "GET") return res.status(200).json(await getLatestSettings());
     if (req.method === "POST") {
