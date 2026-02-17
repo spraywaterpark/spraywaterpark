@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Booking, AdminSettings } from '../types';
+import { Booking, AdminSettings, BlockedSlot, ShiftType } from '../types';
 import { cloudSync } from '../services/cloud_sync';
 
 interface AdminPanelProps {
@@ -13,51 +13,48 @@ interface AdminPanelProps {
 }
 
 const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'bookings' | 'pricing'>('bookings');
+  const [activeTab, setActiveTab] = useState<'bookings' | 'pricing' | 'slots'>('bookings');
   const [draft, setDraft] = useState<AdminSettings>(settings);
   const [isSaving, setIsSaving] = useState(false);
-  const [isTesting, setIsTesting] = useState(false);
+  
+  // Local state for new blocked slot
+  const [newBlockDate, setNewBlockDate] = useState('');
+  const [newBlockShift, setNewBlockShift] = useState<ShiftType>('all');
 
   useEffect(() => {
     setDraft(settings);
   }, [settings]);
 
-  const saveSettings = async () => {
+  const saveSettings = async (updatedDraft?: AdminSettings) => {
+    const settingsToSave = updatedDraft || draft;
     setIsSaving(true);
-    const success = await cloudSync.saveSettings(draft);
+    const success = await cloudSync.saveSettings(settingsToSave);
     if (success) {
-      onUpdateSettings(draft);
-      alert("✅ Pricing Updated Successfully.");
+      onUpdateSettings(settingsToSave);
+      if (!updatedDraft) alert("✅ Settings Updated Successfully.");
     } else {
       alert("❌ Update Failed. Check internet.");
     }
     setIsSaving(false);
   };
 
-  const testWhatsApp = async () => {
-    const testMobile = prompt("Enter 10-digit mobile number to test 'ticket' template:");
-    if (!testMobile || testMobile.length !== 10) return alert("Invalid number");
+  const addBlockedSlot = () => {
+    if (!newBlockDate) return alert("Select a date");
+    const exists = draft.blockedSlots.some(s => s.date === newBlockDate && s.shift === newBlockShift);
+    if (exists) return alert("This slot is already blocked.");
 
-    setIsTesting(true);
-    try {
-      const response = await fetch('/api/booking?type=whatsapp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mobile: testMobile,
-          booking: { id: 'TEST-123', name: 'Test Guest', adults: 1, kids: 0, totalAmount: 500, date: new Date().toISOString().split('T')[0] }
-        })
-      });
-      const data = await response.json();
-      if (data.success) {
-        alert("🎉 SUCCESS! Ticket sent to " + testMobile);
-      } else {
-        alert("⚠️ ERROR:\n\n" + data.details + "\n\nTip: Ensure variables are named WHATSAPP_TOKEN and WHATSAPP_PHONE_ID in Vercel.");
-      }
-    } catch (e) {
-      alert("Network Error.");
-    }
-    setIsTesting(false);
+    const newSlots = [...(draft.blockedSlots || []), { date: newBlockDate, shift: newBlockShift }];
+    const newDraft = { ...draft, blockedSlots: newSlots };
+    setDraft(newDraft);
+    saveSettings(newDraft);
+    setNewBlockDate('');
+  };
+
+  const removeBlockedSlot = (index: number) => {
+    const newSlots = draft.blockedSlots.filter((_, i) => i !== index);
+    const newDraft = { ...draft, blockedSlots: newSlots };
+    setDraft(newDraft);
+    saveSettings(newDraft);
   };
 
   const stats = useMemo(() => {
@@ -79,17 +76,18 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
           <h2 className="text-6xl font-black tracking-tighter">₹{stats.revenue.toLocaleString()}</h2>
           <p className="text-white/40 text-[10px] font-bold uppercase mt-2">{stats.tickets} Bookings Today</p>
         </div>
-        <div className="relative z-10 flex bg-white/5 p-1.5 rounded-2xl border border-white/10 backdrop-blur-xl">
-            <button onClick={() => setActiveTab('bookings')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='bookings' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>Bookings</button>
-            <button onClick={() => setActiveTab('pricing')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='pricing' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>Pricing</button>
+        <div className="relative z-10 flex flex-wrap justify-center bg-white/5 p-1.5 rounded-2xl border border-white/10 backdrop-blur-xl">
+            <button onClick={() => setActiveTab('bookings')} className={`px-6 md:px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='bookings' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>Bookings</button>
+            <button onClick={() => setActiveTab('pricing')} className={`px-6 md:px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='pricing' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>Pricing</button>
+            <button onClick={() => setActiveTab('slots')} className={`px-6 md:px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='slots' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>Block Slots</button>
         </div>
       </div>
 
-      {activeTab === 'pricing' ? (
+      {activeTab === 'pricing' && (
         <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-10">
             <div className="flex justify-between items-center border-b pb-6">
-                <h3 className="text-xl font-black uppercase text-slate-900 tracking-tight">Ticket Rates & Offers</h3>
-                <button onClick={saveSettings} className="bg-blue-600 text-white px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">
+                <h3 className="text-xl font-black uppercase text-slate-900 tracking-tight">Ticket Rates</h3>
+                <button onClick={() => saveSettings()} className="bg-blue-600 text-white px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">
                     {isSaving ? 'Saving...' : 'Save Changes'}
                 </button>
             </div>
@@ -122,7 +120,58 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                 </div>
             </div>
         </div>
-      ) : (
+      )}
+
+      {activeTab === 'slots' && (
+        <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-10">
+            <div className="flex justify-between items-center border-b pb-6">
+                <h3 className="text-xl font-black uppercase text-slate-900 tracking-tight">Block Visit Dates</h3>
+            </div>
+            
+            <div className="grid md:grid-cols-3 gap-6 items-end bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase">Select Date</label>
+                    <input type="date" className="input-premium" value={newBlockDate} onChange={e => setNewBlockDate(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase">Select Shift</label>
+                    <select className="input-premium" value={newBlockShift} onChange={e => setNewBlockShift(e.target.value as ShiftType)}>
+                        <option value="all">Whole Day (All)</option>
+                        <option value="morning">Morning Only</option>
+                        <option value="evening">Evening Only</option>
+                    </select>
+                </div>
+                <button onClick={addBlockedSlot} className="bg-slate-900 text-white h-[56px] rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">
+                    Block Date
+                </button>
+            </div>
+
+            <div className="space-y-4">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Currently Blocked Dates</p>
+                {draft.blockedSlots && draft.blockedSlots.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {draft.blockedSlots.map((slot, idx) => (
+                            <div key={idx} className="flex justify-between items-center bg-white p-5 rounded-2xl border-2 border-slate-100 shadow-sm">
+                                <div>
+                                    <p className="font-black text-slate-900 uppercase text-sm">{slot.date}</p>
+                                    <p className="text-[9px] font-bold text-red-500 uppercase tracking-widest">{slot.shift} blocked</p>
+                                </div>
+                                <button onClick={() => removeBlockedSlot(idx)} className="w-8 h-8 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all">
+                                    <i className="fas fa-trash-alt text-xs"></i>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-10 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+                        <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">No dates are currently blocked.</p>
+                    </div>
+                )}
+            </div>
+        </div>
+      )}
+
+      {activeTab === 'bookings' && (
         <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border border-slate-100">
           <div className="p-8 border-b bg-slate-50 flex justify-between items-center">
               <h3 className="text-xl font-black uppercase text-slate-900 tracking-tight">Recent Activity</h3>
@@ -143,7 +192,11 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                     </td>
                     <td className="text-slate-600">{b.date}<br/>{b.time.split(':')[0]}</td>
                     <td className="font-black text-slate-900">₹{b.totalAmount}</td>
-                    <td><span className="bg-emerald-100 text-emerald-700 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest">PAID</span></td>
+                    <td>
+                      <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${b.status === 'checked-in' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                        {b.status === 'checked-in' ? 'VISITED' : 'PAID'}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -152,28 +205,11 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         </div>
       )}
 
-      {/* Troubleshooting Footer */}
-      <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center">
-                  <i className="fab fa-whatsapp"></i>
-              </div>
-              <div>
-                  <p className="text-[10px] font-black uppercase text-slate-900">WhatsApp Engine</p>
-                  <p className="text-[9px] font-bold text-slate-400">Template: 'ticket' (Permanent)</p>
-              </div>
-          </div>
-          <div className="flex flex-col items-center md:items-end gap-2">
-            <p className="text-[8px] font-bold text-slate-400 uppercase">Checking: WHATSAPP_TOKEN & WHATSAPP_PHONE_ID</p>
-            <button onClick={testWhatsApp} disabled={isTesting} className="px-10 py-4 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl transition-all hover:bg-slate-800">
-                {isTesting ? 'Sending...' : 'Test WhatsApp'}
-            </button>
-          </div>
-      </div>
-
-      <div className="flex justify-center gap-4 py-6">
-          <button onClick={() => window.location.hash = '#/admin-lockers'} className="bg-emerald-600 text-white px-12 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl">Locker Management</button>
-          <button onClick={onLogout} className="bg-slate-200 text-slate-900 px-12 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest">Logout</button>
+      <div className="flex flex-wrap justify-center gap-4 py-6">
+          <button onClick={() => window.location.hash = '#/admin-lockers'} className="bg-emerald-600 text-white px-10 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-3">
+            <i className="fas fa-key"></i> Locker Management
+          </button>
+          <button onClick={onLogout} className="bg-slate-200 text-slate-900 px-10 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest">Logout</button>
       </div>
     </div>
   );
