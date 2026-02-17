@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Booking } from '../types';
 import { notificationService } from '../services/notification_service';
@@ -5,13 +6,18 @@ import { notificationService } from '../services/notification_service';
 const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ bookings, mobile }) => {
   const userList = bookings.filter(b => b.mobile === mobile);
   const [resending, setResending] = useState<string | null>(null);
+  const [sentStatus, setSentStatus] = useState<string | null>(null);
 
   const handleResend = async (booking: Booking) => {
     setResending(booking.id);
+    setSentStatus(null);
     try {
       const res = await notificationService.sendWhatsAppTicket(booking);
       if (res.success) {
-        alert(`Success! Ticket sent to Meta Queue.\n\nMeta ID: ${res.details || "N/A"}`);
+        // Removed the window.alert to allow direct sending without "OK" click
+        setSentStatus(booking.id);
+        // Reset status after 3 seconds
+        setTimeout(() => setSentStatus(null), 3000);
       } else {
         alert(`Failed: ${res.details || "Please check Admin Settings."}`);
       }
@@ -77,14 +83,23 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
                       <button
                         onClick={() => handleResend(b)}
                         disabled={resending === b.id}
-                        className="w-full bg-emerald-600 text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition shadow-xl hover:shadow-emerald-200 flex items-center justify-center gap-3 disabled:opacity-50"
+                        className={`w-full px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest transition shadow-xl flex items-center justify-center gap-3 disabled:opacity-50 ${
+                          sentStatus === b.id 
+                            ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-500' 
+                            : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-emerald-200'
+                        }`}
                       >
                         {resending === b.id ? (
                           <><i className="fas fa-circle-notch fa-spin"></i> Sending...</>
+                        ) : sentStatus === b.id ? (
+                          <><i className="fas fa-check-double"></i> Ticket Sent! ✅</>
                         ) : (
                           <><i className="fab fa-whatsapp text-lg"></i> Get Ticket on WhatsApp</>
                         )}
                       </button>
+                      {sentStatus === b.id && (
+                        <p className="mt-3 text-[9px] font-black text-emerald-600 uppercase animate-pulse">Check your WhatsApp app now!</p>
+                      )}
                     </div>
                   </div>
                 </div>
