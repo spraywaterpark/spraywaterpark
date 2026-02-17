@@ -42,6 +42,8 @@ const AppContent: React.FC = () => {
   const [syncId, setSyncId] = useState<string>(() => localStorage.getItem('swp_sync_id') || MASTER_SYNC_ID);
 
   const bookingsRef = useRef<Booking[]>(bookings);
+  const isFetching = useRef(false);
+
   useEffect(() => { bookingsRef.current = bookings; }, [bookings]);
 
   useEffect(() => { sessionStorage.setItem('swp_auth', JSON.stringify(auth)); }, [auth]);
@@ -51,24 +53,32 @@ const AppContent: React.FC = () => {
   useEffect(() => { localStorage.setItem('swp_locker_issues', JSON.stringify(lockerIssues)); }, [lockerIssues]);
 
   const performSync = async () => {
+    if (isFetching.current) return;
+    isFetching.current = true;
     setIsSyncing(true);
     try {
-      const remoteSettings = await cloudSync.fetchSettings();
+      const [remoteSettings, remoteBookings] = await Promise.all([
+        cloudSync.fetchSettings(),
+        cloudSync.fetchData(syncId)
+      ]);
+
       if (remoteSettings && JSON.stringify(settings) !== JSON.stringify(remoteSettings)) {
         setSettings(remoteSettings);
       }
-
-      const remoteBookings = await cloudSync.fetchData(syncId);
       if (remoteBookings && JSON.stringify(bookingsRef.current) !== JSON.stringify(remoteBookings)) {
         setBookings(remoteBookings);
       }
-    } catch {}
-    setIsSyncing(false);
+    } catch (e) {
+      console.warn("Sync encountered a temporary issue.");
+    } finally {
+      setIsSyncing(false);
+      isFetching.current = false;
+    }
   };
 
   useEffect(() => {
     performSync();
-    const interval = setInterval(performSync, 20000);
+    const interval = setInterval(performSync, 30000); 
     return () => clearInterval(interval);
   }, [syncId]);
 
@@ -92,16 +102,6 @@ const AppContent: React.FC = () => {
     if (syncId) await cloudSync.updateData(syncId, updated);
   };
 
-  const addLockerIssue = (issue: LockerIssue) => {
-    setLockerIssues(prev => [issue, ...prev]);
-  };
-
-  const closeLockerIssue = (receiptNo: string) => {
-    setLockerIssues(prev =>
-      prev.map(i => i.receiptNo === receiptNo ? { ...i, returnedAt: new Date().toISOString() } : i)
-    );
-  };
-
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <header className="sticky top-0 z-[9999] w-full glass-header no-print">
@@ -110,41 +110,41 @@ const AppContent: React.FC = () => {
             <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center text-white border border-white/20">
               <i className="fas fa-water text-xs"></i>
             </div>
-            <h1 className="text-sm md:text-lg font-extrabold text-white uppercase">Spray Aqua Resort</h1>
+            <h1 className="text-sm md:text-lg font-extrabold text-white uppercase tracking-tighter">Spray Aqua Resort</h1>
           </Link>
 
-          {auth.role && (
-            <button onClick={logout} className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full border border-white/20 text-white">
-              Sign Out
-            </button>
-          )}
+          <div className="flex items-center gap-4">
+            {isSyncing && (
+              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
+                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></div>
+                <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">Syncing</span>
+              </div>
+            )}
+            {auth.role && (
+              <button onClick={logout} className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full border border-white/20 text-[10px] font-black uppercase text-white hover:bg-white/20 transition-all">
+                Sign Out
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
       <main className="flex-1 w-full flex justify-center px-3 md:px-6 py-6">
         <div className="w-full max-w-7xl">
           <Routes>
-
             <Route path="/" element={
               auth.role === 'admin' ? <Navigate to="/admin" /> :
-              auth.role === 'staff' ? <Navigate to="/staff" /> :
+              (auth.role === 'staff' || auth.role === 'staff1' || auth.role === 'staff2') ? <Navigate to="/staff" /> :
               auth.role === 'guest' ? <Navigate to="/book" /> :
               <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />
             } />
-
             <Route path="/book" element={auth.role === 'guest' ? <BookingGate settings={settings} bookings={bookings} onProceed={()=>{}} /> : <Navigate to="/" />} />
             <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} /> : <Navigate to="/" />} />
             <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
-
-            {/* Fixed missing onLogout prop */}
             <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={setSettings} syncId={syncId} onSyncSetup={setSyncId} onLogout={logout} /> : <Navigate to="/" />} />
-
             <Route path="/admin-lockers" element={auth.role === 'admin' ? <AdminLockers /> : <Navigate to="/" />} />
-            
-            <Route path="/staff" element={auth.role === 'staff' ? <StaffPortal /> : <Navigate to="/" />} />
-
+            <Route path="/staff" element={(auth.role === 'staff' || auth.role === 'staff1' || auth.role === 'staff2') ? <StaffPortal role={auth.role} /> : <Navigate to="/" />} />
             <Route path="*" element={<Navigate to="/" />} />
-
           </Routes>
         </div>
       </main>
