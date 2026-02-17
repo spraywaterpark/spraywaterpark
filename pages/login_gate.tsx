@@ -1,12 +1,13 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { UserRole } from '../types';
 
 const LOGIN_HERO_IMAGE = "https://www.vickerypediatrics.com/wp-content/uploads/2018/07/child-swimming-safely.jpg";
 
 interface LoginPageProps {
   onGuestLogin: (n: string, m: string) => void;
-  onAdminLogin: (e: string, role: 'admin' | 'staff') => void;
+  onAdminLogin: (e: string, role: UserRole) => void;
 }
 
 const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => {
@@ -23,7 +24,6 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
   };
 
   const validateMobile = (mobile: string) => {
-    // Condition: Exactly 10 digits, starts with 7, 8, or 9
     if (!/^[789]\d{9}$/.test(mobile)) {
       return "Enter a valid 10-digit mobile starting with 7, 8, or 9.";
     }
@@ -47,17 +47,24 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
     const user = data.loginId.trim();
     const pass = data.password.trim();
 
-    // Updated Credentials: admin/123 and staff/123
-    if (user === 'admin' && pass === '123') {
-      onAdminLogin(user, 'admin');
-      navigate('/admin');
-    }
-    else if (user === 'staff' && pass === '123') {
-      onAdminLogin(user, 'staff');
-      navigate('/staff');
-    }
-    else {
-      alert("Invalid ID or Password.");
+    if (pass === '123') {
+      if (user === 'admin') {
+        onAdminLogin(user, 'admin');
+        navigate('/admin');
+      }
+      else if (user === 'staff1') {
+        onAdminLogin(user, 'staff1');
+        navigate('/staff');
+      }
+      else if (user === 'staff2') {
+        onAdminLogin(user, 'staff2');
+        navigate('/staff');
+      }
+      else {
+        alert("Invalid Login ID.");
+      }
+    } else {
+      alert("Invalid Password.");
     }
   };
 
@@ -97,7 +104,10 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
               </>
             ) : (
               <>
-                <input placeholder="Login ID" className="input-premium" value={data.loginId} onChange={e => setData({ ...data, loginId: e.target.value })} />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Role Based ID (admin/staff1/staff2)</label>
+                  <input placeholder="Login ID" className="input-premium" value={data.loginId} onChange={e => setData({ ...data, loginId: e.target.value })} />
+                </div>
                 <input type="password" placeholder="Password" className="input-premium" value={data.password} onChange={e => setData({ ...data, password: e.target.value })} />
               </>
             )}
