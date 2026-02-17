@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Booking, AdminSettings } from '../types';
 import { cloudSync } from '../services/cloud_sync';
@@ -45,7 +44,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mobile: testMobile,
-          booking: { id: 'TEST-SPRAY', name: 'Test Guest', totalAmount: 0, date: '2025-01-01' }
+          booking: { id: 'TEST-SPRAY', name: 'Test Guest', adults: 1, kids: 0, totalAmount: 0, date: new Date().toISOString().split('T')[0] }
         })
       });
       const data = await response.json();
@@ -115,7 +114,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                       className="input-premium font-mono !bg-slate-50 text-blue-700 border-2" 
                       placeholder="e.g. 104825968254123" 
                     />
-                    <p className="text-[9px] text-slate-400 font-bold italic">From Meta: WhatsApp -> Getting Started -> Step 1</p>
                 </div>
                 <div className="space-y-3">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -125,9 +123,36 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                       value={draft.waTemplateName} 
                       onChange={e => setDraft({...draft, waTemplateName: e.target.value})} 
                       className="input-premium font-bold border-2" 
-                      placeholder="e.g. ticket_confirmation"
+                      placeholder="e.g. ticket"
                     />
-                    <p className="text-[9px] text-slate-400 font-bold italic">Must match Meta Manager exactly</p>
+                </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <i className="fas fa-list-ol text-emerald-500"></i> Variable Count
+                    </label>
+                    <input 
+                      type="number"
+                      value={draft.waVarCount} 
+                      onChange={e => setDraft({...draft, waVarCount: parseInt(e.target.value) || 0})} 
+                      className="input-premium font-bold border-2" 
+                      placeholder="e.g. 3" 
+                    />
+                    <p className="text-[9px] text-slate-400 font-bold italic">Number of {"{{n}}"} in your template</p>
+                </div>
+                <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <i className="fas fa-language text-emerald-500"></i> Language Code
+                    </label>
+                    <input 
+                      value={draft.waLangCode} 
+                      onChange={e => setDraft({...draft, waLangCode: e.target.value})} 
+                      className="input-premium font-bold border-2" 
+                      placeholder="e.g. en"
+                    />
+                    <p className="text-[9px] text-slate-400 font-bold italic">Usually 'en' or 'en_US'</p>
                 </div>
             </div>
 
@@ -141,12 +166,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                   className="input-premium !bg-slate-50 h-32 text-[11px] font-mono leading-relaxed border-2" 
                   placeholder="EAAB..." 
                 />
-                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-start gap-3">
-                    <i className="fas fa-info-circle text-blue-500 mt-0.5"></i>
-                    <p className="text-[9px] text-blue-800 font-bold uppercase tracking-widest leading-normal">
-                        Token Safety: Ensure you are using the PERMANENT token from "System Users" section, not the temporary 24-hour token.
-                    </p>
-                </div>
             </div>
           </div>
 
@@ -155,8 +174,8 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                   <i className="fab fa-whatsapp absolute -right-6 -top-6 text-9xl opacity-10 rotate-12"></i>
                   <h4 className="text-[10px] font-black uppercase tracking-[0.3em] mb-8 border-b border-white/10 pb-4">Setup Checklist</h4>
                   <ul className="space-y-6">
-                      <CheckItem title="Meta App" desc="'Spray Jaipur' App is created." active />
-                      <CheckItem title="WABA Account" desc="Connected to Business Portfolio." active />
+                      <CheckItem title="Template Check" desc="Name must be 'ticket' exactly." active={draft.waTemplateName === 'ticket'} />
+                      <CheckItem title="Variables" desc="Set count to 3 for approved template." active={draft.waVarCount === 3} />
                       <CheckItem title="Phone ID" desc="Copy from 'Getting Started'." active={!!draft.waPhoneId} />
                       <CheckItem title="Admin Token" desc="Generated from System Users." active={!!draft.waToken} />
                   </ul>
