@@ -1,11 +1,15 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { LockerReceipt, ShiftType } from '../types';
+import { LockerReceipt, ShiftType, UserRole } from '../types';
 import { cloudSync } from '../services/cloud_sync';
 import { COSTUME_RULES, LOCKER_RULES } from '../constants';
 
-const StaffPortal: React.FC = () => {
-  const [mode, setMode] = useState<'entry' | 'issue' | 'return'>('entry');
+const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
+  // Set default mode based on role
+  const [mode, setMode] = useState<'entry' | 'issue' | 'return'>(
+    role === 'staff1' ? 'entry' : 'issue'
+  );
+  
   const [guestName, setGuestName] = useState('');
   const [guestMobile, setGuestMobile] = useState('');
   const [shift, setShift] = useState<ShiftType>('morning');
@@ -174,7 +178,6 @@ const StaffPortal: React.FC = () => {
     if (!searchCode) return;
     setIsSyncing(true);
     const all = await cloudSync.fetchRentals();
-    // Search by receipt no or ID suffix
     const found = all?.find(r => (r.receiptNo === searchCode || r.receiptNo.endsWith(searchCode)) && r.status === 'issued');
     setIsSyncing(false);
     if (!found) return alert("Active record not found for this code.");
@@ -208,24 +211,31 @@ const StaffPortal: React.FC = () => {
 
   return (
     <div className="w-full flex flex-col items-center py-6 text-white min-h-[90vh]">
-      {/* Tab Switcher */}
+      {/* Tab Switcher - Restricted based on Role */}
       <div className="w-full max-w-5xl flex justify-between items-center mb-10 px-4 no-print">
-          <div className="flex bg-white/10 rounded-full p-1.5 border border-white/10 shadow-xl">
-            <button onClick={() => setMode('entry')} className={`px-8 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'entry' ? 'bg-blue-600 text-white' : 'text-white/50'}`}>GATE</button>
-            <button onClick={() => setMode('issue')} className={`px-8 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'issue' ? 'bg-emerald-500 text-slate-900 shadow-lg shadow-emerald-500/20' : 'text-white/50'}`}>ISSUE</button>
-            <button onClick={() => setMode('return')} className={`px-8 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'return' ? 'bg-amber-500 text-slate-900' : 'text-white/50'}`}>RETURN</button>
+          <div className="flex bg-white/10 rounded-full p-1.5 border border-white/10 shadow-xl overflow-hidden">
+            {(role === 'staff1' || role === 'staff' || role === 'admin') && (
+              <button onClick={() => setMode('entry')} className={`px-8 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'entry' ? 'bg-blue-600 text-white shadow-lg' : 'text-white/50 hover:text-white'}`}>GATE ENTRY</button>
+            )}
+            {(role === 'staff2' || role === 'staff' || role === 'admin') && (
+              <>
+                <button onClick={() => setMode('issue')} className={`px-8 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'issue' ? 'bg-emerald-500 text-slate-900 shadow-lg' : 'text-white/50 hover:text-white'}`}>LOCKER ISSUE</button>
+                <button onClick={() => setMode('return')} className={`px-8 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'return' ? 'bg-amber-500 text-slate-900 shadow-lg' : 'text-white/50 hover:text-white'}`}>LOCKER RETURN</button>
+              </>
+            )}
           </div>
           <button onClick={refreshActive} className="bg-white/10 w-12 h-12 rounded-full flex items-center justify-center border border-white/10 active:scale-90 transition-all">
              <i className={`fas fa-sync-alt ${isSyncing ? 'fa-spin text-emerald-400' : ''}`}></i>
           </button>
       </div>
 
-      {mode === 'entry' && (
+      {mode === 'entry' && (role === 'staff1' || role === 'staff' || role === 'admin') && (
         <div className="bg-white/10 border border-white/20 rounded-[3rem] p-12 w-full max-w-xl space-y-8 shadow-2xl backdrop-blur-3xl animate-slide-up text-center no-print">
           <div className="w-24 h-24 bg-blue-500/10 rounded-full flex items-center justify-center text-4xl text-blue-400 mx-auto mb-6 border border-blue-500/20">
             <i className="fas fa-id-card"></i>
           </div>
-          <h3 className="text-3xl font-black uppercase tracking-tight">Gate Entry Verification</h3>
+          <h3 className="text-3xl font-black uppercase tracking-tight">Gate Verification</h3>
+          <p className="text-white/40 text-[9px] font-black uppercase tracking-widest">Logged in as: {role}</p>
           <input placeholder="ENTER TICKET ID" className="input-premium text-center !bg-slate-900/50 !text-white text-2xl font-black uppercase tracking-widest" value={ticketInput} onChange={e => setTicketInput(e.target.value)} />
           <button onClick={handleCheckIn} disabled={isSyncing || !ticketInput} className="btn-resort w-full h-16 !bg-blue-600 !text-white shadow-xl">
             {isSyncing ? 'VERIFYING...' : 'VALIDATE & CHECK-IN'}
@@ -233,8 +243,12 @@ const StaffPortal: React.FC = () => {
         </div>
       )}
 
-      {mode === 'issue' && (
+      {mode === 'issue' && (role === 'staff2' || role === 'staff' || role === 'admin') && (
         <div className="bg-white/5 border border-white/10 rounded-[3rem] p-8 md:p-14 w-full max-w-6xl space-y-12 shadow-2xl backdrop-blur-3xl animate-slide-up no-print">
+          <div className="text-center md:text-left mb-6">
+            <p className="text-emerald-400 text-[9px] font-black uppercase tracking-[0.2em]">Asset Issuance Terminal</p>
+            <p className="text-white/40 text-[8px] font-black uppercase tracking-widest">Session User: {role}</p>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               <div className="bg-slate-900/50 p-6 rounded-3xl border border-blue-500/20 text-center">
                   <p className="text-[9px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">M-Lockers Avail</p>
@@ -306,15 +320,14 @@ const StaffPortal: React.FC = () => {
             </div>
           </div>
 
-          <button onClick={generateReceipt} className="btn-resort w-full h-20 !bg-emerald-500 !text-slate-900 text-lg shadow-2xl">REVIEW & GENERATE RECEIPT</button>
+          <button onClick={generateReceipt} className="btn-resort w-full h-20 !bg-emerald-500 !text-slate-900 text-lg shadow-2xl uppercase font-black">Generate Booking Breakdown</button>
           
-          {/* Detailed Receipt Breakdown Modal */}
           {receipt && (
             <div className="fixed inset-0 z-[5000] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6 animate-fade">
               <div className="bg-white text-slate-900 rounded-[3rem] w-full max-w-xl p-10 space-y-8 shadow-2xl border-t-[12px] border-emerald-500">
                 <div className="text-center">
-                    <p className="text-[11px] font-black text-emerald-600 uppercase tracking-widest mb-1">Receipt ID: {receipt.receiptNo}</p>
-                    <h2 className="text-3xl font-black uppercase tracking-tighter">Billing Summary</h2>
+                    <p className="text-[11px] font-black text-emerald-600 uppercase tracking-widest mb-1">ID: {receipt.receiptNo}</p>
+                    <h2 className="text-3xl font-black uppercase tracking-tighter">Confirm Assets</h2>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{receipt.guestName} | {receipt.guestMobile}</p>
                 </div>
 
@@ -322,61 +335,46 @@ const StaffPortal: React.FC = () => {
                     <div className="flex justify-between items-center border-b pb-3">
                         <div>
                             <p className="text-[10px] font-black uppercase text-slate-400">Lockers ({receipt.maleLockers.length + receipt.femaleLockers.length})</p>
-                            <p className="text-[9px] text-slate-500">Rent: ₹100 | Security: ₹200</p>
                         </div>
                         <div className="text-right">
                             <p>Rent: ₹{(receipt.maleLockers.length + receipt.femaleLockers.length) * 100}</p>
-                            <p className="text-emerald-600">Sec: ₹{(receipt.maleLockers.length + receipt.femaleLockers.length) * 200}</p>
+                            <p className="text-emerald-600">Deposit: ₹{(receipt.maleLockers.length + receipt.femaleLockers.length) * 200}</p>
                         </div>
                     </div>
                     
-                    {receipt.maleCostumes > 0 && (
+                    {(receipt.maleCostumes > 0 || receipt.femaleCostumes > 0) && (
                         <div className="flex justify-between items-center border-b pb-3">
                             <div>
-                                <p className="text-[10px] font-black uppercase text-slate-400">Male Costumes ({receipt.maleCostumes})</p>
-                                <p className="text-[9px] text-slate-500">Rent: ₹50 | Security: ₹50</p>
+                                <p className="text-[10px] font-black uppercase text-slate-400">Costumes ({receipt.maleCostumes + receipt.femaleCostumes})</p>
                             </div>
                             <div className="text-right">
-                                <p>Rent: ₹{receipt.maleCostumes * 50}</p>
-                                <p className="text-emerald-600">Sec: ₹{receipt.maleCostumes * 50}</p>
-                            </div>
-                        </div>
-                    )}
-
-                    {receipt.femaleCostumes > 0 && (
-                        <div className="flex justify-between items-center border-b pb-3">
-                            <div>
-                                <p className="text-[10px] font-black uppercase text-slate-400">Female Costumes ({receipt.femaleCostumes})</p>
-                                <p className="text-[9px] text-slate-500">Rent: ₹100 | Security: ₹100</p>
-                            </div>
-                            <div className="text-right">
-                                <p>Rent: ₹{receipt.femaleCostumes * 100}</p>
-                                <p className="text-emerald-600">Sec: ₹{receipt.femaleCostumes * 100}</p>
+                                <p>Rent: ₹{(receipt.maleCostumes * 50) + (receipt.femaleCostumes * 100)}</p>
+                                <p className="text-emerald-600">Deposit: ₹{(receipt.maleCostumes * 50) + (receipt.femaleCostumes * 100)}</p>
                             </div>
                         </div>
                     )}
                     
                     <div className="grid grid-cols-2 gap-4 pt-4">
                         <div className="p-4 bg-white rounded-2xl border text-center">
-                            <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Non-Refundable</p>
+                            <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Usage Fee</p>
                             <p className="text-xl font-black">₹{receipt.rentAmount}</p>
                         </div>
                         <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-center">
-                            <p className="text-[9px] font-black text-emerald-600 uppercase mb-1">Security (Refund)</p>
+                            <p className="text-[9px] font-black text-emerald-600 uppercase mb-1">Refundable Amt</p>
                             <p className="text-xl font-black text-emerald-700">₹{receipt.securityDeposit}</p>
                         </div>
                     </div>
                 </div>
 
                 <div className="bg-slate-900 text-white p-8 rounded-[2rem] flex justify-between items-center shadow-xl">
-                    <p className="text-xs font-black uppercase tracking-widest opacity-60">Collect Cash</p>
+                    <p className="text-xs font-black uppercase tracking-widest opacity-60">Total to Collect</p>
                     <h3 className="text-5xl font-black tracking-tighter">₹{receipt.totalCollected}</h3>
                 </div>
 
                 <div className="flex gap-4">
-                    <button onClick={() => setReceipt(null)} className="flex-1 py-5 rounded-2xl font-black text-xs uppercase bg-slate-100 text-slate-400 hover:bg-slate-200 transition-all">Edit Order</button>
-                    <button onClick={confirmAndPrint} disabled={isSyncing} className="flex-[2] btn-resort !bg-emerald-500 !text-slate-900 hover:scale-105">
-                        {isSyncing ? 'SYNCING DATA...' : 'CONFIRM & PRINT'}
+                    <button onClick={() => setReceipt(null)} className="flex-1 py-5 rounded-2xl font-black text-xs uppercase bg-slate-100 text-slate-400">Back</button>
+                    <button onClick={confirmAndPrint} disabled={isSyncing} className="flex-[2] btn-resort !bg-emerald-500 !text-slate-900">
+                        {isSyncing ? 'SYNCING...' : 'CONFIRM & PRINT'}
                     </button>
                 </div>
               </div>
@@ -385,17 +383,50 @@ const StaffPortal: React.FC = () => {
         </div>
       )}
 
-      {/* Actual Print Template (Hidden in UI) */}
+      {mode === 'return' && (role === 'staff2' || role === 'staff' || role === 'admin') && (
+        <div className="bg-white/10 border border-white/20 rounded-[3rem] p-12 w-full max-w-xl space-y-8 shadow-2xl backdrop-blur-3xl animate-slide-up text-center no-print">
+          <div className="w-24 h-24 bg-amber-500/10 rounded-full flex items-center justify-center text-4xl text-amber-400 mx-auto mb-6 border border-amber-500/20">
+            <i className="fas fa-undo-alt"></i>
+          </div>
+          <h3 className="text-3xl font-black uppercase tracking-tight">Return & Refund</h3>
+          <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">Logged in as: {role}</p>
+          <input placeholder="SWP-01" className="input-premium text-center !bg-slate-900/50 !text-white text-2xl font-black uppercase tracking-widest" value={searchCode} onChange={e => setSearchCode(e.target.value.toUpperCase())} />
+          <button onClick={findReturn} disabled={isSyncing} className="btn-resort w-full h-16 !bg-amber-500 !text-slate-900 shadow-xl">
+            {isSyncing ? 'SEARCHING...' : 'VERIFY RECEIPT'}
+          </button>
+          
+          {returnReceipt && (
+            <div className="bg-white text-slate-900 rounded-[2.5rem] p-8 space-y-8 text-left border-b-[10px] border-emerald-500 animate-slide-up mt-8">
+              <div>
+                <h4 className="font-black text-2xl uppercase tracking-tighter">{returnReceipt.guestName}</h4>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{returnReceipt.receiptNo}</p>
+              </div>
+              
+              <div className="bg-slate-50 p-6 rounded-2xl space-y-3 text-xs font-bold">
+                  <div className="flex justify-between border-b pb-2 text-slate-500"><span>Male Lockers</span><span>{returnReceipt.maleLockers.join(', ') || 'N/A'}</span></div>
+                  <div className="flex justify-between border-b pb-2 text-slate-500"><span>Female Lockers</span><span>{returnReceipt.femaleLockers.join(', ') || 'N/A'}</span></div>
+                  <div className="flex justify-between pt-4 text-emerald-600 text-sm font-black uppercase">
+                      <span>Security Refund</span>
+                      <span className="text-xl">₹{returnReceipt.refundableAmount}</span>
+                  </div>
+              </div>
+              
+              <button onClick={confirmReturn} disabled={isSyncing} className="btn-resort w-full h-16 !bg-slate-900 !text-white">PAY REFUND & COMPLETE</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Hidden Print Template */}
       {receipt && (
         <div ref={printRef} className="hidden print:block fixed inset-0 bg-white text-black p-10 font-mono text-center space-y-4">
             <h1 className="text-2xl font-bold border-b-2 border-black pb-2">SPRAY AQUA RESORT</h1>
-            <p className="text-sm">ASSET RENTAL RECEIPT</p>
+            <p className="text-sm font-black border border-black p-1">OFFICIAL ASSET RECEIPT</p>
             <div className="text-left space-y-1 text-xs border-y py-4 grid grid-cols-2">
-                <p>RECEIPT NO: <strong>{receipt.receiptNo}</strong></p>
+                <p>ID: <strong>{receipt.receiptNo}</strong></p>
                 <p>DATE: {receipt.date}</p>
                 <p>GUEST: {receipt.guestName}</p>
                 <p>MOBILE: {receipt.guestMobile}</p>
-                <p>SESSION: {receipt.shift.toUpperCase()}</p>
             </div>
             <div className="text-left space-y-1 text-xs border-b pb-4">
                 <p>M-LOCKERS: {receipt.maleLockers.join(', ') || 'NONE'}</p>
@@ -403,49 +434,13 @@ const StaffPortal: React.FC = () => {
                 <p>M-COSTUMES: {receipt.maleCostumes}</p>
                 <p>F-COSTUMES: {receipt.femaleCostumes}</p>
             </div>
-            <div className="text-right space-y-1 py-4 text-xs">
+            <div className="text-right space-y-1 py-4 text-xs font-bold">
                 <p>TOTAL RENT: ₹{receipt.rentAmount}</p>
                 <p>SECURITY DEPOSIT: ₹{receipt.securityDeposit}</p>
-                <p className="text-lg font-bold pt-2 border-t">NET TOTAL: ₹{receipt.totalCollected}</p>
-                <p className="text-base font-bold bg-gray-100 p-1">REFUNDABLE: ₹{receipt.securityDeposit}</p>
+                <p className="text-lg font-black pt-2 border-t">COLLECTED: ₹{receipt.totalCollected}</p>
+                <p className="text-base font-black bg-gray-100 p-1">REFUNDABLE: ₹{receipt.securityDeposit}</p>
             </div>
-            <p className="text-[10px] italic pt-6">Terms: Please return all assets at counter for refund.</p>
-        </div>
-      )}
-
-      {mode === 'return' && (
-        <div className="bg-white/10 border border-white/20 rounded-[3rem] p-12 w-full max-w-xl space-y-8 shadow-2xl backdrop-blur-3xl animate-slide-up text-center no-print">
-          <div className="w-24 h-24 bg-amber-500/10 rounded-full flex items-center justify-center text-4xl text-amber-400 mx-auto mb-6 border border-amber-500/20">
-            <i className="fas fa-undo-alt"></i>
-          </div>
-          <h3 className="text-3xl font-black uppercase tracking-tight">Return Assets</h3>
-          <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">Enter Receipt Number (e.g. SWP-01)</p>
-          <input placeholder="SWP-01" className="input-premium text-center !bg-slate-900/50 !text-white text-2xl font-black uppercase tracking-widest" value={searchCode} onChange={e => setSearchCode(e.target.value.toUpperCase())} />
-          <button onClick={findReturn} disabled={isSyncing} className="btn-resort w-full h-16 !bg-amber-500 !text-slate-900 shadow-xl">
-            {isSyncing ? 'SEARCHING...' : 'FIND ASSET RECORD'}
-          </button>
-          
-          {returnReceipt && (
-            <div className="bg-white text-slate-900 rounded-[2.5rem] p-8 space-y-8 text-left border-b-[10px] border-emerald-500 animate-slide-up mt-8">
-              <div>
-                <h4 className="font-black text-2xl uppercase tracking-tighter">{returnReceipt.guestName}</h4>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID: {returnReceipt.receiptNo}</p>
-              </div>
-              
-              <div className="bg-slate-50 p-6 rounded-2xl space-y-3 text-xs font-bold">
-                  <div className="flex justify-between border-b pb-2 text-slate-500"><span>Male Lockers</span><span>{returnReceipt.maleLockers.join(', ') || 'N/A'}</span></div>
-                  <div className="flex justify-between border-b pb-2 text-slate-500"><span>Female Lockers</span><span>{returnReceipt.femaleLockers.join(', ') || 'N/A'}</span></div>
-                  <div className="flex justify-between border-b pb-2 text-slate-500"><span>Male Costumes</span><span>{returnReceipt.maleCostumes}</span></div>
-                  <div className="flex justify-between border-b pb-2 text-slate-500"><span>Female Costumes</span><span>{returnReceipt.femaleCostumes}</span></div>
-                  <div className="flex justify-between pt-4 text-emerald-600 text-sm font-black uppercase">
-                      <span>Security Refund</span>
-                      <span className="text-xl">₹{returnReceipt.refundableAmount}</span>
-                  </div>
-              </div>
-              
-              <button onClick={confirmReturn} disabled={isSyncing} className="btn-resort w-full h-16 !bg-slate-900 !text-white hover:bg-emerald-600 transition-all">COMPLETE REFUND & RETURN</button>
-            </div>
-          )}
+            <p className="text-[9px] pt-4 italic">Please return this slip at the counter for your refund.</p>
         </div>
       )}
     </div>
