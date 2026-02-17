@@ -28,10 +28,10 @@ export const DEFAULT_ADMIN_SETTINGS = {
   extraDiscountPercent: 10,
 
   blockedSlots: [],
-  waTemplateName: 'ticket_confirmation', 
-  waLangCode: 'en', // Changed from en_US to en as requested
+  waTemplateName: 'ticket', 
+  waLangCode: 'en',
   waVariableName: '', 
-  waVarCount: 1,
+  waVarCount: 3,
   waAdd91: true
 };
 
