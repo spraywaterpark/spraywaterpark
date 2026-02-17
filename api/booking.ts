@@ -1,3 +1,4 @@
+
 import { google } from "googleapis";
 
 export default async function handler(req: any, res: any) {
@@ -38,12 +39,9 @@ export default async function handler(req: any, res: any) {
     
     const token = (settings?.waToken || "").trim();
     const phoneId = (settings?.waPhoneId || "").trim();
-    const templateName = (settings?.waTemplateName || "ticket_confirmation").trim();
-    
-    // Use exact casing from settings (e.g., en_US) as Meta API can be case-sensitive
-    const langCode = (settings?.waLangCode || "en_US").trim();
-
-    const varCount = parseInt(settings?.waVarCount || "1");
+    const templateName = (settings?.waTemplateName || "ticket").trim();
+    const langCode = (settings?.waLangCode || "en").trim();
+    const varCount = parseInt(settings?.waVarCount || "3");
     const shouldAdd91 = settings?.waAdd91 !== false;
 
     if (!token || !phoneId) return res.status(400).json({ success: false, details: "Missing API Token or Phone ID." });
@@ -52,11 +50,19 @@ export default async function handler(req: any, res: any) {
     if (shouldAdd91 && cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
 
     const params: any[] = [];
+    // Approved Template 'ticket' mapping:
+    // {{1}} = Booking ID
+    // {{2}} = Date
+    // {{3}} = Guests (Total)
     if (varCount >= 1) {
-      params.push({ type: "text", text: String(booking?.name || "Guest") });
+      params.push({ type: "text", text: String(booking?.id || "N/A") });
     }
     if (varCount >= 2) {
-      params.push({ type: "text", text: String(booking?.id || "N/A") });
+      params.push({ type: "text", text: String(booking?.date || "N/A") });
+    }
+    if (varCount >= 3) {
+      const totalGuests = (Number(booking?.adults) || 0) + (Number(booking?.kids) || 0);
+      params.push({ type: "text", text: String(totalGuests || "1") });
     }
 
     const waPayload: any = {
@@ -98,7 +104,14 @@ export default async function handler(req: any, res: any) {
           : `Sent JSON: ${JSON.stringify(waPayload)} | Meta Error: (#${waData.error?.code}) ${waData.error?.message}`
       ]);
 
-      if (!waRes.ok) return res.status(waRes.status).json({ success: false, details: `(#${waData.error?.code}) ${waData.error?.message}` });
+      if (!waRes.ok) {
+        let errorMsg = `(#${waData.error?.code}) ${waData.error?.message}`;
+        if (waData.error?.code === 131042) {
+          errorMsg = "BILLING ERROR: Meta is still using AiSensy's ghost credit line. You MUST remove the shared credit line from Meta Business Settings -> WhatsApp Accounts -> Settings -> Payment.";
+        }
+        return res.status(waRes.status).json({ success: false, details: errorMsg });
+      }
+      
       return res.status(200).json({ success: true, messageId: waData.messages?.[0]?.id });
     } catch (e: any) {
       return res.status(500).json({ success: false, details: e.message });
