@@ -1,6 +1,5 @@
 
-
-export type UserRole = 'guest' | 'admin' | 'staff' | null;
+export type UserRole = 'guest' | 'admin' | 'staff' | 'staff1' | 'staff2' | null;
 
 export interface Booking {
   id: string;
@@ -12,7 +11,6 @@ export interface Booking {
   kids: number;
   discountCode: string;
   totalAmount: number;
-  // Fix: Added 'checked-in' to the status union to reflect actual data states from the API and allow valid status comparisons
   status: 'pending' | 'confirmed' | 'cancelled' | 'checked-in';
   paymentMode: 'online' | 'cash';
   createdAt: string;
@@ -37,7 +35,6 @@ export interface AdminSettings {
   blockedSlots: BlockedSlot[];
   lastShiftReset?: string; 
   
-  // Minimal template config
   waTemplateName: string;
   waLangCode: string;
 }
