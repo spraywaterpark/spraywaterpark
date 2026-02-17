@@ -1,4 +1,5 @@
 
+
 export type UserRole = 'guest' | 'admin' | 'staff' | null;
 
 export interface Booking {
@@ -11,7 +12,8 @@ export interface Booking {
   kids: number;
   discountCode: string;
   totalAmount: number;
-  status: 'pending' | 'confirmed' | 'cancelled';
+  // Fix: Added 'checked-in' to the status union to reflect actual data states from the API and allow valid status comparisons
+  status: 'pending' | 'confirmed' | 'cancelled' | 'checked-in';
   paymentMode: 'online' | 'cash';
   createdAt: string;
 }
