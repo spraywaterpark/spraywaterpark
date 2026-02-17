@@ -36,37 +36,37 @@ export default async function handler(req: any, res: any) {
   if (type === 'whatsapp') {
     const { mobile, booking } = req.body;
     
-    // Using VERCEL ENVIRONMENT VARIABLES for sensitive credentials
-    const token = (process.env.WA_TOKEN || "").trim();
-    const phoneId = (process.env.WA_PHONE_ID || "").trim();
+    // FETCH CREDENTIALS FROM VERCEL ENVIRONMENT VARIABLES (Strictly WHATSAPP_TOKEN and WHATSAPP_PHONE_ID)
+    const token = (process.env.WHATSAPP_TOKEN || "").trim();
+    const phoneId = (process.env.WHATSAPP_PHONE_ID || "").trim();
     
-    // Fetch template config from settings (fallback to hardcoded 'ticket')
-    const settings = await getLatestSettings();
-    const templateName = (settings?.waTemplateName || "ticket").trim();
-    const langCode = (settings?.waLangCode || "en").trim();
-    const shouldAdd91 = settings?.waAdd91 !== false;
+    // Updated settings based on user confirmation
+    const templateName = "ticket";
+    const langCode = "en_US"; // Changed from 'en' to 'en_US' as requested
 
     if (!token || !phoneId) {
         return res.status(400).json({ 
             success: false, 
-            details: "Missing WA_TOKEN or WA_PHONE_ID in Vercel Environment Variables." 
+            details: "Missing WHATSAPP_TOKEN or WHATSAPP_PHONE_ID in Vercel Environment Variables. Please verify your Vercel Dashboard Settings." 
         });
     }
 
     let cleanMobile = String(mobile || "").replace(/\D/g, '');
-    if (shouldAdd91 && cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
+    if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
 
-    // Hardcoded parameters for the 'ticket' template (3 variables)
-    // {{1}} = Booking ID
-    // {{2}} = Date
-    // {{3}} = Total Guests
+    // Formatting date to DD/MM/YYYY for professional look in template
+    let displayDate = String(booking?.date || "N/A");
+    if (displayDate.includes('-')) {
+        const parts = displayDate.split('-'); // YYYY-MM-DD
+        if (parts.length === 3) displayDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+
     const totalGuests = (Number(booking?.adults) || 0) + (Number(booking?.kids) || 0);
-    const params = [
-      { type: "text", text: String(booking?.id || "N/A") },
-      { type: "text", text: String(booking?.date || "N/A") },
-      { type: "text", text: String(totalGuests || "1") }
-    ];
 
+    // Hardcoded parameters for the 'ticket' template:
+    // {{1}} = Booking ID (Text)
+    // {{2}} = Date (Text: DD/MM/YYYY)
+    // {{3}} = Total Guests (Text: e.g. "4")
     const waPayload: any = {
       messaging_product: "whatsapp",
       to: cleanMobile,
@@ -76,7 +76,11 @@ export default async function handler(req: any, res: any) {
         language: { code: langCode },
         components: [{
           type: "body",
-          parameters: params
+          parameters: [
+            { type: "text", text: String(booking?.id || "N/A") },
+            { type: "text", text: String(displayDate) },
+            { type: "text", text: String(totalGuests || "1") }
+          ]
         }]
       }
     };
@@ -95,30 +99,14 @@ export default async function handler(req: any, res: any) {
       
       if (!waRes.ok) {
         let errorMsg = `(#${waData.error?.code}) ${waData.error?.message}`;
-        if (waData.error?.code === 190) errorMsg = "ERROR 190: Vercel Token is invalid or App was deleted.";
-        
-        await logToSheet([
-            new Date().toLocaleString("en-IN"), 
-            "FAILED", 
-            cleanMobile, 
-            "ERROR", 
-            `Meta Error: ${errorMsg}`
-        ]);
-
+        await logToSheet([new Date().toLocaleString("en-IN"), "FAILED", cleanMobile, "ERROR", `Meta: ${errorMsg}`]);
         return res.status(waRes.status).json({ success: false, details: errorMsg });
       }
       
-      await logToSheet([
-        new Date().toLocaleString("en-IN"), 
-        waData.messages?.[0]?.id || "SUCCESS", 
-        cleanMobile, 
-        "SUCCESS", 
-        `Template: ${templateName}`
-      ]);
-
+      await logToSheet([new Date().toLocaleString("en-IN"), waData.messages?.[0]?.id, cleanMobile, "SUCCESS", `Sent 'ticket' to ${cleanMobile}`]);
       return res.status(200).json({ success: true, messageId: waData.messages?.[0]?.id });
     } catch (e: any) {
-      return res.status(500).json({ success: false, details: `Server Error: ${e.message}` });
+      return res.status(500).json({ success: false, details: `System Error: ${e.message}` });
     }
   }
 
