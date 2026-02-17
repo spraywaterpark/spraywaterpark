@@ -26,7 +26,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     const success = await cloudSync.saveSettings(draft);
     if (success) {
       onUpdateSettings(draft);
-      alert("✅ Settings Updated! Your Spray Jaipur App is now connected.");
+      alert("✅ Settings Saved Successfully.");
     } else {
       alert("❌ Update Failed. Check internet.");
     }
@@ -49,12 +49,12 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       });
       const data = await response.json();
       if (data.success) {
-        alert("🎉 SUCCESS! Message sent via Spray Jaipur WABA.");
+        alert("🎉 SUCCESS! Ticket sent using Vercel Environment Variables.");
       } else {
-        alert("⚠️ ERROR: " + data.details);
+        alert("⚠️ ERROR:\n\n" + data.details + "\n\nMake sure WA_TOKEN and WA_PHONE_ID are correctly set in Vercel Variables.");
       }
     } catch (e) {
-      alert("Network Error.");
+      alert("Network Error. Check connection.");
     }
     setIsTesting(false);
   };
@@ -81,105 +81,85 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         <div className="relative z-10 flex bg-white/5 p-1.5 rounded-2xl border border-white/10 backdrop-blur-xl">
             <button onClick={() => setActiveTab('bookings')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='bookings' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>Bookings</button>
             <button onClick={() => setActiveTab('pricing')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='pricing' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>Pricing</button>
-            <button onClick={() => setActiveTab('settings')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='settings' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>WhatsApp API</button>
+            <button onClick={() => setActiveTab('settings')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='settings' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>WhatsApp Status</button>
         </div>
       </div>
 
       {activeTab === 'settings' ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20">
-          <div className="lg:col-span-2 bg-white p-8 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-10">
-            <div className="flex justify-between items-center border-b pb-6">
-                <div>
-                  <h3 className="text-xl font-black uppercase text-slate-900 tracking-tight">Meta API Integration</h3>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Connect your 'Spray Jaipur' App</p>
-                </div>
-                <div className="flex gap-2">
-                    <button onClick={testConnection} className={`px-6 py-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${isTesting ? 'bg-slate-200' : 'bg-slate-100 hover:bg-slate-200'}`}>
-                        {isTesting ? 'Testing...' : 'Test API'}
-                    </button>
-                    <button onClick={saveSettings} className="bg-blue-600 text-white px-8 py-4 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg hover:bg-blue-700 transition-all">
-                        {isSaving ? 'Saving...' : 'Save Changes'}
-                    </button>
-                </div>
-            </div>
+          <div className="lg:col-span-2 space-y-8">
+            <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-10">
+              <div className="flex justify-between items-center border-b pb-6">
+                  <div>
+                    <h3 className="text-xl font-black uppercase text-slate-900 tracking-tight">Vercel API Status</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Credentials managed via Vercel Environment Variables</p>
+                  </div>
+                  <div className="flex gap-2">
+                      <button onClick={testConnection} className={`px-6 py-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${isTesting ? 'bg-slate-200' : 'bg-slate-100 hover:bg-slate-200'}`}>
+                          {isTesting ? 'Testing...' : 'Test WhatsApp'}
+                      </button>
+                      <button onClick={saveSettings} className="bg-blue-600 text-white px-8 py-4 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg hover:bg-blue-700 transition-all">
+                          {isSaving ? 'Saving...' : 'Save Template'}
+                      </button>
+                  </div>
+              </div>
 
-            <div className="grid md:grid-cols-2 gap-8">
-                <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <i className="fas fa-id-card text-blue-500"></i> Phone Number ID
-                    </label>
-                    <input 
-                      value={draft.waPhoneId} 
-                      onChange={e => setDraft({...draft, waPhoneId: e.target.value})} 
-                      className="input-premium font-mono !bg-slate-50 text-blue-700 border-2" 
-                      placeholder="e.g. 104825968254123" 
-                    />
-                </div>
-                <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <i className="fas fa-file-code text-blue-500"></i> Template Name
-                    </label>
-                    <input 
-                      value={draft.waTemplateName} 
-                      onChange={e => setDraft({...draft, waTemplateName: e.target.value})} 
-                      className="input-premium font-bold border-2" 
-                      placeholder="e.g. ticket"
-                    />
-                </div>
-            </div>
+              <div className="grid md:grid-cols-2 gap-8">
+                  <div className="space-y-3">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                          <i className="fas fa-file-code text-blue-500"></i> Active Template
+                      </label>
+                      <input 
+                        value={draft.waTemplateName} 
+                        onChange={e => setDraft({...draft, waTemplateName: e.target.value})} 
+                        className="input-premium font-bold border-2" 
+                        placeholder="e.g. ticket"
+                      />
+                      <p className="text-[9px] text-slate-400 font-bold italic">Must match Meta 'ticket' template</p>
+                  </div>
+                  <div className="space-y-3">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                          <i className="fas fa-language text-emerald-500"></i> Language
+                      </label>
+                      <input 
+                        value={draft.waLangCode} 
+                        onChange={e => setDraft({...draft, waLangCode: e.target.value})} 
+                        className="input-premium font-bold border-2" 
+                        placeholder="en"
+                      />
+                  </div>
+              </div>
 
-            <div className="grid md:grid-cols-2 gap-8">
-                <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <i className="fas fa-list-ol text-emerald-500"></i> Variable Count
-                    </label>
-                    <input 
-                      type="number"
-                      value={draft.waVarCount} 
-                      onChange={e => setDraft({...draft, waVarCount: parseInt(e.target.value) || 0})} 
-                      className="input-premium font-bold border-2" 
-                      placeholder="e.g. 3" 
-                    />
-                    <p className="text-[9px] text-slate-400 font-bold italic">Number of {"{{n}}"} in your template</p>
-                </div>
-                <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <i className="fas fa-language text-emerald-500"></i> Language Code
-                    </label>
-                    <input 
-                      value={draft.waLangCode} 
-                      onChange={e => setDraft({...draft, waLangCode: e.target.value})} 
-                      className="input-premium font-bold border-2" 
-                      placeholder="e.g. en"
-                    />
-                    <p className="text-[9px] text-slate-400 font-bold italic">Usually 'en' or 'en_US'</p>
-                </div>
-            </div>
-
-            <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                    <i className="fas fa-key text-emerald-500"></i> Permanent Access Token
-                </label>
-                <textarea 
-                  value={draft.waToken} 
-                  onChange={e => setDraft({...draft, waToken: e.target.value})} 
-                  className="input-premium !bg-slate-50 h-32 text-[11px] font-mono leading-relaxed border-2" 
-                  placeholder="EAAB..." 
-                />
+              <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 flex items-start gap-4">
+                  <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center shrink-0">
+                      <i className="fas fa-info"></i>
+                  </div>
+                  <div>
+                      <p className="text-[11px] font-black text-slate-900 uppercase">Secure Logic Enabled</p>
+                      <p className="text-[10px] font-bold text-slate-500 mt-1 leading-relaxed">
+                          Phone Number ID and Token have been removed from this panel for security. They are now read directly from your Vercel Project settings.
+                      </p>
+                  </div>
+              </div>
             </div>
           </div>
 
           <div className="space-y-6">
               <div className="bg-slate-900 text-white p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
                   <i className="fab fa-whatsapp absolute -right-6 -top-6 text-9xl opacity-10 rotate-12"></i>
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.3em] mb-8 border-b border-white/10 pb-4">Setup Checklist</h4>
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.3em] mb-8 border-b border-white/10 pb-4">Variable Mapping</h4>
                   <ul className="space-y-6">
-                      <CheckItem title="Template Check" desc="Name must be 'ticket' exactly." active={draft.waTemplateName === 'ticket'} />
-                      <CheckItem title="Variables" desc="Set count to 3 for approved template." active={draft.waVarCount === 3} />
-                      <CheckItem title="Phone ID" desc="Copy from 'Getting Started'." active={!!draft.waPhoneId} />
-                      <CheckItem title="Admin Token" desc="Generated from System Users." active={!!draft.waToken} />
+                      <CheckItem title="{{1}} Variable" desc="Mapped to Booking Reference ID." active />
+                      <CheckItem title="{{2}} Variable" desc="Mapped to Date of Visit." active />
+                      <CheckItem title="{{3}} Variable" desc="Mapped to Total Guests." active />
                   </ul>
-                  <button onClick={() => window.open('https://developers.facebook.com/apps', '_blank')} className="w-full mt-10 py-5 bg-white text-slate-900 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl">Open Meta Dashboard</button>
+                  <div className="mt-8 pt-6 border-t border-white/10">
+                      <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest leading-relaxed">
+                          Ensure Vercel Variables are added as:<br/>
+                          <span className="text-emerald-400">WA_TOKEN</span><br/>
+                          <span className="text-emerald-400">WA_PHONE_ID</span>
+                      </p>
+                  </div>
               </div>
           </div>
         </div>
