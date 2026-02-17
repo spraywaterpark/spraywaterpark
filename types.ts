@@ -12,6 +12,7 @@ export interface Booking {
   discountCode: string;
   totalAmount: number;
   status: 'pending' | 'confirmed' | 'cancelled';
+  paymentMode: 'online' | 'cash';
   createdAt: string;
 }
 
@@ -34,15 +35,9 @@ export interface AdminSettings {
   blockedSlots: BlockedSlot[];
   lastShiftReset?: string; 
   
-  // WhatsApp Template Config
+  // Minimal template config
   waTemplateName: string;
   waLangCode: string;
-  waVariableName: string; // New: To match {{guest_name}} or others
-  waVarCount?: number;
-  waVarType?: 'text' | 'number';
-  waToken?: string;
-  waPhoneId?: string;
-  waAdd91?: boolean;
 }
 
 export interface AuthState {
