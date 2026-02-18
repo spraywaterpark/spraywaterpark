@@ -1,3 +1,4 @@
+
 import { Booking } from "../types";
 
 export const notificationService = {
@@ -6,32 +7,30 @@ export const notificationService = {
       const response = await fetch('/api/booking?type=whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mobile: booking.mobile,
-          booking: booking
+        body: JSON.stringify({ mobile: booking.mobile, booking: booking })
+      });
+      const data = await response.json();
+      return { success: response.ok && data.success, details: data.details };
+    } catch (error: any) {
+      return { success: false, details: error.message };
+    }
+  },
+
+  sendWelcomeMessage: async (booking: any): Promise<{ success: boolean; details?: string }> => {
+    try {
+      const response = await fetch('/api/booking?type=whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          mobile: booking.mobile, 
+          booking: booking,
+          isWelcome: true 
         })
       });
-
-      const text = await response.text();
-      let data;
-      
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        return { success: false, details: "Invalid server response format." };
-      }
-
-      if (response.ok && data.success) {
-        return { success: true, details: data.messageId || data.details };
-      }
-
-      return { 
-        success: false, 
-        details: data.details || `Error ${response.status}: Failed to send message.`
-      };
-
+      const data = await response.json();
+      return { success: response.ok && data.success, details: data.details };
     } catch (error: any) {
-      return { success: false, details: `Connection Error: ${error.message}` };
+      return { success: false, details: error.message };
     }
   }
 };
