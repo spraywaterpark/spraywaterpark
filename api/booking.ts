@@ -18,7 +18,28 @@ export default async function handler(req: any, res: any) {
   const id = req.query.id;
 
   try {
-    // --- GET TICKET DETAILS FOR SCANNER ---
+    // --- SETTINGS SYNC (MASTER DATA) ---
+    if (type === 'settings') {
+      if (req.method === "GET") {
+        const response = await sheets.spreadsheets.values.get({ 
+          spreadsheetId: process.env.SHEET_ID, 
+          range: "Settings!A1:A1" 
+        });
+        const val = response.data.values?.[0]?.[0];
+        return res.status(200).json(val ? JSON.parse(val) : {});
+      }
+      if (req.method === "POST") {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: process.env.SHEET_ID,
+          range: "Settings!A1",
+          valueInputOption: "RAW",
+          requestBody: { values: [[JSON.stringify(req.body)]] }
+        });
+        return res.status(200).json({ success: true });
+      }
+    }
+
+    // --- TICKET DETAILS FOR SCANNER ---
     if (type === 'ticket_details') {
       const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Sheet1!A2:J1000" });
       const rows = response.data.values || [];
@@ -34,52 +55,6 @@ export default async function handler(req: any, res: any) {
           totalAmount: row[6], date: row[7], time: row[8], status: row[9]
         }
       });
-    }
-
-    // --- WHATSAPP NOTIFICATION ---
-    if (type === 'whatsapp') {
-      const { mobile, booking, isWelcome } = req.body;
-      const token = (process.env.WHATSAPP_TOKEN || "").trim();
-      const phoneId = (process.env.WHATSAPP_PHONE_ID || "").trim();
-      
-      if (!token || !phoneId) return res.status(400).json({ success: false, details: "WhatsApp Config Missing" });
-
-      let cleanMobile = String(mobile || "").replace(/\D/g, '');
-      if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
-
-      const templateName = isWelcome ? "welcome_entry" : "ticket"; // Assuming welcome_entry template exists
-      
-      const components = isWelcome 
-        ? [ { type: "body", parameters: [ { type: "text", text: String(booking.name) } ] } ]
-        : [
-            { type: "header", parameters: [{ type: "image", image: { link: `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking.id}` } }] },
-            { type: "body", parameters: [
-                { type: "text", text: String(booking.id) },
-                { type: "text", text: String(booking.adults) },
-                { type: "text", text: String(booking.kids) },
-                { type: "text", text: String(booking.date) },
-                { type: "text", text: String(booking.time) }
-            ]}
-          ];
-
-      const waPayload = {
-        messaging_product: "whatsapp",
-        to: cleanMobile,
-        type: "template",
-        template: {
-          name: templateName,
-          language: { code: "en_US" },
-          components: components
-        }
-      };
-
-      const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(waPayload)
-      });
-      const waData = await waRes.json();
-      return res.status(waRes.status).json({ success: waRes.ok, details: waData.error?.message || "Sent" });
     }
 
     // --- GATE CHECK-IN ---
@@ -98,14 +73,10 @@ export default async function handler(req: any, res: any) {
         requestBody: { values: [["CHECKED-IN"]] }
       });
 
-      // Trigger Welcome WhatsApp via internal API call simulation or direct fetch
-      const booking = { id: rows[rowIndex][0], name: rows[rowIndex][1], mobile: rows[rowIndex][2] };
-      // Note: In real environment, you'd trigger notificationService.sendWelcomeMessage
-      // Sending success response back to client to handle the rest.
-      return res.status(200).json({ success: true, booking });
+      return res.status(200).json({ success: true });
     }
 
-    // --- RENTALS MANAGEMENT ---
+    // --- RENTALS (LOCKERS/COSTUMES) ---
     if (type === 'rentals') {
       if (req.method === "GET") {
         const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Rentals!A2:P1000" });
@@ -152,7 +123,20 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // --- DEFAULT BOOKINGS ---
+    // --- STANDARD BOOKINGS (POST & GET) ---
+    if (req.method === "POST") {
+      const b = req.body;
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: process.env.SHEET_ID,
+        range: "Sheet1!A:J",
+        valueInputOption: "RAW",
+        requestBody: { values: [[
+          b.id, b.name, b.mobile, b.adults, b.kids, b.adults + b.kids, b.amount, b.date, b.time, "PAID"
+        ]] }
+      });
+      return res.status(200).json({ success: true });
+    }
+
     if (req.method === "GET") {
       const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Sheet1!A2:J1000" });
       const rows = response.data.values || [];
@@ -163,6 +147,7 @@ export default async function handler(req: any, res: any) {
     }
 
   } catch (e: any) {
+    console.error("API Error:", e.message);
     return res.status(500).json({ success: false, details: e.message });
   }
 }
