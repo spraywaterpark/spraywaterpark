@@ -15,11 +15,30 @@ export default async function handler(req: any, res: any) {
   const sheets = google.sheets({ version: "v4", auth });
   const type = req.query.type;
   const action = req.query.action;
+  const id = req.query.id;
 
   try {
+    // --- GET TICKET DETAILS FOR SCANNER ---
+    if (type === 'ticket_details') {
+      const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Sheet1!A2:J1000" });
+      const rows = response.data.values || [];
+      const row = rows.find(r => r[0] === id);
+      
+      if (!row) return res.status(404).json({ success: false, details: "Ticket Not Found" });
+      if (row[9] === "CHECKED-IN") return res.status(400).json({ success: false, details: "Already Checked In" });
+
+      return res.status(200).json({ 
+        success: true, 
+        booking: {
+          id: row[0], name: row[1], mobile: row[2], adults: row[3], kids: row[4], 
+          totalAmount: row[6], date: row[7], time: row[8], status: row[9]
+        }
+      });
+    }
+
     // --- WHATSAPP NOTIFICATION ---
     if (type === 'whatsapp') {
-      const { mobile, booking } = req.body;
+      const { mobile, booking, isWelcome } = req.body;
       const token = (process.env.WHATSAPP_TOKEN || "").trim();
       const phoneId = (process.env.WHATSAPP_PHONE_ID || "").trim();
       
@@ -28,16 +47,12 @@ export default async function handler(req: any, res: any) {
       let cleanMobile = String(mobile || "").replace(/\D/g, '');
       if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
 
-      const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking.id}`;
-      const waPayload = {
-        messaging_product: "whatsapp",
-        to: cleanMobile,
-        type: "template",
-        template: {
-          name: "ticket",
-          language: { code: "en_US" },
-          components: [
-            { type: "header", parameters: [{ type: "image", image: { link: qrImageUrl } }] },
+      const templateName = isWelcome ? "welcome_entry" : "ticket"; // Assuming welcome_entry template exists
+      
+      const components = isWelcome 
+        ? [ { type: "body", parameters: [ { type: "text", text: String(booking.name) } ] } ]
+        : [
+            { type: "header", parameters: [{ type: "image", image: { link: `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking.id}` } }] },
             { type: "body", parameters: [
                 { type: "text", text: String(booking.id) },
                 { type: "text", text: String(booking.adults) },
@@ -45,7 +60,16 @@ export default async function handler(req: any, res: any) {
                 { type: "text", text: String(booking.date) },
                 { type: "text", text: String(booking.time) }
             ]}
-          ]
+          ];
+
+      const waPayload = {
+        messaging_product: "whatsapp",
+        to: cleanMobile,
+        type: "template",
+        template: {
+          name: templateName,
+          language: { code: "en_US" },
+          components: components
         }
       };
 
@@ -58,10 +82,10 @@ export default async function handler(req: any, res: any) {
       return res.status(waRes.status).json({ success: waRes.ok, details: waData.error?.message || "Sent" });
     }
 
-    // --- GATE CHECK-IN (Updates Google Sheet Status) ---
+    // --- GATE CHECK-IN ---
     if (type === 'checkin') {
       const { ticketId } = req.body;
-      const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Sheet1!A2:A1000" });
+      const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Sheet1!A2:J1000" });
       const rows = response.data.values || [];
       const rowIndex = rows.findIndex(r => r[0] === ticketId);
       
@@ -73,10 +97,15 @@ export default async function handler(req: any, res: any) {
         valueInputOption: "RAW",
         requestBody: { values: [["CHECKED-IN"]] }
       });
-      return res.status(200).json({ success: true });
+
+      // Trigger Welcome WhatsApp via internal API call simulation or direct fetch
+      const booking = { id: rows[rowIndex][0], name: rows[rowIndex][1], mobile: rows[rowIndex][2] };
+      // Note: In real environment, you'd trigger notificationService.sendWelcomeMessage
+      // Sending success response back to client to handle the rest.
+      return res.status(200).json({ success: true, booking });
     }
 
-    // --- RENTALS / LOCKER MANAGEMENT ---
+    // --- RENTALS MANAGEMENT ---
     if (type === 'rentals') {
       if (req.method === "GET") {
         const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Rentals!A2:P1000" });
@@ -108,19 +137,6 @@ export default async function handler(req: any, res: any) {
           return res.status(200).json({ success: true });
         } 
         
-        if (action === 'checkout') {
-          // Mark all issued as returned
-          const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Rentals!N2:N1000" });
-          const statuses = response.data.values || [];
-          const updates = statuses.map((s, i) => s[0] === 'issued' ? { range: `Rentals!N${i+2}`, values: [['returned']] } : null).filter(x => x);
-          // Batch update could be complex, doing simple version for now
-          for (const up of updates as any) {
-            await sheets.spreadsheets.values.update({ spreadsheetId: process.env.SHEET_ID, range: up.range, valueInputOption: "RAW", requestBody: { values: up.values } });
-          }
-          return res.status(200).json({ success: true });
-        }
-
-        // Default: Add new rental
         await sheets.spreadsheets.values.append({
           spreadsheetId: process.env.SHEET_ID,
           range: "Rentals!A:P",
@@ -136,19 +152,7 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // --- SETTINGS ---
-    if (type === 'settings') {
-      if (req.method === "GET") {
-        const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Settings!A1" });
-        return res.status(200).json(response.data.values?.[0]?.[0] ? JSON.parse(response.data.values[0][0]) : {});
-      }
-      if (req.method === "POST") {
-        await sheets.spreadsheets.values.update({ spreadsheetId: process.env.SHEET_ID, range: "Settings!A1", valueInputOption: "RAW", requestBody: { values: [[JSON.stringify(req.body)]] } });
-        return res.status(200).json({ success: true });
-      }
-    }
-
-    // --- DEFAULT BOOKINGS GET/POST ---
+    // --- DEFAULT BOOKINGS ---
     if (req.method === "GET") {
       const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Sheet1!A2:J1000" });
       const rows = response.data.values || [];
@@ -156,18 +160,6 @@ export default async function handler(req: any, res: any) {
         id: row[0], name: row[1], mobile: row[2], adults: parseInt(row[3])||0, kids: parseInt(row[4])||0, 
         totalAmount: parseInt(row[6])||0, date: row[7], time: row[8], status: row[9] === "CHECKED-IN" ? "checked-in" : "confirmed", createdAt: row[0]
       })).reverse());
-    }
-
-    if (req.method === "POST") {
-      const { name, mobile, adults, kids, amount, date, time } = req.body;
-      const ticketId = 'SWP-' + Math.floor(100000 + Math.random() * 900000);
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: process.env.SHEET_ID,
-        range: "Sheet1!A:J",
-        valueInputOption: "USER_ENTERED",
-        requestBody: { values: [[ticketId, name, mobile, adults, kids, (adults + kids), amount, date, time, "PAID"]] }
-      });
-      return res.status(200).json({ success: true, ticketId });
     }
 
   } catch (e: any) {
