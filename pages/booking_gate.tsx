@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminSettings, Booking } from '../types';
 import { TIME_SLOTS, TERMS_AND_CONDITIONS, OFFERS, DEFAULT_ADMIN_SETTINGS } from '../constants';
@@ -15,7 +15,23 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
   const [showTerms, setShowTerms] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  // Robust Rate Selection with Fallbacks to prevent NaN
+  // Check if a specific slot is blocked
+  const isSlotBlocked = (checkDate: string, checkSlot: string) => {
+    const shift = checkSlot.toLowerCase().includes('morning') ? 'morning' : 'evening';
+    return (settings.blockedSlots || []).some(bs => 
+      bs.date === checkDate && (bs.shift === shift || bs.shift === 'all')
+    );
+  };
+
+  // If the currently selected date/slot becomes blocked, update the selection if possible
+  useEffect(() => {
+    if (isSlotBlocked(date, slot)) {
+      const otherSlot = TIME_SLOTS.find(s => !isSlotBlocked(date, s));
+      if (otherSlot) setSlot(otherSlot);
+    }
+  }, [date]);
+
+  // Robust Rate Selection with Fallbacks
   const isMorning = slot.includes('Morning');
   const adultRate = (isMorning ? (settings?.morningAdultRate || DEFAULT_ADMIN_SETTINGS.morningAdultRate) : (settings?.eveningAdultRate || DEFAULT_ADMIN_SETTINGS.eveningAdultRate)) || 500;
   const kidRate = (isMorning ? (settings?.morningKidRate || DEFAULT_ADMIN_SETTINGS.morningKidRate) : (settings?.eveningKidRate || DEFAULT_ADMIN_SETTINGS.eveningKidRate)) || 350;
@@ -33,7 +49,6 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
 
     const subtotal = (safeAdults * safeAdultRate) + (safeKids * safeKidRate);
     
-    // Dynamic Discount Logic
     const todayBookings = bookings.filter(b => b.date === date && b.time === slot && (b.status === 'confirmed' || b.status === 'checked-in'));
     const totalGuestsSoFar = todayBookings.reduce((s, b) => s + b.adults + b.kids, 0);
 
@@ -56,9 +71,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
 
   const handleCheckout = () => {
     if (!date) return alert("Please select your visit date first.");
-    const currentShift = slot.toLowerCase().includes('morning') ? 'morning' : 'evening';
-    const isBlocked = (settings.blockedSlots || []).some(bs => bs.date === date && (bs.shift === currentShift || bs.shift === 'all'));
-    if (isBlocked) return alert("Sorry, this slot is currently blocked.");
+    if (isSlotBlocked(date, slot)) return alert("Sorry, this slot is currently blocked.");
     setShowTerms(true);
   };
 
@@ -103,11 +116,22 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                     <div className="flex flex-col gap-3">
                         {TIME_SLOTS.map(s => {
                             const active = slot === s;
+                            const blocked = isSlotBlocked(date, s);
                             return (
-                                <button key={s} onClick={() => setSlot(s)} className={`relative h-20 px-8 rounded-3xl border-2 transition-all flex flex-col justify-center text-left ${active ? 'bg-slate-900 border-slate-900 text-white shadow-2xl' : 'bg-white border-slate-100 text-slate-900'}`}>
-                                    <span className="text-[10px] font-black uppercase tracking-widest">{s.split(':')[0]}</span>
-                                    <span className={`text-[9px] font-bold uppercase opacity-60 ${active ? 'text-white' : 'text-slate-400'}`}>{s.split(':')[1]}</span>
-                                    {active && <i className="fas fa-check-circle absolute right-8 text-sm"></i>}
+                                <button 
+                                  key={s} 
+                                  disabled={blocked}
+                                  onClick={() => setSlot(s)} 
+                                  className={`relative h-20 px-8 rounded-3xl border-2 transition-all flex flex-col justify-center text-left 
+                                    ${blocked ? 'bg-slate-100 border-slate-200 opacity-50 cursor-not-allowed' : 
+                                      active ? 'bg-slate-900 border-slate-900 text-white shadow-2xl' : 'bg-white border-slate-100 text-slate-900'}`}
+                                >
+                                    <span className={`text-[10px] font-black uppercase tracking-widest ${blocked ? 'text-slate-400' : ''}`}>{s.split(':')[0]}</span>
+                                    <span className={`text-[9px] font-bold uppercase ${blocked ? 'text-slate-300' : active ? 'text-white opacity-60' : 'text-slate-400'}`}>
+                                      {blocked ? 'N/A - Slot Blocked' : s.split(':')[1]}
+                                    </span>
+                                    {active && !blocked && <i className="fas fa-check-circle absolute right-8 text-sm"></i>}
+                                    {blocked && <span className="absolute right-8 text-[8px] font-black uppercase bg-red-100 text-red-600 px-2 py-1 rounded">Blocked</span>}
                                 </button>
                             );
                         })}
@@ -116,7 +140,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
             </div>
 
             {/* Offer Banner */}
-            <div className="bg-slate-200/50 border border-slate-200 p-8 rounded-[2.5rem] flex items-center gap-8 group hover:bg-white transition-all">
+            <div className={`bg-slate-200/50 border border-slate-200 p-8 rounded-[2.5rem] flex items-center gap-8 group hover:bg-white transition-all ${isSlotBlocked(date, slot) ? 'opacity-30' : ''}`}>
                 <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-xl shadow-lg shadow-blue-200">
                     <i className={isMorning ? "fas fa-utensils" : "fas fa-concierge-bell"}></i>
                 </div>
@@ -129,7 +153,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
         </div>
 
         {/* Section 02: PASS SELECTION */}
-        <div className="space-y-8">
+        <div className={`space-y-8 ${isSlotBlocked(date, slot) ? 'opacity-30 pointer-events-none' : ''}`}>
             <div className="flex flex-col items-center">
                 <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center font-black text-sm mb-4">02</div>
                 <h3 className="text-sm font-black uppercase tracking-[0.3em] text-slate-400">Pass Selection</h3>
@@ -187,8 +211,12 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                     </div>
                 </div>
 
-                <button onClick={handleCheckout} className="w-full bg-white h-20 rounded-[2rem] text-slate-900 font-black text-sm uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl">
-                    Review & Checkout
+                <button 
+                  onClick={handleCheckout} 
+                  disabled={isSlotBlocked(date, slot)}
+                  className="w-full bg-white h-20 rounded-[2rem] text-slate-900 font-black text-sm uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl disabled:bg-slate-800 disabled:text-slate-600 disabled:cursor-not-allowed"
+                >
+                    {isSlotBlocked(date, slot) ? 'Slot Currently Blocked' : 'Review & Checkout'}
                 </button>
             </div>
         </div>
