@@ -147,7 +147,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
         alert(`❌ Error: ${data.details}`);
       }
     } catch (e) {
-      alert("Sync Error.");
+      alert("Sync Error. Please check your internet.");
     } finally {
       setIsSyncing(false);
     }
@@ -231,15 +231,20 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
   const confirmAndPrint = async () => {
     if (!receipt) return;
     setIsSyncing(true);
-    const success = await cloudSync.saveRental(receipt);
-    if (success) {
-      window.print();
-      setGuestName(''); setGuestMobile(''); setMaleLockers([]); setFemaleLockers([]); setMaleCostumes(0); setFemaleCostumes(0); setReceipt(null);
-      refreshActive();
-    } else {
-      alert("Sync failed.");
+    try {
+      const success = await cloudSync.saveRental(receipt);
+      if (success) {
+        window.print();
+        setGuestName(''); setGuestMobile(''); setMaleLockers([]); setFemaleLockers([]); setMaleCostumes(0); setFemaleCostumes(0); setReceipt(null);
+        await refreshActive();
+      } else {
+        alert("Sync failed. The database may be offline or incorrectly configured.");
+      }
+    } catch (err) {
+      alert("Error saving data to cloud. Please check logs.");
+    } finally {
+      setIsSyncing(false);
     }
-    setIsSyncing(false);
   };
 
   const findReturn = async () => {
@@ -525,7 +530,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
                         <div className="flex gap-4">
                             <button onClick={() => setReceipt(null)} className="flex-1 py-5 rounded-2xl bg-slate-100 font-black text-[10px] uppercase text-slate-400 hover:bg-slate-200 transition-all">Edit Items</button>
                             <button onClick={confirmAndPrint} disabled={isSyncing} className="flex-[2] bg-emerald-500 text-slate-900 py-5 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-emerald-100 hover:bg-emerald-400 active:scale-95 transition-all">
-                                Confirm & Print
+                                {isSyncing ? 'SYNCING...' : 'Confirm & Print'}
                             </button>
                         </div>
                     </div>
