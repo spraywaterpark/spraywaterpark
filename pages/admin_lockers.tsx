@@ -65,21 +65,27 @@ const AdminLockers: React.FC = () => {
     });
 
     const lockersIssued = filtered.reduce((sum, r) => sum + (r.maleLockers?.length || 0) + (r.femaleLockers?.length || 0), 0);
+    const costumesIssued = filtered.reduce((sum, r) => sum + (Number(r.maleCostumes) || 0) + (Number(r.femaleCostumes) || 0), 0);
     const totalCollection = filtered.reduce((sum, r) => sum + (Number(r.totalCollected) || 0), 0);
     const totalRefund = filtered.filter(r => r.status === 'returned').reduce((sum, r) => sum + (Number(r.refundableAmount) || 0), 0);
 
     return {
       count: filtered.length,
       lockersIssued,
+      costumesIssued,
       totalCollection,
       totalRefund,
       netCollection: totalCollection - totalRefund
     };
   }, [rentals, summaryDate, summaryShift]);
 
+  const handlePrintReport = () => {
+    window.print();
+  };
+
   return (
     <div className="p-4 md:p-10 glass-card rounded-[2.5rem] border border-white/30 space-y-10 animate-slide-up max-w-7xl mx-auto my-6 shadow-2xl">
-      <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-6 no-print">
         <div className="flex items-center gap-4">
            <button onClick={() => navigate('/admin')} className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center hover:scale-110 transition-all">
               <i className="fas fa-arrow-left"></i>
@@ -98,7 +104,7 @@ const AdminLockers: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
         <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 text-center">
             <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Active Lockers</p>
             <p className="text-2xl font-black text-slate-900">{stats.activeCount}</p>
@@ -117,7 +123,7 @@ const AdminLockers: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white border rounded-[2rem] overflow-hidden shadow-sm">
+      <div className="bg-white border rounded-[2rem] overflow-hidden shadow-sm no-print">
         <div className="overflow-x-auto">
           <table className="w-full text-center">
             <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-500 border-b">
@@ -159,27 +165,101 @@ const AdminLockers: React.FC = () => {
       </div>
 
       {showSummary && (
-        <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-6 z-[2000]">
-           <div className="bg-white rounded-[2.5rem] w-full max-w-lg p-10 space-y-8 animate-slide-up shadow-2xl">
-              <h3 className="text-2xl font-black text-slate-900 uppercase text-center tracking-tighter">Shift Summary</h3>
+        <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-6 z-[2000] no-print">
+           <div className="bg-white rounded-[2.5rem] w-full max-w-lg p-10 space-y-8 animate-slide-up shadow-2xl relative">
+              <button onClick={() => setShowSummary(false)} className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center text-slate-400 hover:text-slate-900 transition-all">
+                  <i className="fas fa-times"></i>
+              </button>
+              
+              <div className="text-center space-y-2">
+                <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Shift Summary</h3>
+                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Revenue & Asset Report</p>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
-                <input type="date" className="input-premium" value={summaryDate} onChange={e => setSummaryDate(e.target.value)} />
-                <select className="input-premium" value={summaryShift} onChange={e => setSummaryShift(e.target.value as any)}>
-                   <option value="all">Full Day</option>
-                   <option value="morning">Morning</option>
-                   <option value="evening">Evening</option>
-                </select>
+                <div className="space-y-1">
+                    <p className="text-[8px] font-black uppercase text-slate-400 px-2">Report Date</p>
+                    <input type="date" className="input-premium !py-3 !text-sm" value={summaryDate} onChange={e => setSummaryDate(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                    <p className="text-[8px] font-black uppercase text-slate-400 px-2">Session</p>
+                    <select className="input-premium !py-3 !text-sm" value={summaryShift} onChange={e => setSummaryShift(e.target.value as any)}>
+                        <option value="all">Full Day</option>
+                        <option value="morning">Morning Shift</option>
+                        <option value="evening">Evening Shift</option>
+                    </select>
+                </div>
               </div>
-              <div className="bg-slate-50 p-8 rounded-3xl space-y-4 border border-slate-100">
-                 <div className="flex justify-between border-b pb-2"><span className="text-[10px] font-black uppercase text-slate-400">Lockers Issued</span><span className="font-black">{shiftReport.lockersIssued}</span></div>
-                 <div className="flex justify-between border-b pb-2"><span className="text-[10px] font-black uppercase text-slate-400">Gross Collected</span><span className="font-black">₹{shiftReport.totalCollection}</span></div>
-                 <div className="flex justify-between border-b pb-2"><span className="text-[10px] font-black uppercase text-slate-400">Total Refunded</span><span className="font-black text-red-600">₹{shiftReport.totalRefund}</span></div>
-                 <div className="flex justify-between pt-4"><span className="text-xs font-black uppercase text-slate-900">Net Revenue</span><span className="text-2xl font-black text-emerald-600">₹{shiftReport.netCollection}</span></div>
+
+              <div className="bg-slate-50 p-8 rounded-[2rem] space-y-5 border border-slate-100">
+                 <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Locker Keys Issued</span>
+                    <span className="text-sm font-black text-slate-900">{shiftReport.lockersIssued} Units</span>
+                 </div>
+                 <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Costumes Issued</span>
+                    <span className="text-sm font-black text-slate-900">{shiftReport.costumesIssued} Units</span>
+                 </div>
+                 <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Gross Collection</span>
+                    <span className="text-sm font-black text-slate-900">₹{shiftReport.totalCollection}</span>
+                 </div>
+                 <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Security Refunded</span>
+                    <span className="text-sm font-black text-red-600">₹{shiftReport.totalRefund}</span>
+                 </div>
+                 <div className="flex justify-between items-center pt-4">
+                    <span className="text-xs font-black uppercase text-slate-900">Net Revenue</span>
+                    <span className="text-4xl font-black text-emerald-600 tracking-tighter">₹{shiftReport.netCollection}</span>
+                 </div>
               </div>
-              <button onClick={() => setShowSummary(false)} className="w-full btn-resort">Close Report</button>
+
+              <div className="flex flex-col gap-3">
+                  <button onClick={handlePrintReport} className="w-full bg-slate-900 text-white h-16 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-2">
+                      <i className="fas fa-print"></i> Print Official Report
+                  </button>
+                  <button onClick={() => setShowSummary(false)} className="w-full py-4 text-[9px] font-black uppercase text-slate-400 hover:text-slate-900 transition-all">Close Analytics</button>
+              </div>
            </div>
         </div>
       )}
+
+      {/* Hidden Print Report Layout */}
+      <div className="hidden print:block fixed inset-0 bg-white p-12 text-black font-mono space-y-10">
+          <div className="text-center border-b-2 border-black pb-4">
+              <h1 className="text-3xl font-bold uppercase">Spray Aqua Resort</h1>
+              <p className="text-sm font-bold mt-1">Locker & Asset Shift Report</p>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-y-4 text-sm font-bold border-b pb-6">
+              <p>REPORT DATE:</p><p className="text-right">{summaryDate}</p>
+              <p>SHIFT TYPE:</p><p className="text-right uppercase">{summaryShift}</p>
+              <p>GENERATED AT:</p><p className="text-right">{new Date().toLocaleString()}</p>
+          </div>
+
+          <div className="space-y-4 pt-6 text-lg font-bold">
+              <div className="flex justify-between"><span>LOCKER KEYS ISSUED:</span><span>{shiftReport.lockersIssued} Units</span></div>
+              <div className="flex justify-between"><span>COSTUMES ISSUED:</span><span>{shiftReport.costumesIssued} Units</span></div>
+              <div className="flex justify-between pt-4 border-t"><span>GROSS COLLECTION:</span><span>₹{shiftReport.totalCollection}</span></div>
+              <div className="flex justify-between"><span>SECURITY REFUNDED:</span><span>- ₹{shiftReport.totalRefund}</span></div>
+              <div className="flex justify-between text-2xl border-t-2 border-black pt-4"><span>NET CASH REVENUE:</span><span>₹{shiftReport.netCollection}</span></div>
+          </div>
+
+          <div className="pt-24 flex justify-between px-10">
+              <div className="text-center border-t border-black w-40 pt-2"><p className="text-[10px]">Staff Signature</p></div>
+              <div className="text-center border-t border-black w-40 pt-2"><p className="text-[10px]">Manager Signature</p></div>
+          </div>
+          
+          <p className="text-center text-[8px] pt-10">Software Sync ID: {cloudSync.fetchSettings.name}</p>
+      </div>
+
+      <style>{`
+        @media print {
+            body * { visibility: hidden; }
+            .print\\:block, .print\\:block * { visibility: visible; }
+            .print\\:block { position: absolute; left: 0; top: 0; width: 100%; }
+        }
+      `}</style>
     </div>
   );
 };
