@@ -1,166 +1,207 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
-import LoginGate from './pages/login_gate';
-import BookingGate from './pages/booking_gate';
-import AdminPortal from './pages/admin_portal';
-import SecurePayment from './pages/secure_payment';
-import TicketHistory from './pages/ticket_history';
-import StaffPortal from './pages/staff_portal';
-import { AuthState, Booking, AdminSettings, UserRole, LockerIssue } from './types';
-import { DEFAULT_ADMIN_SETTINGS, MASTER_SYNC_ID } from './constants';
-import { cloudSync } from './services/cloud_sync';
-import AdminLockers from './pages/admin_lockers';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Booking, AdminSettings, BlockedSlot, ShiftType } from '../types';
+import { cloudSync } from '../services/cloud_sync';
 
+interface AdminPanelProps {
+  bookings: Booking[];
+  settings: AdminSettings;
+  onUpdateSettings: (s: AdminSettings) => void;
+  syncId: string | null;
+  onSyncSetup: (id: string) => void;
+  onLogout: () => void;
+}
 
-const AppContent: React.FC = () => {
+const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSettings, onLogout }) => {
   const navigate = useNavigate();
-  const location = useLocation();
-
-  const [auth, setAuth] = useState<AuthState>(() => {
-    const saved = sessionStorage.getItem('swp_auth');
-    return saved ? JSON.parse(saved) : { role: null, user: null };
-  });
-
-  const [bookings, setBookings] = useState<Booking[]>(() => {
-    const saved = localStorage.getItem('swp_bookings');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [lockerIssues, setLockerIssues] = useState<LockerIssue[]>(() => {
-    const saved = localStorage.getItem('swp_locker_issues');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [settings, setSettings] = useState<AdminSettings>(() => {
-    const saved = localStorage.getItem('swp_settings');
-    const parsed = saved ? JSON.parse(saved) : {};
-    // Ensure nested defaults and fallback logic to prevent NaN in pricing
-    return { 
-      ...DEFAULT_ADMIN_SETTINGS, 
-      ...parsed, 
-      blockedSlots: Array.isArray(parsed?.blockedSlots) ? parsed.blockedSlots : [] 
-    };
-  });
-
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncId, setSyncId] = useState<string>(() => localStorage.getItem('swp_sync_id') || MASTER_SYNC_ID);
-
-  const bookingsRef = useRef<Booking[]>(bookings);
-  const isFetching = useRef(false);
-
-  useEffect(() => { bookingsRef.current = bookings; }, [bookings]);
-
-  useEffect(() => { sessionStorage.setItem('swp_auth', JSON.stringify(auth)); }, [auth]);
-  useEffect(() => { localStorage.setItem('swp_bookings', JSON.stringify(bookings)); }, [bookings]);
-  useEffect(() => { localStorage.setItem('swp_settings', JSON.stringify(settings)); }, [settings]);
-  useEffect(() => { localStorage.setItem('swp_sync_id', syncId); }, [syncId]);
-  useEffect(() => { localStorage.setItem('swp_locker_issues', JSON.stringify(lockerIssues)); }, [lockerIssues]);
-
-  const performSync = async () => {
-    if (isFetching.current) return;
-    isFetching.current = true;
-    setIsSyncing(true);
-    try {
-      const [remoteSettings, remoteBookings] = await Promise.all([
-        cloudSync.fetchSettings(),
-        cloudSync.fetchData(syncId)
-      ]);
-
-      if (remoteSettings && JSON.stringify(settings) !== JSON.stringify(remoteSettings)) {
-        setSettings(prev => ({ ...prev, ...remoteSettings }));
-      }
-      if (remoteBookings && JSON.stringify(bookingsRef.current) !== JSON.stringify(remoteBookings)) {
-        setBookings(remoteBookings);
-      }
-    } catch (e) {
-      console.warn("Sync encountered a temporary issue.");
-    } finally {
-      setIsSyncing(false);
-      isFetching.current = false;
-    }
-  };
+  const [activeTab, setActiveTab] = useState<'bookings' | 'pricing' | 'slots'>('bookings');
+  const [draft, setDraft] = useState<AdminSettings>(settings);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  const [newBlockDate, setNewBlockDate] = useState('');
+  const [newBlockShift, setNewBlockShift] = useState<ShiftType>('all');
 
   useEffect(() => {
-    performSync();
-    const interval = setInterval(performSync, 30000); 
-    return () => clearInterval(interval);
-  }, [syncId]);
+    setDraft(settings);
+  }, [settings]);
 
-  const loginAsGuest = (name: string, mobile: string) => {
-    setAuth({ role: 'guest', user: { name, mobile } });
+  const saveSettings = async (updatedDraft?: AdminSettings) => {
+    const settingsToSave = updatedDraft || draft;
+    setIsSaving(true);
+    const success = await cloudSync.saveSettings(settingsToSave);
+    if (success) {
+      onUpdateSettings(settingsToSave);
+      if (!updatedDraft) alert("✅ Settings Synced to Cloud.");
+    } else {
+      alert("❌ Sync Failed. Check internet connection.");
+    }
+    setIsSaving(false);
   };
 
-  const loginAsAdmin = (email: string, role: UserRole) => {
-    setAuth({ role, user: { email } });
+  const addBlockedSlot = () => {
+    if (!newBlockDate) return alert("Select a date");
+    const newSlots = [...(draft.blockedSlots || []), { date: newBlockDate, shift: newBlockShift }];
+    const newDraft = { ...draft, blockedSlots: newSlots };
+    setDraft(newDraft);
+    saveSettings(newDraft);
+    setNewBlockDate('');
   };
 
-  const logout = () => {
-    sessionStorage.clear();
-    setAuth({ role: null, user: null });
-    navigate('/', { replace: true });
+  const removeBlockedSlot = (index: number) => {
+    const newSlots = draft.blockedSlots.filter((_, i) => i !== index);
+    const newDraft = { ...draft, blockedSlots: newSlots };
+    setDraft(newDraft);
+    saveSettings(newDraft);
   };
 
-  const addBooking = async (booking: Booking) => {
-    const updated = [booking, ...bookingsRef.current];
-    setBookings(updated);
-    if (syncId) await cloudSync.updateData(syncId, updated);
-  };
+  const stats = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayVisits = bookings.filter(b => b.date === todayStr);
+    const totalAdults = todayVisits.reduce((s, b) => s + b.adults, 0);
+    const totalKids = todayVisits.reduce((s, b) => s + b.kids, 0);
+    const checkedInGuests = todayVisits.filter(b => b.status === 'checked-in').reduce((s, b) => s + b.adults + b.kids, 0);
+    const revenue = todayVisits.reduce((s, b) => s + b.totalAmount, 0);
+
+    return { revenue, totalBookings: todayVisits.length, totalGuests: totalAdults + totalKids, checkedInGuests, pendingGuests: (totalAdults + totalKids) - checkedInGuests };
+  }, [bookings]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <header className="sticky top-0 z-[9999] w-full glass-header no-print">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 h-20 flex justify-between items-center">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center text-white border border-white/20">
-              <i className="fas fa-water text-xs"></i>
-            </div>
-            <h1 className="text-sm md:text-lg font-extrabold text-white uppercase tracking-tighter">Spray Aqua Resort</h1>
-          </Link>
-
-          <div className="flex items-center gap-4">
-            {isSyncing && (
-              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
-                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></div>
-                <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">Syncing</span>
-              </div>
-            )}
-            {auth.role && (
-              <button onClick={logout} className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full border border-white/20 text-[10px] font-black uppercase text-white hover:bg-white/20 transition-all">
-                Sign Out
-              </button>
-            )}
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-8 animate-slide-up">
+      {/* Dashboard Summary Card */}
+      <div className="bg-slate-900 text-white p-8 md:p-12 rounded-[3rem] shadow-2xl relative overflow-hidden border border-white/10">
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-10">
+          <div className="text-center md:text-left">
+            <p className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.5em] mb-3">Today's Performance</p>
+            <h2 className="text-6xl font-black tracking-tighter">₹{stats.revenue.toLocaleString()}</h2>
+            <p className="text-white/40 text-[10px] font-bold uppercase mt-2">{stats.totalBookings} Reservations</p>
+          </div>
+          <div className="grid grid-cols-2 gap-6 w-full md:w-auto">
+             <div className="bg-white/5 p-6 rounded-3xl border border-white/10 text-center">
+                <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">Total Guests</p>
+                <p className="text-2xl font-black">{stats.totalGuests}</p>
+             </div>
+             <div className="bg-emerald-500/10 p-6 rounded-3xl border border-emerald-500/20 text-center">
+                <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Inside Park</p>
+                <p className="text-2xl font-black text-emerald-400">{stats.checkedInGuests}</p>
+             </div>
           </div>
         </div>
-      </header>
 
-      <main className="flex-1 w-full flex justify-center px-3 md:px-6 py-6">
-        <div className="w-full max-w-7xl">
-          <Routes>
-            <Route path="/" element={
-              auth.role === 'admin' ? <Navigate to="/admin" /> :
-              (auth.role === 'staff' || auth.role === 'staff1' || auth.role === 'staff2') ? <Navigate to="/staff" /> :
-              auth.role === 'guest' ? <Navigate to="/book" /> :
-              <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />
-            } />
-            <Route path="/book" element={auth.role === 'guest' ? <BookingGate settings={settings} bookings={bookings} onProceed={()=>{}} /> : <Navigate to="/" />} />
-            <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} /> : <Navigate to="/" />} />
-            <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} /> : <Navigate to="/" />} />
-            <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={setSettings} syncId={syncId} onSyncSetup={setSyncId} onLogout={logout} /> : <Navigate to="/" />} />
-            <Route path="/admin-lockers" element={auth.role === 'admin' ? <AdminLockers /> : <Navigate to="/" />} />
-            <Route path="/staff" element={(auth.role === 'staff' || auth.role === 'staff1' || auth.role === 'staff2') ? <StaffPortal role={auth.role} /> : <Navigate to="/" />} />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
+        <div className="relative z-10 flex flex-wrap justify-center bg-white/5 p-1.5 rounded-2xl border border-white/10 backdrop-blur-xl mt-12">
+            <button onClick={() => setActiveTab('bookings')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='bookings' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>Bookings</button>
+            <button onClick={() => setActiveTab('pricing')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='pricing' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>Ticket Rates</button>
+            <button onClick={() => setActiveTab('slots')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='slots' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>Blocked Dates</button>
         </div>
-      </main>
+      </div>
+
+      {activeTab === 'pricing' && (
+        <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-10 animate-slide-up">
+            <div className="flex justify-between items-center border-b pb-6">
+                <h3 className="text-xl font-black uppercase text-slate-900">Manage Ticket Pricing</h3>
+                <button onClick={() => saveSettings()} className="bg-blue-600 text-white px-10 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">
+                    {isSaving ? 'Processing...' : 'Sync to Cloud'}
+                </button>
+            </div>
+            <div className="grid md:grid-cols-2 gap-12">
+                <div className="space-y-6 bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
+                    <p className="text-blue-600 font-black text-xs uppercase tracking-widest flex items-center gap-2"><i className="fas fa-sun"></i> Morning Session</p>
+                    <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-slate-400 uppercase">Adult (₹)</label>
+                            <input type="number" value={draft.morningAdultRate} onChange={e => setDraft({...draft, morningAdultRate: parseInt(e.target.value)})} className="input-premium font-bold text-lg" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-slate-400 uppercase">Kid (₹)</label>
+                            <input type="number" value={draft.morningKidRate} onChange={e => setDraft({...draft, morningKidRate: parseInt(e.target.value)})} className="input-premium font-bold text-lg" />
+                        </div>
+                    </div>
+                </div>
+                <div className="space-y-6 bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
+                    <p className="text-indigo-600 font-black text-xs uppercase tracking-widest flex items-center gap-2"><i className="fas fa-moon"></i> Evening Session</p>
+                    <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-slate-400 uppercase">Adult (₹)</label>
+                            <input type="number" value={draft.eveningAdultRate} onChange={e => setDraft({...draft, eveningAdultRate: parseInt(e.target.value)})} className="input-premium font-bold text-lg" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-slate-400 uppercase">Kid (₹)</label>
+                            <input type="number" value={draft.eveningKidRate} onChange={e => setDraft({...draft, eveningKidRate: parseInt(e.target.value)})} className="input-premium font-bold text-lg" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {activeTab === 'slots' && (
+        <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 space-y-10 animate-slide-up">
+            <div className="flex justify-between items-center border-b pb-6">
+                <h3 className="text-xl font-black uppercase text-slate-900">Blocked Slots & Holidays</h3>
+            </div>
+            <div className="grid md:grid-cols-3 gap-6 items-end bg-slate-900 text-white p-8 rounded-[2rem]">
+                <div className="space-y-2">
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Date</label>
+                    <input type="date" className="input-premium !bg-white/10 !text-white !border-white/20" value={newBlockDate} onChange={e => setNewBlockDate(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Shift</label>
+                    <select className="input-premium !bg-white/10 !text-white !border-white/20" value={newBlockShift} onChange={e => setNewBlockShift(e.target.value as ShiftType)}>
+                        <option value="all">Full Day</option>
+                        <option value="morning">Morning</option>
+                        <option value="evening">Evening</option>
+                    </select>
+                </div>
+                <button onClick={addBlockedSlot} className="bg-emerald-500 text-slate-900 h-[56px] rounded-xl text-[10px] font-black uppercase tracking-widest">Add Restriction</button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {draft.blockedSlots?.map((slot, idx) => (
+                    <div key={idx} className="flex justify-between items-center bg-white p-5 rounded-2xl border-2 border-slate-100 group">
+                        <div>
+                            <p className="font-black text-slate-900 uppercase text-sm">{slot.date}</p>
+                            <p className="text-[9px] font-black text-red-500 uppercase">{slot.shift} Blocked</p>
+                        </div>
+                        <button onClick={() => removeBlockedSlot(idx)} className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all">
+                            <i className="fas fa-trash-alt text-xs"></i>
+                        </button>
+                    </div>
+                ))}
+            </div>
+        </div>
+      )}
+
+      {activeTab === 'bookings' && (
+        <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border border-slate-100 animate-slide-up">
+          <div className="p-10 border-b bg-slate-50 flex justify-between items-center">
+              <h3 className="text-2xl font-black uppercase text-slate-900 tracking-tight">Booking History</h3>
+              <div className="bg-slate-900 text-white px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest">{bookings.length} Records</div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-center">
+              <thead className="bg-slate-100 text-[10px] font-black uppercase text-slate-500 border-b">
+                <tr><th className="p-6 text-left">Ref ID</th><th className="text-left">Guest Name</th><th>Visit Date</th><th>Shift</th><th>Total</th><th>Status</th></tr>
+              </thead>
+              <tbody className="text-xs font-bold divide-y divide-slate-100">
+                {bookings.map(b => (
+                  <tr key={b.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-6 text-left text-blue-600 font-black">{b.id}</td>
+                    <td className="text-left py-4"><p className="text-slate-900 font-black uppercase text-sm">{b.name}</p><p className="text-[10px] text-slate-400 font-bold">{b.mobile}</p></td>
+                    <td className="text-slate-600 uppercase text-[11px]">{b.date}</td>
+                    <td className="text-slate-900 uppercase text-[10px] font-black"><span className={`px-3 py-1 rounded-lg ${b.time.toLowerCase().includes('morning') ? 'bg-orange-100 text-orange-700' : 'bg-indigo-100 text-indigo-700'}`}>{b.time.split(':')[0]}</span></td>
+                    <td className="font-black text-slate-900 text-base">₹{b.totalAmount}</td>
+                    <td><span className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${b.status === 'checked-in' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>{b.status === 'checked-in' ? 'CHECKED-IN' : 'PAID'}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      <div className="flex justify-center gap-4 py-10 opacity-60">
+          <button onClick={onLogout} className="bg-slate-200 text-slate-900 px-12 py-5 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em]">Logout Management</button>
+      </div>
     </div>
   );
 };
 
-const App: React.FC = () => (
-  <HashRouter>
-    <AppContent />
-  </HashRouter>
-);
-
-export default App;
+export default AdminPortal;
