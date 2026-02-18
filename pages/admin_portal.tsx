@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Booking, AdminSettings, BlockedSlot, ShiftType } from '../types';
+import { Booking, AdminSettings, BlockedSlot, ShiftType, LockerReceipt } from '../types';
 import { cloudSync } from '../services/cloud_sync';
 
 interface AdminPanelProps {
@@ -18,12 +18,17 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const [activeTab, setActiveTab] = useState<'bookings' | 'pricing' | 'slots'>('bookings');
   const [draft, setDraft] = useState<AdminSettings>(settings);
   const [isSaving, setIsSaving] = useState(false);
+  const [rentals, setRentals] = useState<LockerReceipt[]>([]);
   
   const [newBlockDate, setNewBlockDate] = useState('');
   const [newBlockShift, setNewBlockShift] = useState<ShiftType>('all');
 
   useEffect(() => {
     setDraft(settings);
+    // Fetch locker data for the dashboard summary
+    cloudSync.fetchRentals().then(data => {
+      if (data) setRentals(data);
+    });
   }, [settings]);
 
   const saveSettings = async (updatedDraft?: AdminSettings) => {
@@ -63,8 +68,18 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     const checkedInGuests = todayVisits.filter(b => b.status === 'checked-in').reduce((s, b) => s + b.adults + b.kids, 0);
     const revenue = todayVisits.reduce((s, b) => s + b.totalAmount, 0);
 
-    return { revenue, totalBookings: todayVisits.length, totalGuests: totalAdults + totalKids, checkedInGuests, pendingGuests: (totalAdults + totalKids) - checkedInGuests };
-  }, [bookings]);
+    // Locker stats for dashboard
+    const activeLockers = rentals.filter(r => r.status === 'issued').length;
+
+    return { 
+      revenue, 
+      totalBookings: todayVisits.length, 
+      totalGuests: totalAdults + totalKids, 
+      checkedInGuests, 
+      activeLockers,
+      pendingGuests: (totalAdults + totalKids) - checkedInGuests 
+    };
+  }, [bookings, rentals]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-8 animate-slide-up">
@@ -76,7 +91,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
             <h2 className="text-6xl font-black tracking-tighter">₹{stats.revenue.toLocaleString()}</h2>
             <p className="text-white/40 text-[10px] font-bold uppercase mt-2">{stats.totalBookings} Reservations</p>
           </div>
-          <div className="grid grid-cols-2 gap-6 w-full md:w-auto">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6 w-full md:w-auto">
              <div className="bg-white/5 p-6 rounded-3xl border border-white/10 text-center">
                 <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">Total Guests</p>
                 <p className="text-2xl font-black">{stats.totalGuests}</p>
@@ -85,13 +100,18 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                 <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Inside Park</p>
                 <p className="text-2xl font-black text-emerald-400">{stats.checkedInGuests}</p>
              </div>
+             <div className="bg-blue-500/10 p-6 rounded-3xl border border-blue-500/20 text-center col-span-2 md:col-span-1">
+                <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Lockers Occupied</p>
+                <p className="text-2xl font-black text-blue-400">{stats.activeLockers}</p>
+             </div>
           </div>
         </div>
 
-        <div className="relative z-10 flex flex-wrap justify-center bg-white/5 p-1.5 rounded-2xl border border-white/10 backdrop-blur-xl mt-12">
-            <button onClick={() => setActiveTab('bookings')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='bookings' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>Bookings</button>
-            <button onClick={() => setActiveTab('pricing')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='pricing' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>Ticket Rates</button>
-            <button onClick={() => setActiveTab('slots')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='slots' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>Blocked Dates</button>
+        <div className="relative z-10 flex flex-wrap justify-center bg-white/5 p-1.5 rounded-2xl border border-white/10 backdrop-blur-xl mt-12 gap-1">
+            <button onClick={() => setActiveTab('bookings')} className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='bookings' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>Bookings</button>
+            <button onClick={() => setActiveTab('pricing')} className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='pricing' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>Ticket Rates</button>
+            <button onClick={() => setActiveTab('slots')} className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab==='slots' ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>Blocked Dates</button>
+            <button onClick={() => navigate('/admin-lockers')} className="px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:bg-white/10 transition-all border border-emerald-500/20">Locker & Costume <i className="fas fa-external-link-alt ml-2"></i></button>
         </div>
       </div>
 
@@ -139,33 +159,75 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
             <div className="flex justify-between items-center border-b pb-6">
                 <h3 className="text-xl font-black uppercase text-slate-900">Blocked Slots & Holidays</h3>
             </div>
-            <div className="grid md:grid-cols-3 gap-6 items-end bg-slate-900 text-white p-8 rounded-[2rem]">
-                <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Date</label>
-                    <input type="date" className="input-premium !bg-white/10 !text-white !border-white/20" value={newBlockDate} onChange={e => setNewBlockDate(e.target.value)} />
+            
+            <div className="grid md:grid-cols-12 gap-6 items-end bg-slate-900 text-white p-10 rounded-[3rem] shadow-2xl">
+                <div className="md:col-span-4 space-y-3">
+                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Select Date</label>
+                    <input type="date" className="input-premium !bg-white/10 !text-white !border-white/20 h-16" value={newBlockDate} onChange={e => setNewBlockDate(e.target.value)} />
                 </div>
-                <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Shift</label>
-                    <select className="input-premium !bg-white/10 !text-white !border-white/20" value={newBlockShift} onChange={e => setNewBlockShift(e.target.value as ShiftType)}>
-                        <option value="all">Full Day</option>
-                        <option value="morning">Morning</option>
-                        <option value="evening">Evening</option>
-                    </select>
-                </div>
-                <button onClick={addBlockedSlot} className="bg-emerald-500 text-slate-900 h-[56px] rounded-xl text-[10px] font-black uppercase tracking-widest">Add Restriction</button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {draft.blockedSlots?.map((slot, idx) => (
-                    <div key={idx} className="flex justify-between items-center bg-white p-5 rounded-2xl border-2 border-slate-100 group">
-                        <div>
-                            <p className="font-black text-slate-900 uppercase text-sm">{slot.date}</p>
-                            <p className="text-[9px] font-black text-red-500 uppercase">{slot.shift} Blocked</p>
-                        </div>
-                        <button onClick={() => removeBlockedSlot(idx)} className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all">
-                            <i className="fas fa-trash-alt text-xs"></i>
+                
+                <div className="md:col-span-5 space-y-3">
+                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Select Slot to Block</label>
+                    <div className="flex bg-white/10 p-1 rounded-2xl border border-white/20 h-16">
+                        <button 
+                            onClick={() => setNewBlockShift('morning')} 
+                            className={`flex-1 rounded-xl text-[10px] font-black uppercase transition-all ${newBlockShift === 'morning' ? 'bg-white text-slate-900 shadow-lg' : 'text-white/50 hover:text-white'}`}
+                        >
+                            Morning
+                        </button>
+                        <button 
+                            onClick={() => setNewBlockShift('evening')} 
+                            className={`flex-1 rounded-xl text-[10px] font-black uppercase transition-all ${newBlockShift === 'evening' ? 'bg-white text-slate-900 shadow-lg' : 'text-white/50 hover:text-white'}`}
+                        >
+                            Evening
+                        </button>
+                        <button 
+                            onClick={() => setNewBlockShift('all')} 
+                            className={`flex-1 rounded-xl text-[10px] font-black uppercase transition-all ${newBlockShift === 'all' ? 'bg-white text-slate-900 shadow-lg' : 'text-white/50 hover:text-white'}`}
+                        >
+                            Full Day
                         </button>
                     </div>
-                ))}
+                </div>
+
+                <div className="md:col-span-3">
+                    <button 
+                        onClick={addBlockedSlot} 
+                        className="w-full bg-emerald-500 text-slate-900 h-16 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-xl hover:bg-emerald-400 active:scale-95 transition-all"
+                    >
+                        {isSaving ? 'SYNCING...' : 'Block Slot'}
+                    </button>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {draft.blockedSlots?.length === 0 ? (
+                    <div className="md:col-span-3 p-20 text-center border-4 border-dashed border-slate-100 rounded-[3rem]">
+                        <p className="text-slate-300 font-black uppercase tracking-[0.3em] text-xs">No active restrictions</p>
+                    </div>
+                ) : draft.blockedSlots?.map((slot, idx) => {
+                    const isMorning = slot.shift === 'morning';
+                    const isEvening = slot.shift === 'evening';
+                    const isAll = slot.shift === 'all';
+
+                    return (
+                        <div key={idx} className="flex justify-between items-center bg-white p-6 rounded-[2rem] border-2 border-slate-100 shadow-sm hover:border-slate-300 transition-all group">
+                            <div className="space-y-1">
+                                <p className="font-black text-slate-900 uppercase text-base tracking-tighter">{slot.date}</p>
+                                <span className={`inline-block px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
+                                    isMorning ? 'bg-orange-100 text-orange-600' : 
+                                    isEvening ? 'bg-indigo-100 text-indigo-600' : 
+                                    'bg-red-100 text-red-600'
+                                }`}>
+                                    {slot.shift === 'all' ? 'Full Day' : slot.shift} Blocked
+                                </span>
+                            </div>
+                            <button onClick={() => removeBlockedSlot(idx)} className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 hover:bg-red-500 hover:text-white transition-all shadow-inner">
+                                <i className="fas fa-trash-alt text-xs"></i>
+                            </button>
+                        </div>
+                    );
+                })}
             </div>
         </div>
       )}
