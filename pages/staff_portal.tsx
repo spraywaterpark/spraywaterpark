@@ -128,7 +128,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
   };
 
   const generateReceiptNo = () => {
-    // Format: SWP-[Shift]-[DDMMYY]-[NNNN]
+    // Format: SWP/DDMMYY[ShiftCode]-NNN
     const now = new Date();
     const dd = String(now.getDate()).padStart(2, '0');
     const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -140,9 +140,9 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     
     // Count records for today and current shift
     const countToday = allRentals.filter(r => r.date === todayStr && r.shift === shift).length + 1;
-    const seq = String(countToday).padStart(4, '0');
+    const seq = String(countToday).padStart(3, '0');
     
-    return `SWP-${shiftCode}-${datePart}-${seq}`;
+    return `SWP/${datePart}${shiftCode}-${seq}`;
   };
 
   const toggleLocker = (num: number, gender: 'male' | 'female') => {
@@ -267,7 +267,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
                     <div className="h-[1px] flex-1 bg-white/10"></div>
                  </div>
                  <div className="flex gap-2">
-                    <input placeholder="SAR-DDMMYY-NNNN" className="input-premium !bg-slate-900/50 !text-white !text-xl text-center flex-1" value={ticketInput} onChange={e => setTicketInput(e.target.value.toUpperCase())} />
+                    <input placeholder="SAR/DDMMYY1-001" className="input-premium !bg-slate-900/50 !text-white !text-xl text-center flex-1" value={ticketInput} onChange={e => setTicketInput(e.target.value.toUpperCase())} />
                     <button onClick={() => fetchTicketDetails()} disabled={isSyncing || !ticketInput} className="bg-blue-600 w-16 rounded-xl flex items-center justify-center text-white"><i className="fas fa-arrow-right"></i></button>
                  </div>
                </div>
@@ -420,7 +420,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
             <i className="fas fa-undo-alt"></i>
           </div>
           <h3 className="text-3xl font-black uppercase tracking-tight">Return Assets</h3>
-          <input placeholder="SWP-1-DDMMYY-NNNN" className="input-premium text-center !bg-slate-900/50 !text-white text-2xl font-black uppercase tracking-widest" value={searchCode} onChange={e => setSearchCode(e.target.value.toUpperCase())} />
+          <input placeholder="SWP/DDMMYY1-001" className="input-premium text-center !bg-slate-900/50 !text-white text-2xl font-black uppercase tracking-widest" value={searchCode} onChange={e => setSearchCode(e.target.value.toUpperCase())} />
           <button onClick={findReturn} disabled={isSyncing} className="btn-resort w-full h-16 !bg-amber-500 !text-slate-900 shadow-xl">FIND RECEIPT</button>
           
           {returnReceipt && (
