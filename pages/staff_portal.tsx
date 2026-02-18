@@ -161,6 +161,8 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     const datePart = `${dd}${mm}${yy}`;
     const shiftCode = shift === 'morning' ? '1' : '2';
     const todayStr = now.toISOString().split('T')[0];
+    
+    // Receipt numbering resets daily per shift
     const countToday = allRentals.filter(r => r.date === todayStr && r.shift === shift).length + 1;
     const seq = String(countToday).padStart(3, '0');
     return `SWP/${datePart}${shiftCode}-${seq}`;
@@ -177,19 +179,45 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     const fLockers = femaleLockers.length;
     const mCostumes = Number(maleCostumes) || 0;
     const fCostumes = Number(femaleCostumes) || 0;
+
     const lockerRent = (mLockers * LOCKER_RULES.MALE_LOCKER_RENT) + (fLockers * LOCKER_RULES.FEMALE_LOCKER_RENT);
+    const mCostumeRent = mCostumes * COSTUME_RULES.MALE_COSTUME_RENT;
+    const fCostumeRent = fCostumes * COSTUME_RULES.FEMALE_COSTUME_RENT;
+
     const lockerDep = (mLockers * LOCKER_RULES.MALE_LOCKER_DEPOSIT) + (fLockers * LOCKER_RULES.FEMALE_LOCKER_DEPOSIT);
-    const costumeRent = (mCostumes * COSTUME_RULES.MALE_COSTUME_RENT) + (fCostumes * COSTUME_RULES.FEMALE_COSTUME_RENT);
-    const costumeDep = (mCostumes * COSTUME_RULES.MALE_COSTUME_DEPOSIT) + (fCostumes * COSTUME_RULES.FEMALE_COSTUME_DEPOSIT);
-    const totalRent = lockerRent + costumeRent;
-    const totalDeposit = lockerDep + costumeDep;
-    return { lockerRent, lockerDep, costumeRent, costumeDep, totalRent, totalDeposit, total: totalRent + totalDeposit };
+    const mCostumeDep = mCostumes * COSTUME_RULES.MALE_COSTUME_DEPOSIT;
+    const fCostumeDep = fCostumes * COSTUME_RULES.FEMALE_COSTUME_DEPOSIT;
+
+    const totalRent = lockerRent + mCostumeRent + fCostumeRent;
+    const totalDeposit = lockerDep + mCostumeDep + fCostumeDep;
+
+    return { 
+      lockerRent, 
+      mCostumeRent, 
+      fCostumeRent, 
+      lockerDep, 
+      mCostumeDep, 
+      fCostumeDep, 
+      totalRent, 
+      totalDeposit, 
+      total: totalRent + totalDeposit 
+    };
   };
 
   const generateReceipt = () => {
+    // Check issue window rules
+    const now = new Date();
+    const hour = now.getHours();
+    if (shift === 'morning' && (hour < 10 || hour >= 14)) {
+      return alert("Morning Asset issue window is 10:00 AM to 02:00 PM.");
+    }
+    if (shift === 'evening' && (hour < 16 || hour >= 20)) {
+      return alert("Evening Asset issue window is 04:00 PM to 08:00 PM.");
+    }
+
     if (!guestName) return alert("Please enter Guest Name.");
     if (maleLockers.length === 0 && femaleLockers.length === 0 && maleCostumes === 0 && femaleCostumes === 0) {
-      return alert("Select assets.");
+      return alert("Select at least one asset (Locker or Costume).");
     }
     const { totalRent, totalDeposit, total } = calculateBreakdown();
     setReceipt({
@@ -229,7 +257,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     setIsSyncing(true);
     const success = await cloudSync.updateRental({ ...returnReceipt, status: 'returned', returnedAt: new Date().toISOString() });
     if (success) {
-      alert("Assets Returned!");
+      alert("Assets Returned! Security Deposit Refunded.");
       setReturnReceipt(null); setSearchCode(''); refreshActive();
     }
     setIsSyncing(false);
@@ -426,7 +454,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
                 </div>
             </div>
             <div className="bg-slate-900/30 p-8 rounded-[2.5rem] border border-white/5 space-y-6">
-                <p className="text-[10px) font-black uppercase text-pink-400 tracking-widest">Female Lockers</p>
+                <p className="text-[10px] font-black uppercase text-pink-400 tracking-widest">Female Lockers</p>
                 <div className="grid grid-cols-6 sm:grid-cols-10 gap-3">{renderLockers('female')}</div>
                 <div className="flex justify-between items-center pt-4 border-t border-white/5">
                     <span className="text-[10px] font-black uppercase text-white/40">F-Costumes</span>
@@ -441,37 +469,69 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
 
           <button onClick={generateReceipt} className="btn-resort w-full h-20 !bg-emerald-500 !text-slate-900 text-lg shadow-2xl">GENERATE BILL</button>
           
-          {receipt && (
-            <div className="fixed inset-0 z-[5000] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6 animate-fade">
-              <div className="bg-white text-slate-900 rounded-[3rem] w-full max-w-xl p-10 space-y-8 shadow-2xl border-t-[12px] border-emerald-500">
-                <div className="text-center space-y-1">
-                    <p className="text-[11px] font-black text-emerald-600 uppercase tracking-widest">ID: {receipt.receiptNo}</p>
-                    <h2 className="text-3xl font-black uppercase tracking-tighter">Asset Confirmation</h2>
-                </div>
-                <div className="bg-slate-50 p-8 rounded-[2rem] space-y-4 text-sm font-bold">
-                    <div className="flex justify-between pb-3 border-b"><span>Lockers</span><span>₹{receipt.maleLockers.length + receipt.femaleLockers.length} * Fees</span></div>
-                    <div className="flex justify-between pt-4">
-                        <div className="text-center flex-1">
-                            <p className="text-[9px] font-black uppercase text-slate-400">Rent</p>
-                            <p className="text-xl font-black">₹{receipt.rentAmount}</p>
+          {receipt && (() => {
+            const breakdown = calculateBreakdown();
+            return (
+                <div className="fixed inset-0 z-[5000] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6 animate-fade">
+                    <div className="bg-white text-slate-900 rounded-[3rem] w-full max-w-xl p-10 space-y-8 shadow-2xl border-t-[12px] border-emerald-500 overflow-hidden">
+                        <div className="text-center space-y-1">
+                            <p className="text-[11px] font-black text-emerald-600 uppercase tracking-widest">ID: {receipt.receiptNo}</p>
+                            <h2 className="text-4xl font-black uppercase tracking-tighter">Asset Confirmation</h2>
                         </div>
-                        <div className="text-center flex-1 border-l">
-                            <p className="text-[9px] font-black uppercase text-emerald-600">Refundable</p>
-                            <p className="text-xl font-black text-emerald-700">₹{receipt.securityDeposit}</p>
+
+                        <div className="bg-slate-50 p-8 rounded-[2.5rem] space-y-6 border border-slate-100">
+                            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+                                <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Assets Details</span>
+                                <span className="text-[11px] font-black text-slate-900 uppercase">Per Unit Fees</span>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm font-bold text-slate-700">Locker Rent ({maleLockers.length + femaleLockers.length} Units)</span>
+                                    <span className="text-sm font-black text-slate-900">₹{breakdown.lockerRent}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm font-bold text-slate-700">Male Costume Rent ({maleCostumes})</span>
+                                    <span className="text-sm font-black text-slate-900">₹{breakdown.mCostumeRent}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm font-bold text-slate-700">Female Costume Rent ({femaleCostumes})</span>
+                                    <span className="text-sm font-black text-slate-900">₹{breakdown.fCostumeRent}</span>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200">
+                                <div className="text-center">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Rent</p>
+                                    <p className="text-2xl font-black text-slate-900">₹{breakdown.totalRent}</p>
+                                </div>
+                                <div className="text-center border-l border-slate-200">
+                                    <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Refundable</p>
+                                    <p className="text-2xl font-black text-emerald-700">₹{breakdown.totalDeposit}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] flex justify-between items-center shadow-2xl relative overflow-hidden group">
+                            <div className="relative z-10">
+                                <p className="text-[10px] font-black uppercase opacity-60 tracking-widest">Collect Cash</p>
+                                <h3 className="text-6xl font-black tracking-tighter">₹{breakdown.total}</h3>
+                            </div>
+                            <div className="relative z-10 bg-white/10 w-20 h-20 rounded-full flex items-center justify-center text-3xl">
+                                <i className="fas fa-wallet text-white/80"></i>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-4">
+                            <button onClick={() => setReceipt(null)} className="flex-1 py-5 rounded-2xl bg-slate-100 font-black text-[10px] uppercase text-slate-400 hover:bg-slate-200 transition-all">Edit Items</button>
+                            <button onClick={confirmAndPrint} disabled={isSyncing} className="flex-[2] bg-emerald-500 text-slate-900 py-5 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-emerald-100 hover:bg-emerald-400 active:scale-95 transition-all">
+                                Confirm & Print
+                            </button>
                         </div>
                     </div>
                 </div>
-                <div className="bg-slate-900 text-white p-8 rounded-[2rem] flex justify-between items-center">
-                    <p className="text-xs uppercase opacity-60">Collect Cash</p>
-                    <h3 className="text-5xl font-black tracking-tighter">₹{receipt.totalCollected}</h3>
-                </div>
-                <div className="flex gap-4">
-                    <button onClick={() => setReceipt(null)} className="flex-1 py-5 rounded-2xl bg-slate-100 font-black text-xs uppercase">Edit</button>
-                    <button onClick={confirmAndPrint} disabled={isSyncing} className="flex-[2] btn-resort !bg-emerald-500 !text-slate-900 uppercase">Confirm & Print</button>
-                </div>
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
 
@@ -496,22 +556,34 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
         </div>
       )}
 
-      {receipt && (
-        <div ref={printRef} className="hidden print:block fixed inset-0 bg-white text-black p-10 font-mono text-center space-y-4">
-            <h1 className="text-2xl font-bold border-b-2 border-black pb-2">SPRAY AQUA RESORT</h1>
-            <p className="text-xs">ID: {receipt.receiptNo} | DATE: {receipt.date}</p>
-            <p className="text-left py-4 text-xs">GUEST: {receipt.guestName} | {receipt.guestMobile}</p>
-            <div className="text-left text-xs border-y py-4 space-y-1">
-                <p>M-LOCKERS: {receipt.maleLockers.join(',') || 'N/A'}</p>
-                <p>F-LOCKERS: {receipt.femaleLockers.join(',') || 'N/A'}</p>
+      {receipt && (() => {
+        const breakdown = calculateBreakdown();
+        return (
+            <div ref={printRef} className="hidden print:block fixed inset-0 bg-white text-black p-10 font-mono text-center space-y-4">
+                <h1 className="text-2xl font-bold border-b-2 border-black pb-2">SPRAY AQUA RESORT</h1>
+                <p className="text-xs">RECEIPT: {receipt.receiptNo} | DATE: {receipt.date}</p>
+                <p className="text-left py-4 text-xs">GUEST: {receipt.guestName} | {receipt.guestMobile}</p>
+                
+                <div className="text-left text-xs border-y py-4 space-y-2">
+                    <p className="font-bold border-b">ASSETS ISSUED:</p>
+                    {receipt.maleLockers.length > 0 && <p>MALE LOCKERS: {receipt.maleLockers.join(',')}</p>}
+                    {receipt.femaleLockers.length > 0 && <p>FEMALE LOCKERS: {receipt.femaleLockers.join(',')}</p>}
+                    {receipt.maleCostumes > 0 && <p>MALE COSTUMES: {receipt.maleCostumes} Units</p>}
+                    {receipt.femaleCostumes > 0 && <p>FEMALE COSTUMES: {receipt.femaleCostumes} Units</p>}
+                </div>
+
+                <div className="text-right py-4 space-y-1 text-xs font-bold">
+                    <div className="flex justify-between"><span>LOCKER RENT:</span><span>₹{breakdown.lockerRent}</span></div>
+                    <div className="flex justify-between"><span>COSTUME RENT (M/F):</span><span>₹{breakdown.mCostumeRent + breakdown.fCostumeRent}</span></div>
+                    <div className="flex justify-between border-t pt-1"><span>TOTAL RENT:</span><span>₹{breakdown.totalRent}</span></div>
+                    <div className="flex justify-between text-blue-700"><span>REFUNDABLE SECURITY:</span><span>₹{breakdown.totalDeposit}</span></div>
+                    <div className="flex justify-between text-lg border-t-2 border-black pt-2"><span>NET COLLECTED:</span><span>₹{breakdown.total}</span></div>
+                </div>
+
+                <p className="text-[10px] pt-10 border-t border-dashed">Please keep this receipt safe for security refund.</p>
             </div>
-            <div className="text-right py-4 space-y-1 text-xs font-bold">
-                <p>TOTAL RENT: ₹{receipt.rentAmount}</p>
-                <p>REFUNDABLE: ₹{receipt.securityDeposit}</p>
-                <p className="text-lg border-t pt-2">NET TOTAL: ₹{receipt.totalCollected}</p>
-            </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
