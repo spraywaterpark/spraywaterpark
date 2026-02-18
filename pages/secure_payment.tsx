@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Booking } from '../types';
 import { cloudSync } from '../services/cloud_sync';
 import { notificationService } from '../services/notification_service';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface SecurePaymentProps {
   addBooking: (b: Booking) => void;
@@ -28,18 +28,21 @@ const SecurePayment: React.FC<SecurePaymentProps> = ({ addBooking, bookings }) =
     }
   }, [navigate]);
 
-  const generateTicketId = (dateStr: string) => {
-    // Format: SAR-DDMMYY-NNNN
+  const generateTicketId = (dateStr: string, timeStr: string) => {
+    // Format: SAR/DDMMYY[ShiftCode]-NNN
     const d = new Date(dateStr);
     const dd = String(d.getDate()).padStart(2, '0');
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const yy = String(d.getFullYear()).slice(-2);
     const datePart = `${dd}${mm}${yy}`;
     
-    const countToday = bookings.filter(b => b.date === dateStr).length + 1;
-    const seq = String(countToday).padStart(4, '0');
+    const shiftCode = timeStr.toLowerCase().includes('morning') ? '1' : '2';
     
-    return `SAR-${datePart}-${seq}`;
+    // Sequential counter for this specific date and shift
+    const countToday = bookings.filter(b => b.date === dateStr && b.time === timeStr).length + 1;
+    const seq = String(countToday).padStart(3, '0');
+    
+    return `SAR/${datePart}${shiftCode}-${seq}`;
   };
 
   const handlePay = async () => {
@@ -48,7 +51,7 @@ const SecurePayment: React.FC<SecurePaymentProps> = ({ addBooking, bookings }) =
     setStatus('saving');
 
     try {
-      const bookingId = generateTicketId(draft.date);
+      const bookingId = generateTicketId(draft.date, draft.time);
       const final: Booking = {
         ...draft,
         id: bookingId,
