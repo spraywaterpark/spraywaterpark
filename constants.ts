@@ -1,9 +1,9 @@
 
 export const TERMS_AND_CONDITIONS = [
-  "Stags or groups consisting only of males are strictly not permitted entrance. (अकेले पुरुष या केवल पुरुषों के समूह ko pravesh ki anumati nahi hai.)",
-  "Consumption of alcohol and smoking are strictly prohibited inside the resort premises. (Parisar ke bhitar sharab ka sevan aur dhumrapan puri tarah se varjit hai.)",
-  "Appropriate swimwear (Nylon/Lycra) is mandatory for pool entry. Entry beyond changing rooms is restricted without costumes. (Pool mein pravesh ke liye uchit swimwear anivarya hai.)",
-  "Management is not responsible for the loss of any personal belongings. Paid locker facilities are available. (Niji saman ke khone ke liye prabandhan zimmedar nahi hai.)"
+  "Stags or groups consisting only of males are strictly not permitted entrance. (अकेले पुरुष या केवल पुरुषों के समूह को प्रवेश की अनुमति नहीं है।)",
+  "Consumption of alcohol and smoking are strictly prohibited inside the resort premises. (परिसर के भीतर शराब का सेवन और धूम्रपान पूरी तरह से वर्जित है।)",
+  "Appropriate swimwear (Nylon/Lycra) is mandatory for pool entry. Entry beyond changing rooms is restricted without costumes. (पूल में प्रवेश के लिए उचित स्विमवियर (नायलॉन/लाइक्रा) अनिवार्य है। कॉस्ट्यूम के बिना चेंजिंग रूम से आगे जाना वर्जित है।)",
+  "Management is not responsible for the loss of any personal belongings. Paid locker facilities are available. (प्रबंधन किसी भी व्यक्तिगत सामान के खोने के लिए ज़िम्मेदार नहीं है। सशुल्क लॉकर सुविधाएं उपलब्ध हैं।)"
 ];
 
 export const PRICING = {
