@@ -15,6 +15,7 @@ export default async function handler(req: any, res: any) {
   const sheets = google.sheets({ version: "v4", auth });
   const type = req.query.type;
   const id = req.query.id;
+  const action = req.query.action;
 
   try {
     // 1. SETTINGS SYNC (Sheet: adminpanel)
@@ -70,7 +71,92 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // 2. WHATSAPP NOTIFICATION
+    // 2. RENTALS (Sheet: Lockers)
+    if (type === 'rentals') {
+      if (req.method === "GET") {
+        const response = await sheets.spreadsheets.values.get({
+          spreadsheetId: process.env.SHEET_ID,
+          range: "Lockers!A2:P2000"
+        });
+        const rows = response.data.values || [];
+        const rentals = rows.map(r => ({
+          receiptNo: r[0],
+          guestName: r[1],
+          guestMobile: r[2],
+          date: r[3],
+          shift: r[4],
+          maleLockers: r[5] ? r[5].split(',').map(Number) : [],
+          femaleLockers: r[6] ? r[6].split(',').map(Number) : [],
+          maleCostumes: parseInt(r[7]) || 0,
+          femaleCostumes: parseInt(r[8]) || 0,
+          rentAmount: parseInt(r[9]) || 0,
+          securityDeposit: parseInt(r[10]) || 0,
+          totalCollected: parseInt(r[11]) || 0,
+          refundableAmount: parseInt(r[12]) || 0,
+          status: r[13],
+          createdAt: r[14],
+          returnedAt: r[15] || ''
+        }));
+        return res.status(200).json(rentals);
+      }
+
+      if (req.method === "POST") {
+        if (action === 'update') {
+          const rental = req.body;
+          const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: process.env.SHEET_ID,
+            range: "Lockers!A2:A2000"
+          });
+          const rows = response.data.values || [];
+          const rowIndex = rows.findIndex(r => r[0] === rental.receiptNo);
+          if (rowIndex === -1) return res.status(404).json({ success: false, details: "Receipt not found" });
+
+          // Update Status (N) and ReturnedAt (P)
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: process.env.SHEET_ID,
+            range: `Lockers!N${rowIndex + 2}:P${rowIndex + 2}`,
+            valueInputOption: "RAW",
+            requestBody: {
+              values: [[rental.status, "", rental.returnedAt]] // Column O (createdAt) is skipped by making it empty string or we can just target N and P specifically
+            }
+          });
+          // Better way: target columns individually or ensure array length matches range
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: process.env.SHEET_ID,
+            range: `Lockers!N${rowIndex + 2}`,
+            valueInputOption: "RAW",
+            requestBody: { values: [[rental.status]] }
+          });
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: process.env.SHEET_ID,
+            range: `Lockers!P${rowIndex + 2}`,
+            valueInputOption: "RAW",
+            requestBody: { values: [[rental.returnedAt]] }
+          });
+
+          return res.status(200).json({ success: true });
+        } else {
+          const r = req.body;
+          await sheets.spreadsheets.values.append({
+            spreadsheetId: process.env.SHEET_ID,
+            range: "Lockers!A:P",
+            valueInputOption: "RAW",
+            requestBody: {
+              values: [[
+                r.receiptNo, r.guestName, r.guestMobile, r.date, r.shift,
+                r.maleLockers.join(','), r.femaleLockers.join(','),
+                r.maleCostumes, r.femaleCostumes,
+                r.rentAmount, r.securityDeposit, r.totalCollected,
+                r.refundableAmount, r.status, r.createdAt, ""
+              ]]
+            }
+          });
+          return res.status(200).json({ success: true });
+        }
+      }
+    }
+
+    // 3. WHATSAPP NOTIFICATION
     if (type === 'whatsapp') {
       const { mobile, booking, isWelcome } = req.body;
       const token = (process.env.WHATSAPP_TOKEN || "").trim();
@@ -105,7 +191,7 @@ export default async function handler(req: any, res: any) {
       return res.status(waRes.status).json({ success: waRes.ok, details: waData.error?.message || "Sent Successfully" });
     }
 
-    // 3. TICKET DETAILS FOR SCANNER
+    // 4. TICKET DETAILS FOR SCANNER
     if (type === 'ticket_details') {
       const response = await sheets.spreadsheets.values.get({ 
         spreadsheetId: process.env.SHEET_ID, 
@@ -124,7 +210,7 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    // 4. GATE CHECK-IN
+    // 5. GATE CHECK-IN
     if (type === 'checkin') {
       const { ticketId } = req.body;
       const response = await sheets.spreadsheets.values.get({ 
@@ -137,7 +223,6 @@ export default async function handler(req: any, res: any) {
       
       const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
       
-      // Update Column K (Status) and Column L (Check-in Time)
       await sheets.spreadsheets.values.update({
         spreadsheetId: process.env.SHEET_ID,
         range: `booking!K${rowIndex + 2}:L${rowIndex + 2}`,
@@ -147,7 +232,7 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ success: true });
     }
 
-    // 5. STANDARD BOOKING POST
+    // 6. STANDARD BOOKING POST
     if (req.method === "POST" && !type) {
       const b = req.body;
       await sheets.spreadsheets.values.append({
@@ -163,7 +248,7 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ success: true });
     }
 
-    // 6. STANDARD BOOKING GET
+    // 7. STANDARD BOOKING GET
     if (req.method === "GET" && !type) {
       const response = await sheets.spreadsheets.values.get({ 
         spreadsheetId: process.env.SHEET_ID, 
