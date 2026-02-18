@@ -551,11 +551,59 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
           
           {returnReceipt && (
             <div className="bg-white text-slate-900 rounded-[2.5rem] p-8 space-y-8 text-left border-b-[10px] border-emerald-500 animate-slide-up mt-8">
-              <h4 className="font-black text-2xl uppercase tracking-tighter">{returnReceipt.guestName}</h4>
-              <div className="bg-slate-50 p-6 rounded-2xl space-y-3 text-xs font-bold">
-                  <div className="flex justify-between"><span>Refundable Security</span><span className="text-xl text-emerald-600 font-black">₹{returnReceipt.refundableAmount}</span></div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Guest Name</p>
+                <h4 className="font-black text-2xl uppercase tracking-tighter text-slate-900">{returnReceipt.guestName}</h4>
               </div>
-              <button onClick={confirmReturn} disabled={isSyncing} className="btn-resort w-full h-16 !bg-slate-900 !text-white">COMPLETE REFUND</button>
+
+              {/* Items Collection Checklist */}
+              <div className="bg-slate-900 text-white rounded-[1.5rem] p-6 space-y-6">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400 border-b border-white/10 pb-3">Checklist: Items to Collect</p>
+                  
+                  <div className="space-y-4">
+                      {/* Locker Keys */}
+                      {(returnReceipt.maleLockers.length > 0 || returnReceipt.femaleLockers.length > 0) && (
+                        <div className="space-y-3">
+                            <p className="text-[9px] font-black uppercase opacity-60">Locker Keys to Return:</p>
+                            <div className="flex flex-wrap gap-2">
+                                {returnReceipt.maleLockers.map(num => (
+                                    <span key={`m-${num}`} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-black border border-blue-400">M-{num}</span>
+                                ))}
+                                {returnReceipt.femaleLockers.map(num => (
+                                    <span key={`f-${num}`} className="bg-pink-600 text-white px-3 py-1.5 rounded-lg text-xs font-black border border-pink-400">F-{num}</span>
+                                ))}
+                            </div>
+                        </div>
+                      )}
+
+                      {/* Costumes */}
+                      {(returnReceipt.maleCostumes > 0 || returnReceipt.femaleCostumes > 0) && (
+                        <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
+                            {returnReceipt.maleCostumes > 0 && (
+                                <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+                                    <p className="text-[8px] font-black uppercase opacity-60 mb-1">M-Costumes</p>
+                                    <p className="text-xl font-black text-blue-400">{returnReceipt.maleCostumes}</p>
+                                </div>
+                            )}
+                            {returnReceipt.femaleCostumes > 0 && (
+                                <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+                                    <p className="text-[8px] font-black uppercase opacity-60 mb-1">F-Costumes</p>
+                                    <p className="text-xl font-black text-pink-400">{returnReceipt.femaleCostumes}</p>
+                                </div>
+                            )}
+                        </div>
+                      )}
+                  </div>
+              </div>
+
+              <div className="bg-emerald-50 p-6 rounded-2xl space-y-1 border border-emerald-100">
+                  <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Refundable Security</p>
+                  <p className="text-3xl text-emerald-700 font-black">₹{returnReceipt.refundableAmount}</p>
+              </div>
+
+              <button onClick={confirmReturn} disabled={isSyncing} className="btn-resort w-full h-20 !bg-slate-900 !text-white text-sm shadow-xl">
+                 <i className="fas fa-check-double mr-2"></i> COMPLETE REFUND
+              </button>
             </div>
           )}
         </div>
