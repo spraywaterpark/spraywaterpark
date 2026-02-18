@@ -249,11 +249,18 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
       {/* Terms Popup */}
       {showTerms && (
         <div className="fixed inset-0 z-[1200] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6 animate-fade">
-          <div className="bg-white rounded-[3rem] max-w-xl w-full p-10 shadow-2xl space-y-10">
+          <div className="bg-white rounded-[3rem] max-w-xl w-full p-8 md:p-10 shadow-2xl space-y-8">
             <h3 className="text-3xl font-black text-slate-900 uppercase text-center tracking-tighter">Park Policy</h3>
-            <div className="space-y-4 max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="space-y-4 max-h-[45vh] overflow-y-auto pr-2 custom-scrollbar">
               {TERMS_AND_CONDITIONS.map((t, i) => (
-                <div key={i} className="p-5 bg-slate-50 rounded-[1.5rem] text-[12px] font-bold text-slate-700 uppercase leading-tight border border-slate-100">{t}</div>
+                <div key={i} className="p-5 md:p-6 bg-slate-50 rounded-[1.8rem] border border-slate-100">
+                    <p className="text-[12px] font-bold text-slate-800 uppercase leading-relaxed mb-2">{t.split('(')[0]}</p>
+                    {t.includes('(') && (
+                        <p className="text-[11px] font-black text-blue-600 leading-relaxed">
+                            {t.substring(t.indexOf('(') + 1, t.lastIndexOf(')'))}
+                        </p>
+                    )}
+                </div>
               ))}
             </div>
             <label className="flex items-center gap-4 p-6 bg-slate-100 rounded-[2rem] cursor-pointer group">
@@ -262,7 +269,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
             </label>
             <div className="flex flex-col gap-3">
                 <button onClick={finalProceed} disabled={!acceptedTerms} className="w-full bg-slate-900 text-white h-20 rounded-[2rem] font-black text-sm uppercase tracking-widest disabled:opacity-20 shadow-xl">Confirm & Pay</button>
-                <button onClick={() => setShowTerms(false)} className="w-full py-4 text-[10px] font-black uppercase text-slate-400 hover:text-slate-900">Go Back</button>
+                <button onClick={() => setShowTerms(false)} className="w-full py-2 text-[10px] font-black uppercase text-slate-400 hover:text-slate-900">Go Back</button>
             </div>
           </div>
         </div>
