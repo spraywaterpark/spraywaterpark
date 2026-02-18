@@ -5,7 +5,12 @@ import { Booking } from '../types';
 import { cloudSync } from '../services/cloud_sync';
 import { notificationService } from '../services/notification_service';
 
-const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBooking }) => {
+interface SecurePaymentProps {
+  addBooking: (b: Booking) => void;
+  bookings: Booking[];
+}
+
+const SecurePayment: React.FC<SecurePaymentProps> = ({ addBooking, bookings }) => {
   const navigate = useNavigate();
   const [draft, setDraft] = useState<any>(null);
   const [isPaying, setIsPaying] = useState(false);
@@ -23,13 +28,27 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
     }
   }, [navigate]);
 
+  const generateTicketId = (dateStr: string) => {
+    // Format: SAR-DDMMYY-NNNN
+    const d = new Date(dateStr);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yy = String(d.getFullYear()).slice(-2);
+    const datePart = `${dd}${mm}${yy}`;
+    
+    const countToday = bookings.filter(b => b.date === dateStr).length + 1;
+    const seq = String(countToday).padStart(4, '0');
+    
+    return `SAR-${datePart}-${seq}`;
+  };
+
   const handlePay = async () => {
     if (isPaying) return;
     setIsPaying(true);
     setStatus('saving');
 
     try {
-      const bookingId = 'SWP-' + Math.floor(100000 + Math.random() * 900000);
+      const bookingId = generateTicketId(draft.date);
       const final: Booking = {
         ...draft,
         id: bookingId,
@@ -37,7 +56,6 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
         createdAt: new Date().toISOString()
       };
 
-      // Failsafe: if sync doesn't respond in 15 seconds, throw error
       const syncTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Network Timeout. Please check connection.")), 15000));
       
       const saved = await Promise.race([
@@ -50,7 +68,6 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
       addBooking(final);
       sessionStorage.removeItem('swp_draft_booking');
 
-      // Async WA - don't wait for it to finish for UI success
       notificationService.sendWhatsAppTicket(final).catch(e => console.warn("WA Deferred fail:", e));
       
       setStatus('done');
