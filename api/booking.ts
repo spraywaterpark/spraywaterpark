@@ -17,23 +17,86 @@ export default async function handler(req: any, res: any) {
   const id = req.query.id;
 
   try {
-    // 1. SETTINGS SYNC
+    // 1. SETTINGS SYNC (Sheet: adminpanel)
+    // Structure: A:mAdult, B:mKid, C:eAdult, D:eKid, E:earlyDiscount, F:extraDiscount, G:blockDate, H:blockShift
     if (type === 'settings') {
       if (req.method === "GET") {
         const response = await sheets.spreadsheets.values.get({ 
           spreadsheetId: process.env.SHEET_ID, 
-          range: "Settings!A1:A1" 
+          range: "adminpanel!A2:H100" 
         });
-        const val = response.data.values?.[0]?.[0];
-        return res.status(200).json(val ? JSON.parse(val) : {});
+        const rows = response.data.values || [];
+        
+        if (rows.length === 0) return res.status(200).json({});
+
+        // Primary settings from first data row
+        const firstRow = rows[0];
+        const settings: any = {
+          morningAdultRate: parseInt(firstRow[0]) || 0,
+          morningKidRate: parseInt(firstRow[1]) || 0,
+          eveningAdultRate: parseInt(firstRow[2]) || 0,
+          eveningKidRate: parseInt(firstRow[3]) || 0,
+          earlyBirdDiscount: parseInt(firstRow[4]) || 0,
+          extraDiscountPercent: parseInt(firstRow[5]) || 0,
+          blockedSlots: []
+        };
+
+        // Collect all blocked slots from columns G & H
+        rows.forEach(row => {
+          if (row[6] && row[7]) {
+            settings.blockedSlots.push({
+              date: row[6],
+              shift: row[7]
+            });
+          }
+        });
+
+        return res.status(200).json(settings);
       }
+
       if (req.method === "POST") {
+        const s = req.body;
+        
+        // Prepare primary settings row
+        const primaryValues = [
+          s.morningAdultRate, s.morningKidRate, 
+          s.eveningAdultRate, s.eveningKidRate, 
+          s.earlyBirdDiscount, s.extraDiscountPercent
+        ];
+
+        // Prepare the full grid update
+        // We clear existing G:H and write the new list
+        const blockedSlots = s.blockedSlots || [];
+        const rowsToUpdate = [];
+
+        // Fill rows
+        const maxRows = Math.max(1, blockedSlots.length);
+        for (let i = 0; i < maxRows; i++) {
+          const row = i === 0 ? [...primaryValues] : ["", "", "", "", "", ""];
+          if (blockedSlots[i]) {
+            row[6] = blockedSlots[i].date;
+            row[7] = blockedSlots[i].shift;
+          } else {
+            row[6] = "";
+            row[7] = "";
+          }
+          rowsToUpdate.push(row);
+        }
+
+        // Clear range first to avoid old data lingering
+        await sheets.spreadsheets.values.clear({
+          spreadsheetId: process.env.SHEET_ID,
+          range: "adminpanel!A2:H100"
+        });
+
+        // Update with new data
         await sheets.spreadsheets.values.update({
           spreadsheetId: process.env.SHEET_ID,
-          range: "Settings!A1",
+          range: "adminpanel!A2",
           valueInputOption: "RAW",
-          requestBody: { values: [[JSON.stringify(req.body)]] }
+          requestBody: { values: rowsToUpdate }
         });
+
         return res.status(200).json({ success: true });
       }
     }
@@ -80,7 +143,6 @@ export default async function handler(req: any, res: any) {
 
     // 3. TICKET DETAILS FOR SCANNER
     if (type === 'ticket_details') {
-      // Extended range to K (Index 10)
       const response = await sheets.spreadsheets.values.get({ 
         spreadsheetId: process.env.SHEET_ID, 
         range: "booking!A2:K1000" 
@@ -109,7 +171,6 @@ export default async function handler(req: any, res: any) {
       const rowIndex = rows.findIndex(r => r[0] === ticketId);
       if (rowIndex === -1) return res.status(404).json({ success: false, details: "Ticket Not Found" });
       
-      // Updating Column K (Entry_Status)
       await sheets.spreadsheets.values.update({
         spreadsheetId: process.env.SHEET_ID,
         range: `booking!K${rowIndex + 2}`,
@@ -122,7 +183,6 @@ export default async function handler(req: any, res: any) {
     // 5. STANDARD BOOKING POST
     if (req.method === "POST" && !type) {
       const b = req.body;
-      // Appending to Column K
       await sheets.spreadsheets.values.append({
         spreadsheetId: process.env.SHEET_ID,
         range: "booking!A:K",
