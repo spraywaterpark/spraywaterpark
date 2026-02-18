@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Booking } from '../types';
@@ -36,23 +37,28 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
         createdAt: new Date().toISOString()
       };
 
-      // 1. Mandatory step: Save to Google Sheet
-      const saved = await cloudSync.saveBooking(final);
-      if (!saved) throw new Error("Connection lost. Please try again.");
+      // Failsafe: if sync doesn't respond in 15 seconds, throw error
+      const syncTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Network Timeout. Please check connection.")), 15000));
+      
+      const saved = await Promise.race([
+        cloudSync.saveBooking(final),
+        syncTimeout
+      ]);
 
-      // 2. Local State Update
+      if (!saved) throw new Error("Cloud Sync Failed. Please try again.");
+
       addBooking(final);
       sessionStorage.removeItem('swp_draft_booking');
 
-      // 3. Optional step: Trigger WhatsApp (Fire and forget, don't wait for response)
+      // Async WA - don't wait for it to finish for UI success
       notificationService.sendWhatsAppTicket(final).catch(e => console.warn("WA Deferred fail:", e));
       
       setStatus('done');
-      // Smooth transition to ticket page
       setTimeout(() => navigate('/my-bookings'), 1500);
 
     } catch (err: any) {
-      alert(err.message || "Something went wrong.");
+      console.error("Payment Error:", err);
+      alert(err.message || "Something went wrong. Please check your internet.");
       setIsPaying(false);
       setStatus('idle');
     }
@@ -63,8 +69,8 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
   return (
     <div className="w-full max-w-xl mx-auto py-10 px-4 animate-slide-up">
       <div className="bg-white p-10 rounded-[3rem] shadow-2xl space-y-10 text-center border border-slate-100">
-        <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-4xl mx-auto shadow-inner">
-          <i className="fas fa-check-double"></i>
+        <div className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl mx-auto shadow-inner ${draft.paymentMode === 'online' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
+          <i className={draft.paymentMode === 'online' ? "fas fa-shield-alt" : "fas fa-cash-register"}></i>
         </div>
         
         <div>
@@ -90,13 +96,13 @@ const SecurePayment: React.FC<{ addBooking: (b: Booking) => void }> = ({ addBook
         <button 
           onClick={handlePay} 
           disabled={isPaying} 
-          className="w-full btn-resort h-20 !bg-blue-600 text-white shadow-2xl hover:scale-[1.02] disabled:opacity-50"
+          className="w-full btn-resort h-20 shadow-2xl hover:scale-[1.02] disabled:opacity-50 !bg-blue-400 !text-white"
         >
            {status === 'saving' ? (
              <span className="flex items-center gap-3"><i className="fas fa-circle-notch fa-spin"></i> Confirming...</span>
            ) : status === 'done' ? (
-             <span className="flex items-center gap-3"><i className="fas fa-check"></i> Booking Success!</span>
-           ) : 'Pay & Confirm Entry'}
+             <span className="flex items-center gap-3"><i className="fas fa-check"></i> Confirmed!</span>
+           ) : 'Confirm & Generate Ticket'}
         </button>
 
         <div className="flex items-center justify-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">
