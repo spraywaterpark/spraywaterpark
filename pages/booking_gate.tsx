@@ -15,8 +15,19 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
   const [showTerms, setShowTerms] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  // Check if a specific slot is blocked
+  // Check if a specific slot is blocked by admin or by time cut-off
   const isSlotBlocked = (checkDate: string, checkSlot: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const currentHour = now.getHours();
+    
+    // 1. Same-day Cut-off Rules
+    if (checkDate === today) {
+      if (checkSlot.toLowerCase().includes('morning') && currentHour >= 13) return true; // Morning closes at 1 PM
+      if (checkSlot.toLowerCase().includes('evening') && currentHour >= 19) return true; // Evening closes at 7 PM
+    }
+
+    // 2. Admin Panel Block Rules
     const shift = checkSlot.toLowerCase().includes('morning') ? 'morning' : 'evening';
     return (settings.blockedSlots || []).some(bs => 
       bs.date === checkDate && (bs.shift === shift || bs.shift === 'all')
@@ -71,7 +82,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
 
   const handleCheckout = () => {
     if (!date) return alert("Please select your visit date first.");
-    if (isSlotBlocked(date, slot)) return alert("Sorry, this slot is currently blocked.");
+    if (isSlotBlocked(date, slot)) return alert("Sorry, this slot is currently blocked or past the booking time.");
     setShowTerms(true);
   };
 
@@ -117,6 +128,18 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                         {TIME_SLOTS.map(s => {
                             const active = slot === s;
                             const blocked = isSlotBlocked(date, s);
+                            const isToday = date === todayStr;
+                            const isMorningSlot = s.toLowerCase().includes('morning');
+                            const now = new Date();
+                            const currentHour = now.getHours();
+                            
+                            let reason = 'Available';
+                            if (blocked) {
+                                if (isToday && isMorningSlot && currentHour >= 13) reason = 'Closed (After 1 PM)';
+                                else if (isToday && !isMorningSlot && currentHour >= 19) reason = 'Closed (After 7 PM)';
+                                else reason = 'Slot Blocked';
+                            }
+
                             return (
                                 <button 
                                   key={s} 
@@ -128,10 +151,10 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                                 >
                                     <span className={`text-[10px] font-black uppercase tracking-widest ${blocked ? 'text-slate-400' : ''}`}>{s.split(':')[0]}</span>
                                     <span className={`text-[9px] font-bold uppercase ${blocked ? 'text-slate-300' : active ? 'text-white opacity-60' : 'text-slate-400'}`}>
-                                      {blocked ? 'N/A - Slot Blocked' : s.split(':')[1]}
+                                      {blocked ? reason : s.split(':')[1]}
                                     </span>
                                     {active && !blocked && <i className="fas fa-check-circle absolute right-8 text-sm"></i>}
-                                    {blocked && <span className="absolute right-8 text-[8px] font-black uppercase bg-red-100 text-red-600 px-2 py-1 rounded">Blocked</span>}
+                                    {blocked && <span className="absolute right-8 text-[8px] font-black uppercase bg-red-100 text-red-600 px-2 py-1 rounded">Unavailable</span>}
                                 </button>
                             );
                         })}
@@ -216,7 +239,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                   disabled={isSlotBlocked(date, slot)}
                   className="w-full bg-white h-20 rounded-[2rem] text-slate-900 font-black text-sm uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl disabled:bg-slate-800 disabled:text-slate-600 disabled:cursor-not-allowed"
                 >
-                    {isSlotBlocked(date, slot) ? 'Slot Currently Blocked' : 'Review & Checkout'}
+                    {isSlotBlocked(date, slot) ? 'Unavailable or Past Time' : 'Review & Checkout'}
                 </button>
             </div>
         </div>
