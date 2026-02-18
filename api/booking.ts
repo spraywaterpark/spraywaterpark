@@ -18,7 +18,6 @@ export default async function handler(req: any, res: any) {
 
   try {
     // 1. SETTINGS SYNC (Sheet: adminpanel)
-    // Structure: A:mAdult, B:mKid, C:eAdult, D:eKid, E:earlyDiscount, F:extraDiscount, G:blockDate, H:blockShift
     if (type === 'settings') {
       if (req.method === "GET") {
         const response = await sheets.spreadsheets.values.get({ 
@@ -26,10 +25,7 @@ export default async function handler(req: any, res: any) {
           range: "adminpanel!A2:H100" 
         });
         const rows = response.data.values || [];
-        
         if (rows.length === 0) return res.status(200).json({});
-
-        // Primary settings from first data row
         const firstRow = rows[0];
         const settings: any = {
           morningAdultRate: parseInt(firstRow[0]) || 0,
@@ -40,36 +36,18 @@ export default async function handler(req: any, res: any) {
           extraDiscountPercent: parseInt(firstRow[5]) || 0,
           blockedSlots: []
         };
-
-        // Collect all blocked slots from columns G & H
         rows.forEach(row => {
           if (row[6] && row[7]) {
-            settings.blockedSlots.push({
-              date: row[6],
-              shift: row[7]
-            });
+            settings.blockedSlots.push({ date: row[6], shift: row[7] });
           }
         });
-
         return res.status(200).json(settings);
       }
-
       if (req.method === "POST") {
         const s = req.body;
-        
-        // Prepare primary settings row
-        const primaryValues = [
-          s.morningAdultRate, s.morningKidRate, 
-          s.eveningAdultRate, s.eveningKidRate, 
-          s.earlyBirdDiscount, s.extraDiscountPercent
-        ];
-
-        // Prepare the full grid update
-        // We clear existing G:H and write the new list
+        const primaryValues = [s.morningAdultRate, s.morningKidRate, s.eveningAdultRate, s.eveningKidRate, s.earlyBirdDiscount, s.extraDiscountPercent];
         const blockedSlots = s.blockedSlots || [];
         const rowsToUpdate = [];
-
-        // Fill rows
         const maxRows = Math.max(1, blockedSlots.length);
         for (let i = 0; i < maxRows; i++) {
           const row = i === 0 ? [...primaryValues] : ["", "", "", "", "", ""];
@@ -77,26 +55,17 @@ export default async function handler(req: any, res: any) {
             row[6] = blockedSlots[i].date;
             row[7] = blockedSlots[i].shift;
           } else {
-            row[6] = "";
-            row[7] = "";
+            row[6] = ""; row[7] = "";
           }
           rowsToUpdate.push(row);
         }
-
-        // Clear range first to avoid old data lingering
-        await sheets.spreadsheets.values.clear({
-          spreadsheetId: process.env.SHEET_ID,
-          range: "adminpanel!A2:H100"
-        });
-
-        // Update with new data
+        await sheets.spreadsheets.values.clear({ spreadsheetId: process.env.SHEET_ID, range: "adminpanel!A2:H100" });
         await sheets.spreadsheets.values.update({
           spreadsheetId: process.env.SHEET_ID,
           range: "adminpanel!A2",
           valueInputOption: "RAW",
           requestBody: { values: rowsToUpdate }
         });
-
         return res.status(200).json({ success: true });
       }
     }
@@ -106,14 +75,10 @@ export default async function handler(req: any, res: any) {
       const { mobile, booking, isWelcome } = req.body;
       const token = (process.env.WHATSAPP_TOKEN || "").trim();
       const phoneId = (process.env.WHATSAPP_PHONE_ID || "").trim();
-      
       if (!token || !phoneId) return res.status(400).json({ success: false, details: "WhatsApp API Config missing" });
-
       let cleanMobile = String(mobile || "").replace(/\D/g, '');
       if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
-
       const templateName = isWelcome ? "welcome" : "ticket";
-      
       const components = isWelcome 
         ? [ { type: "body", parameters: [ { type: "text", text: String(booking.name) } ] } ]
         : [
@@ -126,7 +91,6 @@ export default async function handler(req: any, res: any) {
                 { type: "text", text: String(booking.time) }
             ]}
           ];
-
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -145,17 +109,17 @@ export default async function handler(req: any, res: any) {
     if (type === 'ticket_details') {
       const response = await sheets.spreadsheets.values.get({ 
         spreadsheetId: process.env.SHEET_ID, 
-        range: "booking!A2:K1000" 
+        range: "booking!A2:L1000" 
       });
       const rows = response.data.values || [];
       const row = rows.find(r => r[0] === id);
       if (!row) return res.status(404).json({ success: false, details: "Ticket Not Found" });
-      
       return res.status(200).json({ 
         success: true, 
         booking: { 
-          id: row[0], name: row[1], mobile: row[2], adults: row[3], kids: row[4], 
-          totalAmount: row[6], date: row[7], time: row[8], status: row[10] === "CHECKED-IN" ? "checked-in" : "confirmed"
+          id: row[0], name: row[1], mobile: row[2], adults: parseInt(row[3])||0, kids: parseInt(row[4])||0, 
+          totalAmount: row[6], date: row[7], time: row[8], status: row[10] === "CHECKED-IN" ? "checked-in" : "confirmed",
+          checkinTime: row[11] || ''
         }
       });
     }
@@ -165,17 +129,20 @@ export default async function handler(req: any, res: any) {
       const { ticketId } = req.body;
       const response = await sheets.spreadsheets.values.get({ 
         spreadsheetId: process.env.SHEET_ID, 
-        range: "booking!A2:K1000" 
+        range: "booking!A2:L1000" 
       });
       const rows = response.data.values || [];
       const rowIndex = rows.findIndex(r => r[0] === ticketId);
       if (rowIndex === -1) return res.status(404).json({ success: false, details: "Ticket Not Found" });
       
+      const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+      
+      // Update Column K (Status) and Column L (Check-in Time)
       await sheets.spreadsheets.values.update({
         spreadsheetId: process.env.SHEET_ID,
-        range: `booking!K${rowIndex + 2}`,
+        range: `booking!K${rowIndex + 2}:L${rowIndex + 2}`,
         valueInputOption: "RAW",
-        requestBody: { values: [["CHECKED-IN"]] }
+        requestBody: { values: [["CHECKED-IN", now]] }
       });
       return res.status(200).json({ success: true });
     }
@@ -185,12 +152,12 @@ export default async function handler(req: any, res: any) {
       const b = req.body;
       await sheets.spreadsheets.values.append({
         spreadsheetId: process.env.SHEET_ID,
-        range: "booking!A:K",
+        range: "booking!A:L",
         valueInputOption: "RAW",
         requestBody: { values: [[
           b.id, b.name, b.mobile, b.adults, b.kids, 
           Number(b.adults) + Number(b.kids), b.amount, 
-          b.date, b.time, "PAID", "YET TO ARRIVE"
+          b.date, b.time, "PAID", "YET TO ARRIVE", ""
         ]] }
       });
       return res.status(200).json({ success: true });
@@ -200,7 +167,7 @@ export default async function handler(req: any, res: any) {
     if (req.method === "GET" && !type) {
       const response = await sheets.spreadsheets.values.get({ 
         spreadsheetId: process.env.SHEET_ID, 
-        range: "booking!A2:K1000" 
+        range: "booking!A2:L1000" 
       });
       const rows = response.data.values || [];
       return res.status(200).json(rows.map(row => ({
@@ -208,10 +175,9 @@ export default async function handler(req: any, res: any) {
         adults: parseInt(row[3])||0, kids: parseInt(row[4])||0, 
         totalAmount: parseInt(row[6])||0, date: row[7], time: row[8], 
         status: row[10] === "CHECKED-IN" ? "checked-in" : "confirmed", 
-        createdAt: row[0]
+        createdAt: row[0], checkinTime: row[11] || ''
       })).reverse());
     }
-
   } catch (e: any) {
     console.error("Critical API Error:", e.message);
     return res.status(500).json({ success: false, details: "Server Sync Error" });
