@@ -34,8 +34,13 @@ const AppContent: React.FC = () => {
 
   const [settings, setSettings] = useState<AdminSettings>(() => {
     const saved = localStorage.getItem('swp_settings');
-    const parsed = saved ? JSON.parse(saved) : DEFAULT_ADMIN_SETTINGS;
-    return { ...DEFAULT_ADMIN_SETTINGS, ...parsed, blockedSlots: parsed.blockedSlots || [] };
+    const parsed = saved ? JSON.parse(saved) : {};
+    // Ensure nested defaults and fallback logic to prevent NaN in pricing
+    return { 
+      ...DEFAULT_ADMIN_SETTINGS, 
+      ...parsed, 
+      blockedSlots: Array.isArray(parsed?.blockedSlots) ? parsed.blockedSlots : [] 
+    };
   });
 
   const [isSyncing, setIsSyncing] = useState(false);
@@ -63,7 +68,7 @@ const AppContent: React.FC = () => {
       ]);
 
       if (remoteSettings && JSON.stringify(settings) !== JSON.stringify(remoteSettings)) {
-        setSettings(remoteSettings);
+        setSettings(prev => ({ ...prev, ...remoteSettings }));
       }
       if (remoteBookings && JSON.stringify(bookingsRef.current) !== JSON.stringify(remoteBookings)) {
         setBookings(remoteBookings);
