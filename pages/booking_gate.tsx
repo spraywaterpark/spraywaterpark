@@ -2,272 +2,216 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminSettings, Booking } from '../types';
-import { TIME_SLOTS, TERMS_AND_CONDITIONS, OFFERS } from '../constants';
+import { TIME_SLOTS, TERMS_AND_CONDITIONS, OFFERS, DEFAULT_ADMIN_SETTINGS } from '../constants';
 
 const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onProceed: any }> = ({ settings, bookings }) => {
   const navigate = useNavigate();
 
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [slot, setSlot] = useState(TIME_SLOTS[0]);
   const [adults, setAdults] = useState(1);
   const [kids, setKids] = useState(0);
+  const [paymentMode, setPaymentMode] = useState<'online' | 'cash'>('online');
   const [showTerms, setShowTerms] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
+  // Robust Rate Selection with Fallbacks to prevent NaN
   const isMorning = slot.includes('Morning');
-  const adultRate = isMorning ? settings.morningAdultRate : settings.eveningAdultRate;
-  const kidRate = isMorning ? settings.morningKidRate : settings.eveningKidRate;
+  const adultRate = (isMorning ? (settings?.morningAdultRate || DEFAULT_ADMIN_SETTINGS.morningAdultRate) : (settings?.eveningAdultRate || DEFAULT_ADMIN_SETTINGS.eveningAdultRate)) || 500;
+  const kidRate = (isMorning ? (settings?.morningKidRate || DEFAULT_ADMIN_SETTINGS.morningKidRate) : (settings?.eveningKidRate || DEFAULT_ADMIN_SETTINGS.eveningKidRate)) || 350;
 
   const currentOffer = isMorning ? OFFERS.MORNING : OFFERS.EVENING;
 
-  // Calculate Date Restrictions
   const todayStr = new Date().toISOString().split('T')[0];
-  const maxDateObj = new Date();
-  maxDateObj.setDate(maxDateObj.getDate() + 7);
-  const maxDateStr = maxDateObj.toISOString().split('T')[0];
+  const maxDateStr = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
 
   const pricingData = useMemo(() => {
-    const subtotal = (adults * adultRate) + (kids * kidRate);
+    const safeAdults = Number(adults) || 0;
+    const safeKids = Number(kids) || 0;
+    const safeAdultRate = Number(adultRate) || 0;
+    const safeKidRate = Number(kidRate) || 0;
 
-    const todayBookings = bookings.filter(
-      b => b.date === date && b.time === slot && b.status === 'confirmed'
-    );
-
-    const count = todayBookings.reduce((s, b) => s + b.adults + b.kids, 0);
+    const subtotal = (safeAdults * safeAdultRate) + (safeKids * safeKidRate);
+    
+    // Dynamic Discount Logic
+    const todayBookings = bookings.filter(b => b.date === date && b.time === slot && (b.status === 'confirmed' || b.status === 'checked-in'));
+    const totalGuestsSoFar = todayBookings.reduce((s, b) => s + b.adults + b.kids, 0);
 
     let discountPercent = 0;
     if (date) {
-        if (count < 100) discountPercent = settings.earlyBirdDiscount;
-        else if (count < 200) discountPercent = settings.extraDiscountPercent;
+        if (totalGuestsSoFar < 100) discountPercent = settings.earlyBirdDiscount || 0;
+        else if (totalGuestsSoFar < 200) discountPercent = settings.extraDiscountPercent || 0;
     }
 
-    const discount = Math.round(subtotal * discountPercent / 100);
+    const discount = Math.round(subtotal * (discountPercent / 100));
+    const total = subtotal - discount;
 
-    return {
-      subtotal,
-      discount,
-      total: subtotal - discount,
-      discountPercent
+    return { 
+      subtotal: isNaN(subtotal) ? 0 : subtotal, 
+      discount: isNaN(discount) ? 0 : discount, 
+      total: isNaN(total) ? 0 : total, 
+      discountPercent 
     };
   }, [date, slot, adults, kids, bookings, adultRate, kidRate, settings]);
 
   const handleCheckout = () => {
     if (!date) return alert("Please select your visit date first.");
-    
-    // Check 7-day restriction logic
-    if (date > maxDateStr) {
-      return alert("Bookings are only allowed up to 7 days in advance. Please select a closer date.");
-    }
-
-    // Check if the current shift is blocked
     const currentShift = slot.toLowerCase().includes('morning') ? 'morning' : 'evening';
-    const isBlocked = (settings.blockedSlots || []).some(bs => 
-        bs.date === date && (bs.shift === currentShift || bs.shift === 'all')
-    );
-
-    if (isBlocked) {
-        return alert("Sorry, this slot is currently blocked for maintenance or private events. Please choose another slot.");
-    }
-
+    const isBlocked = (settings.blockedSlots || []).some(bs => bs.date === date && (bs.shift === currentShift || bs.shift === 'all'));
+    if (isBlocked) return alert("Sorry, this slot is currently blocked.");
     setShowTerms(true);
   };
 
   const finalProceed = () => {
     if (!acceptedTerms) return;
-
     const draft = {
       date,
       time: slot,
       adults,
       kids,
       totalAmount: pricingData.total,
+      paymentMode,
       status: 'pending'
     };
-
     sessionStorage.setItem('swp_draft_booking', JSON.stringify(draft));
     navigate('/payment');
   };
 
   return (
-    <div className="w-full flex flex-col items-center animate-slide-up pb-10 relative">
+    <div className="w-full flex flex-col items-center animate-slide-up pb-20 pt-10">
       
-      {/* Centered Header */}
-      <div className="w-full max-w-4xl text-center mb-10">
-        <h2 className="text-4xl md:text-5xl font-extrabold text-white tracking-tighter uppercase mb-2">Reservation</h2>
-        <p className="text-white/80 font-bold text-[10px] uppercase tracking-[0.4em]">Spray Aqua Resort Booking Terminal</p>
-      </div>
-
-      <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-1 gap-8">
-        <div className="glass-card rounded-[2rem] p-8 md:p-14 space-y-14">
-          
-          {/* Section 1: VISIT DETAILS */}
-          <section className="space-y-10">
-            <div className="flex flex-col items-center gap-4 text-center">
-              <span className="w-8 h-8 bg-slate-900 rounded-md text-white flex items-center justify-center text-[10px] font-bold">01</span>
-              <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Visit Schedule</h4>
+      <div className="w-full max-w-4xl space-y-16">
+        
+        {/* Section 01: VISIT SCHEDULE */}
+        <div className="space-y-8">
+            <div className="flex flex-col items-center">
+                <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center font-black text-sm mb-4">01</div>
+                <h3 className="text-sm font-black uppercase tracking-[0.3em] text-slate-400">Visit Schedule</h3>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              <div className="space-y-3">
-                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest block text-center">Preferred Date</label>
-                <input 
-                  type="date" 
-                  className="input-premium text-center font-bold text-slate-900" 
-                  onChange={e => setDate(e.target.value)} 
-                  min={todayStr} 
-                  max={maxDateStr}
-                  value={date} 
-                />
-                <p className="text-[8px] text-center text-slate-400 font-bold uppercase tracking-widest">Max 7 days advance booking allowed</p>
-              </div>
-
-              <div className="space-y-3">
-                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest block text-center">Available Sessions</label>
-                <div className="space-y-3">
-                  {TIME_SLOTS.map(s => {
-                    const isActive = slot === s;
-                    const currentShiftLabel = s.toLowerCase().includes('morning') ? 'morning' : 'evening';
-                    const isBlocked = date && (settings.blockedSlots || []).some(bs => 
-                        bs.date === date && (bs.shift === currentShiftLabel || bs.shift === 'all')
-                    );
-
-                    return (
-                      <button 
-                        key={s} 
-                        disabled={isBlocked}
-                        onClick={() => setSlot(s)} 
-                        className={`w-full p-5 rounded-xl border transition-all flex justify-between items-center text-left ${isBlocked ? 'opacity-30 grayscale cursor-not-allowed bg-slate-100 border-slate-200' : isActive ? 'border-slate-900 bg-slate-900 text-white shadow-xl' : 'border-slate-300 bg-white hover:border-slate-600'}`}>
-                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-wide">{s.split(': ')[0]}</p>
-                            <p className={`text-[9px] font-bold uppercase tracking-widest mt-1 ${isActive ? 'text-white/90' : 'text-slate-600'}`}>{s.split(': ')[1]}</p>
-                         </div>
-                         {isBlocked ? (
-                            <span className="text-[8px] font-black uppercase text-red-500 border border-red-500/20 px-2 py-0.5 rounded">Blocked</span>
-                         ) : isActive && (
-                            <i className="fas fa-check-circle text-xs"></i>
-                         )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Section 2: MEAL PRIVILEGE */}
-          <section className="flex flex-col items-center">
-              <div className="w-full bg-slate-950/5 border border-slate-900/10 p-8 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-8">
-                  <div className="flex items-center gap-6">
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-lg border-2 border-white/40 text-white ${isMorning ? 'bg-amber-500' : 'bg-indigo-600'}`}>
-                          <i className={isMorning ? "fas fa-utensils" : "fas fa-concierge-bell"}></i>
-                      </div>
-                      <div className="text-center md:text-left">
-                          <p className="text-[9px] font-bold text-slate-600 uppercase tracking-[0.2em]">Guest Privilege Included</p>
-                          <h5 className="text-lg font-black text-slate-900 uppercase tracking-tight">{currentOffer.split(' (')[0]}</h5>
-                          <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mt-1">{currentOffer.match(/\(([^)]+)\)/)?.[1] || "Selected Slot Only"}</p>
-                      </div>
-                  </div>
-                  {date && pricingData.discountPercent > 0 && (
-                      <div className="bg-emerald-100 text-emerald-800 px-5 py-2 rounded-full text-[10px] font-black uppercase border border-emerald-200">
-                          {pricingData.discountPercent}% Discount Applied
-                      </div>
-                  )}
-              </div>
-          </section>
-
-          {/* Section 3: QUANTITY */}
-          <section className="space-y-10">
-            <div className="flex flex-col items-center gap-4 text-center">
-              <span className="w-8 h-8 bg-slate-900 rounded-md text-white flex items-center justify-center text-[10px] font-bold">02</span>
-              <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Pass Selection</h4>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="p-8 bg-white/50 rounded-2xl border border-slate-200 flex justify-between items-center">
-                <div className="text-left">
-                  <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest block mb-1">Adult Entry (Above 3.5 ft)</label>
-                  <span className="text-slate-900 text-lg font-black">₹{adultRate}</span>
-                </div>
-                <div className="flex items-center gap-5">
-                  <button onClick={() => setAdults(Math.max(1, adults-1))} className="w-9 h-9 border border-slate-400 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors text-slate-900 font-bold">-</button>
-                  <span className="text-lg font-black w-4 text-center text-slate-900">{adults}</span>
-                  <button onClick={() => setAdults(adults+1)} className="w-9 h-9 border border-slate-400 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors text-slate-900 font-bold">+</button>
-                </div>
-              </div>
-              <div className="p-8 bg-white/50 rounded-2xl border border-slate-200 flex justify-between items-center">
-                <div className="text-left">
-                  <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest block mb-1">Child Entry (2.5 - 3.5 ft)</label>
-                  <span className="text-slate-900 text-lg font-black">₹{kidRate}</span>
-                </div>
-                <div className="flex items-center gap-5">
-                  <button onClick={() => setKids(Math.max(0, kids-1))} className="w-9 h-9 border border-slate-400 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors text-slate-900 font-bold">-</button>
-                  <span className="text-lg font-black w-4 text-center text-slate-900">{kids}</span>
-                  <button onClick={() => setKids(kids+1)} className="w-9 h-9 border border-slate-400 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors text-slate-900 font-bold">+</button>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Section 4: SUMMARY & ACTION */}
-          <section className="pt-10 border-t border-slate-100 flex flex-col items-center">
-              <div className="w-full max-w-md bg-slate-900 p-10 rounded-3xl text-white space-y-8 text-center shadow-2xl">
-                <h4 className="text-[9px] font-bold uppercase tracking-[0.4em] text-white/60">Reservation Summary</h4>
-                
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center text-white/80">
-                      <span className="text-[10px] font-bold uppercase tracking-widest">Subtotal</span>
-                      <span className="text-lg font-bold">₹{pricingData.subtotal}</span>
-                  </div>
-                  {pricingData.discount > 0 && (
-                      <div className="flex justify-between items-center text-blue-400">
-                          <span className="text-[10px] font-bold uppercase tracking-widest">Tier Discount ({pricingData.discountPercent}%)</span>
-                          <span className="text-lg font-bold">- ₹{pricingData.discount}</span>
-                      </div>
-                  )}
-                  <div className="pt-6 border-t border-white/10">
-                      <p className="text-[10px] font-bold uppercase text-white/50 mb-2 tracking-[0.4em]">Payable Amount</p>
-                      <p className="text-6xl font-black tracking-tighter">₹{pricingData.total}</p>
-                  </div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Preferred Date</label>
+                    <div className="relative">
+                        <input type="date" className="w-full bg-white h-20 rounded-3xl border-2 border-slate-100 px-8 font-bold text-slate-900 focus:border-blue-500 transition-all outline-none" value={date} min={todayStr} max={maxDateStr} onChange={e => setDate(e.target.value)} />
+                        <p className="absolute -bottom-6 left-4 text-[9px] font-bold text-slate-400 uppercase">Max 7 Days advance booking allowed</p>
+                    </div>
                 </div>
 
-                <button onClick={handleCheckout} className="w-full btn-resort !bg-white !text-slate-900 hover:!bg-slate-100 shadow-xl mt-6">
-                  Review & Checkout
-                </button>
-              </div>
-          </section>
-        </div>
-      </div>
-
-      {/* T&C MODAL - CENTERED */}
-      {showTerms && (
-        <div className="fixed inset-0 z-[1200] bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-6 animate-slide-up">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-10 md:p-14 shadow-2xl relative border border-slate-200">
-            <button onClick={() => setShowTerms(false)} className="absolute top-8 right-8 text-slate-400 hover:text-slate-900 transition-colors">
-              <i className="fas fa-times text-xl"></i>
-            </button>
-
-            <div className="text-center mb-10">
-              <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tight">Park Policy</h3>
-              <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.3em] mt-2">Please acknowledge resort guidelines</p>
+                <div className="space-y-4">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Available Sessions</label>
+                    <div className="flex flex-col gap-3">
+                        {TIME_SLOTS.map(s => {
+                            const active = slot === s;
+                            return (
+                                <button key={s} onClick={() => setSlot(s)} className={`relative h-20 px-8 rounded-3xl border-2 transition-all flex flex-col justify-center text-left ${active ? 'bg-slate-900 border-slate-900 text-white shadow-2xl' : 'bg-white border-slate-100 text-slate-900'}`}>
+                                    <span className="text-[10px] font-black uppercase tracking-widest">{s.split(':')[0]}</span>
+                                    <span className={`text-[9px] font-bold uppercase opacity-60 ${active ? 'text-white' : 'text-slate-400'}`}>{s.split(':')[1]}</span>
+                                    {active && <i className="fas fa-check-circle absolute right-8 text-sm"></i>}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
             </div>
 
-            <div className="space-y-4 mb-12 max-h-[35vh] overflow-y-auto pr-2 custom-scrollbar">
-              {TERMS_AND_CONDITIONS.map((t, i) => (
-                <div key={i} className="flex gap-5 p-5 bg-slate-50 rounded-xl border border-slate-200">
-                    <span className="text-[10px] font-black text-slate-400 mt-0.5">{String(i+1).padStart(2, '0')}</span>
-                    <p className="text-[13px] font-semibold text-slate-700 leading-relaxed uppercase tracking-tight">{t}</p>
+            {/* Offer Banner */}
+            <div className="bg-slate-200/50 border border-slate-200 p-8 rounded-[2.5rem] flex items-center gap-8 group hover:bg-white transition-all">
+                <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-xl shadow-lg shadow-blue-200">
+                    <i className={isMorning ? "fas fa-utensils" : "fas fa-concierge-bell"}></i>
                 </div>
+                <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Guest Privilege Included</p>
+                    <h4 className="text-xl font-black uppercase tracking-tighter text-slate-900">{currentOffer.split('(')[0]}</h4>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{currentOffer.includes('(') ? currentOffer.split('(')[1].replace(')', '') : 'Valid during session only'}</p>
+                </div>
+            </div>
+        </div>
+
+        {/* Section 02: PASS SELECTION */}
+        <div className="space-y-8">
+            <div className="flex flex-col items-center">
+                <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center font-black text-sm mb-4">02</div>
+                <h3 className="text-sm font-black uppercase tracking-[0.3em] text-slate-400">Pass Selection</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-50 flex justify-between items-center shadow-sm hover:shadow-md transition-all">
+                    <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Adult Entry (Above 3.5 ft)</p>
+                        <p className="text-xl font-black text-slate-900">₹{adultRate}</p>
+                    </div>
+                    <div className="flex items-center gap-6 bg-slate-100 p-2 rounded-2xl">
+                        <button onClick={() => setAdults(Math.max(1, adults-1))} className="w-10 h-10 rounded-xl bg-white text-slate-900 shadow-sm font-black">-</button>
+                        <span className="text-xl font-black w-4 text-center">{adults}</span>
+                        <button onClick={() => setAdults(adults+1)} className="w-10 h-10 rounded-xl bg-white text-slate-900 shadow-sm font-black">+</button>
+                    </div>
+                </div>
+
+                <div className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-50 flex justify-between items-center shadow-sm hover:shadow-md transition-all">
+                    <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Child Entry (2.5 - 3.5 ft)</p>
+                        <p className="text-xl font-black text-slate-900">₹{kidRate}</p>
+                    </div>
+                    <div className="flex items-center gap-6 bg-slate-100 p-2 rounded-2xl">
+                        <button onClick={() => setKids(Math.max(0, kids-1))} className="w-10 h-10 rounded-xl bg-white text-slate-900 shadow-sm font-black">-</button>
+                        <span className="text-xl font-black w-4 text-center">{kids}</span>
+                        <button onClick={() => setKids(kids+1)} className="w-10 h-10 rounded-xl bg-white text-slate-900 shadow-sm font-black">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {/* Payment Summary Box */}
+        <div className="flex justify-center pt-10">
+            <div className="w-full max-w-md bg-slate-900 rounded-[3rem] p-10 shadow-2xl space-y-8 animate-slide-up">
+                <div className="text-center border-b border-white/10 pb-8">
+                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.5em] mb-6">Reservation Summary</p>
+                    <div className="flex justify-between items-center px-4">
+                        <span className="text-[10px] font-black text-white uppercase tracking-widest">Subtotal</span>
+                        <span className="text-lg font-black text-white">₹{pricingData.subtotal}</span>
+                    </div>
+                    {pricingData.discount > 0 && (
+                        <div className="flex justify-between items-center px-4 mt-2">
+                            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Early Bird Discount ({pricingData.discountPercent}%)</span>
+                            <span className="text-lg font-black text-emerald-400">- ₹{pricingData.discount}</span>
+                        </div>
+                    )}
+                </div>
+
+                <div className="text-center space-y-2">
+                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Payable Amount</p>
+                    <div className="text-6xl font-black text-white tracking-tighter flex items-center justify-center gap-2">
+                        <span className="text-4xl opacity-40">₹</span>
+                        {pricingData.total}
+                    </div>
+                </div>
+
+                <button onClick={handleCheckout} className="w-full bg-white h-20 rounded-[2rem] text-slate-900 font-black text-sm uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl">
+                    Review & Checkout
+                </button>
+            </div>
+        </div>
+
+      </div>
+
+      {/* Terms Popup */}
+      {showTerms && (
+        <div className="fixed inset-0 z-[1200] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6 animate-fade">
+          <div className="bg-white rounded-[3rem] max-w-xl w-full p-10 shadow-2xl space-y-10">
+            <h3 className="text-3xl font-black text-slate-900 uppercase text-center tracking-tighter">Park Policy</h3>
+            <div className="space-y-4 max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
+              {TERMS_AND_CONDITIONS.map((t, i) => (
+                <div key={i} className="p-5 bg-slate-50 rounded-[1.5rem] text-[12px] font-bold text-slate-700 uppercase leading-tight border border-slate-100">{t}</div>
               ))}
             </div>
-
-            <div className="space-y-8">
-              <label className="flex items-center gap-5 cursor-pointer p-5 rounded-xl border-2 border-slate-200 hover:bg-slate-50 transition-colors">
-                <input type="checkbox" className="w-6 h-6 rounded border-slate-300 accent-slate-900" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} />
-                <span className="text-[11px] font-extrabold text-slate-950 uppercase tracking-widest">I acknowledge resort policy</span>
-              </label>
-              
-              <button onClick={finalProceed} disabled={!acceptedTerms} className="w-full btn-resort h-16 disabled:opacity-20">
-                Confirm Reservation
-              </button>
+            <label className="flex items-center gap-4 p-6 bg-slate-100 rounded-[2rem] cursor-pointer group">
+              <input type="checkbox" className="w-6 h-6 rounded-lg accent-slate-900" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} />
+              <span className="text-[11px] font-black uppercase text-slate-600 group-hover:text-slate-900">I accept all resort policies & rules</span>
+            </label>
+            <div className="flex flex-col gap-3">
+                <button onClick={finalProceed} disabled={!acceptedTerms} className="w-full bg-slate-900 text-white h-20 rounded-[2rem] font-black text-sm uppercase tracking-widest disabled:opacity-20 shadow-xl">Confirm & Pay</button>
+                <button onClick={() => setShowTerms(false)} className="w-full py-4 text-[10px] font-black uppercase text-slate-400 hover:text-slate-900">Go Back</button>
             </div>
           </div>
         </div>
