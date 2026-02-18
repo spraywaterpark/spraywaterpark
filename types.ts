@@ -14,6 +14,7 @@ export interface Booking {
   status: 'pending' | 'confirmed' | 'cancelled' | 'checked-in';
   paymentMode: 'online' | 'cash';
   createdAt: string;
+  checkinTime?: string;
 }
 
 export type ShiftType = 'morning' | 'evening' | 'all';
