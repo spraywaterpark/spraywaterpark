@@ -108,11 +108,13 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
         });
         const data = await res.json();
         if (data.success) {
-            notificationService.sendWelcomeMessage(scannedTicket).catch(() => {});
+            // Trigger welcome message explicitly and wait for it
+            await notificationService.sendWelcomeMessage(scannedTicket).catch(() => {});
             alert("ENTRY CONFIRMED!");
             setScannedTicket(null);
+            setManualId('');
         }
-    } catch (e) { alert("Error"); } finally { setIsSyncing(false); }
+    } catch (e) { alert("Error updating entry."); } finally { setIsSyncing(false); }
   };
 
   const calculateBreakdown = () => {
@@ -168,7 +170,6 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     setIsSyncing(true);
     const success = await cloudSync.saveRental(receipt);
     if (success) {
-      // Trigger browser print
       setTimeout(() => window.print(), 500);
       alert("SUCCESS: Bill Saved & Printing...");
       setGuestName(''); setGuestMobile(''); setMaleLockers([]); setFemaleLockers([]); setMaleCostumes(0); setFemaleCostumes(0); setReceipt(null);
@@ -222,10 +223,10 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
           </button>
       </div>
 
-      {/* --- STAFF 1: GATE ENTRY (NO TOUCH) --- */}
+      {/* --- STAFF 1: GATE ENTRY --- */}
       {mode === 'entry' && (
         <div className="w-full max-w-2xl space-y-6">
-           <div className="bg-slate-900/60 rounded-[3rem] p-10 md:p-14 text-center space-y-10 border border-white/10 shadow-2xl backdrop-blur-3xl animate-slide-up">
+           <div className="bg-slate-900/60 rounded-[3rem] p-10 md:p-14 text-center space-y-10 border border-white/10 shadow-2xl backdrop-blur-3xl animate-slide-up no-print">
               <h3 className="text-4xl font-black uppercase tracking-tight text-white mb-4">GATE ENTRY</h3>
               
               <div className="space-y-4">
