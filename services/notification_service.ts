@@ -7,7 +7,10 @@ export const notificationService = {
       const response = await fetch('/api/booking?type=whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobile: booking.mobile, booking: booking })
+        body: JSON.stringify({ 
+          mobile: booking.mobile, 
+          booking: booking 
+        })
       });
       const data = await response.json();
       return { success: response.ok && data.success, details: data.details };
@@ -24,7 +27,10 @@ export const notificationService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           mobile: booking.mobile, 
-          booking: { name: booking.name },
+          booking: { 
+            name: booking.name,
+            id: booking.id 
+          },
           isWelcome: true 
         })
       });
