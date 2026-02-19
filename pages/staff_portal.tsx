@@ -211,9 +211,15 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
       {/* Navigation & Refresh */}
       <div className="w-full max-w-5xl flex justify-between items-center mb-10 px-4 no-print">
           <div className="flex bg-white/5 rounded-full p-1.5 border border-white/10 shadow-xl overflow-hidden backdrop-blur-md">
-            {(role !== 'staff2') && <button onClick={() => setMode('entry')} className={`px-8 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'entry' ? 'bg-blue-600 text-white' : 'text-white/40'}`}>Gate</button>}
-            <button onClick={() => { setMode('issue'); setReceipt(null); }} className={`px-8 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'issue' ? 'bg-emerald-500 text-slate-900' : 'text-white/40'}`}>Locker Issue</button>
-            <button onClick={() => { setMode('return'); setReturnReceipt(null); }} className={`px-8 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'return' ? 'bg-amber-500 text-slate-900' : 'text-white/40'}`}>Locker Return</button>
+            {(role === 'staff1' || role === 'staff' || role === 'admin') && (
+              <button onClick={() => setMode('entry')} className={`px-8 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'entry' ? 'bg-blue-600 text-white shadow-lg' : 'text-white/40'}`}>GATE</button>
+            )}
+            {(role === 'staff2' || role === 'staff' || role === 'admin') && (
+              <>
+                <button onClick={() => { setMode('issue'); setReceipt(null); }} className={`px-8 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'issue' ? 'bg-emerald-500 text-slate-900 shadow-lg' : 'text-white/40'}`}>LOCKER ISSUE</button>
+                <button onClick={() => { setMode('return'); setReturnReceipt(null); }} className={`px-8 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${mode === 'return' ? 'bg-amber-500 text-slate-900 shadow-lg' : 'text-white/40'}`}>LOCKER RETURN</button>
+              </>
+            )}
           </div>
           <button onClick={refreshActive} className="bg-white/10 w-12 h-12 rounded-full flex items-center justify-center border border-white/10 active:scale-90 transition-all shadow-xl">
              <i className={`fas fa-sync-alt ${isSyncing ? 'fa-spin text-emerald-400' : ''}`}></i>
@@ -222,28 +228,71 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
 
       {/* --- STAFF 1: GATE ENTRY --- */}
       {mode === 'entry' && (
-        <div className="w-full max-w-md space-y-6">
-           <div className="bg-white/10 rounded-[2.5rem] p-6 text-center space-y-6 border border-white/10 shadow-2xl backdrop-blur-xl">
-              <h3 className="text-2xl font-black uppercase tracking-tight">Gate Entry</h3>
-              <div className="space-y-3">
-                <input placeholder="SAR/XXXXXX-XXX" className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 font-black uppercase text-sm" value={manualId} onChange={e => setManualId(e.target.value)} />
-                <button onClick={() => fetchTicketDetails(manualId)} className="w-full bg-blue-600 py-4 rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-xl hover:bg-blue-700">Search Ticket</button>
+        <div className="w-full max-w-2xl space-y-6">
+           <div className="bg-slate-900/60 rounded-[3rem] p-10 md:p-14 text-center space-y-10 border border-white/10 shadow-2xl backdrop-blur-3xl animate-slide-up">
+              <h3 className="text-4xl font-black uppercase tracking-tight text-white mb-4">GATE ENTRY</h3>
+              
+              <div className="space-y-4">
+                <input 
+                  placeholder="SAR/XXXXXX-XXX" 
+                  className="w-full bg-slate-800/80 border border-white/10 rounded-2xl px-8 py-6 font-black uppercase text-xl text-center outline-none focus:border-blue-500 transition-all" 
+                  value={manualId} 
+                  onChange={e => setManualId(e.target.value)} 
+                />
+                <button 
+                  onClick={() => fetchTicketDetails(manualId)} 
+                  className="w-full bg-blue-600 py-6 rounded-2xl font-black uppercase text-sm tracking-[0.2em] shadow-xl hover:bg-blue-700 active:scale-[0.98] transition-all"
+                >
+                  SEARCH TICKET
+                </button>
               </div>
+
               {!isScanning && !scannedTicket && (
-                <button onClick={startScanner} className="w-full h-32 bg-white/5 border-2 border-dashed border-white/20 rounded-[2rem] font-black uppercase flex flex-col items-center justify-center gap-2 hover:bg-white/10">
-                  <i className="fas fa-camera text-3xl"></i><span className="text-[10px]">Open QR Scanner</span>
+                <button 
+                  onClick={startScanner} 
+                  className="w-full h-44 bg-white/5 border-2 border-dashed border-white/20 rounded-[2.5rem] font-black uppercase flex flex-col items-center justify-center gap-4 hover:bg-white/10 transition-all group"
+                >
+                  <i className="fas fa-camera text-4xl text-white group-hover:scale-110 transition-all"></i>
+                  <span className="text-[11px] tracking-widest">OPEN QR SCANNER</span>
                 </button>
               )}
+
               {isScanning && (
-                <div className="space-y-4"><div id="reader" className="w-full rounded-[2rem] overflow-hidden bg-black min-h-[250px]"></div><button onClick={stopScanner} className="text-red-400 font-black uppercase text-[10px] p-2">Cancel</button></div>
+                <div className="space-y-6">
+                  <div id="reader" className="w-full rounded-[2.5rem] overflow-hidden bg-black min-h-[300px] border-4 border-blue-500/20"></div>
+                  <button onClick={stopScanner} className="text-red-400 font-black uppercase text-[11px] tracking-widest p-2 hover:text-red-300">CANCEL SCANNING</button>
+                </div>
               )}
+
               {scannedTicket && (
-                <div className="bg-white text-slate-900 rounded-[2rem] p-8 text-left space-y-4 border shadow-2xl animate-slide-up">
-                   <h4 className="font-black text-lg break-all">{scannedTicket.id}</h4>
-                   <p className="text-xs font-bold text-slate-500 uppercase">{scannedTicket.name} — {scannedTicket.adults + scannedTicket.kids} Pax</p>
-                   <button onClick={confirmEntry} disabled={isSyncing} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-blue-700">
-                        {isSyncing ? 'Processing...' : 'Allow Entry'}
+                <div className="bg-white text-slate-900 rounded-[2.5rem] p-8 text-left space-y-6 border border-slate-100 shadow-2xl animate-slide-up relative overflow-hidden">
+                   <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Pass ID</p>
+                        <h4 className="font-black text-2xl break-all tracking-tighter">{scannedTicket.id}</h4>
+                      </div>
+                      <div className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase">CONFIRMED</div>
+                   </div>
+                   
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-slate-50 p-4 rounded-2xl">
+                        <p className="text-[8px] font-black uppercase text-slate-400 mb-1">Guest Name</p>
+                        <p className="font-black uppercase text-sm">{scannedTicket.name}</p>
+                      </div>
+                      <div className="bg-slate-50 p-4 rounded-2xl">
+                        <p className="text-[8px] font-black uppercase text-slate-400 mb-1">Guest Pax</p>
+                        <p className="font-black uppercase text-sm">{scannedTicket.adults + scannedTicket.kids} Total</p>
+                      </div>
+                   </div>
+
+                   <button 
+                    onClick={confirmEntry} 
+                    disabled={isSyncing} 
+                    className="w-full bg-blue-600 text-white py-6 rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl hover:bg-blue-700 active:scale-95 transition-all"
+                   >
+                        {isSyncing ? 'Processing...' : 'ALLOW ENTRY'}
                    </button>
+                   <button onClick={() => setScannedTicket(null)} className="w-full text-center text-[9px] font-black uppercase text-slate-400 hover:text-slate-600">Dismiss Details</button>
                 </div>
               )}
            </div>
