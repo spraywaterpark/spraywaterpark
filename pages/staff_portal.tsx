@@ -10,6 +10,8 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
   const [scannedTicket, setScannedTicket] = useState<Booking | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const scannerRef = useRef<any>(null);
+  const [manualId, setManualId] = useState('');
+  
   const [guestName, setGuestName] = useState('');
   const [guestMobile, setGuestMobile] = useState('');
   const [shift, setShift] = useState<ShiftType>('morning');
@@ -53,7 +55,6 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
         { facingMode: "environment" }, 
         { fps: 10, qrbox: 250 }, 
         (decoded: string) => { 
-          // Stop scanner immediately on successful scan to prevent hanging
           stopScanner().then(() => fetchTicketDetails(decoded)); 
         }, 
         () => {}
@@ -69,7 +70,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
         try {
             await scannerRef.current.stop();
             const container = document.getElementById("reader");
-            if (container) container.innerHTML = ""; // Clear the element
+            if (container) container.innerHTML = ""; 
             scannerRef.current = null;
         } catch (e) {
             console.warn("Scanner stop error", e);
@@ -83,10 +84,15 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     const cleanId = id.trim().toUpperCase();
     try {
       const res = await fetch(`/api/booking?type=ticket_details&id=${cleanId}`);
-      if (!res.ok) throw new Error("Connection failed");
+      if (!res.ok) {
+        if (res.status === 404) alert("TICKET NOT FOUND");
+        else throw new Error("Connection failed");
+        return;
+      }
       const data = await res.json();
       if (data.success) {
         setScannedTicket(data.booking);
+        setManualId('');
       } else {
         alert("TICKET NOT FOUND");
       }
@@ -141,7 +147,6 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
         const data = await res.json();
         
         if (data.success) {
-            // SUCCESS: Send Welcome Message (uses 'welcome' template from your screenshot)
             notificationService.sendWelcomeMessage(scannedTicket)
                 .catch(e => console.warn("Welcome Message Failed", e));
             
@@ -157,30 +162,6 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     }
   };
 
-  // ... rest of issue/return logic remains same
-  const generateReceipt = () => {
-    const { todayStr, currentHour } = getISTInfo();
-    if (!guestName) return alert("Guest Name is required.");
-    const countToday = allRentals.filter(r => r.date === todayStr && r.shift === shift).length + 1;
-    const datePart = todayStr.replace(/-/g, '').slice(2);
-    const receiptNo = `SWP/${datePart}${shift==='morning'?'1':'2'}-${String(countToday).padStart(3,'0')}`;
-    setReceipt({
-      receiptNo, guestName, guestMobile, date: todayStr, shift, maleLockers, femaleLockers,
-      maleCostumes, femaleCostumes, rentAmount: 0, securityDeposit: 0, totalCollected: 0,
-      refundableAmount: 0, status: 'issued', createdAt: new Date().toISOString()
-    });
-  };
-
-  const confirmAndPrint = async () => {
-    if (!receipt) return;
-    setIsSyncing(true);
-    try {
-        const success = await cloudSync.saveRental(receipt);
-        if (success) { window.print(); setReceipt(null); refreshActive(); }
-        else { alert("Sync Failed."); }
-    } finally { setIsSyncing(false); }
-  };
-
   return (
     <div className="w-full flex flex-col items-center py-6 text-white min-h-[90vh]">
       <div className="w-full max-w-5xl flex justify-between items-center mb-10 px-4 no-print">
@@ -193,14 +174,41 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
       </div>
 
       {mode === 'entry' && (
-        <div className="w-full max-w-2xl px-4 no-print">
-          <div className="bg-white/10 rounded-[3rem] p-12 text-center space-y-8 backdrop-blur-3xl border border-white/10 shadow-2xl">
+        <div className="w-full max-w-2xl px-4 no-print space-y-6">
+          <div className="bg-white/10 rounded-[3rem] p-10 text-center space-y-8 backdrop-blur-3xl border border-white/10 shadow-2xl">
              <h3 className="text-3xl font-black uppercase tracking-tighter">Gate Control</h3>
              
+             {/* Manual Entry Section */}
+             <div className="flex flex-col gap-2">
+                <label className="text-[10px] font-black uppercase text-white/40 text-left px-4 tracking-widest">Manual Ticket ID Search</label>
+                <div className="flex gap-2">
+                   <input 
+                     type="text" 
+                     placeholder="SAR/0101251-001" 
+                     className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 font-black text-white uppercase outline-none focus:border-blue-500 transition-all"
+                     value={manualId}
+                     onChange={e => setManualId(e.target.value)}
+                   />
+                   <button 
+                     onClick={() => fetchTicketDetails(manualId)}
+                     disabled={!manualId.trim() || isSyncing}
+                     className="bg-blue-600 px-8 rounded-2xl font-black uppercase text-[10px] tracking-widest disabled:opacity-30 active:scale-95 transition-all"
+                   >
+                     Search
+                   </button>
+                </div>
+             </div>
+
+             <div className="flex items-center gap-4 py-4">
+                <div className="h-px flex-1 bg-white/10"></div>
+                <span className="text-[10px] font-black uppercase text-white/20">OR</span>
+                <div className="h-px flex-1 bg-white/10"></div>
+             </div>
+
              {!isScanning && !scannedTicket && (
                <button onClick={startScanner} className="w-full h-40 bg-white/5 border-2 border-dashed border-white/20 rounded-[2.5rem] font-black uppercase tracking-widest hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-4">
                  <i className="fas fa-camera text-4xl"></i>
-                 <span>Tap to Scan Ticket</span>
+                 <span>Tap to Scan Ticket QR</span>
                </button>
              )}
              
@@ -212,7 +220,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
              )}
 
              {scannedTicket && (
-               <div className="bg-white text-slate-900 rounded-[2.5rem] p-10 text-left space-y-8 shadow-2xl animate-slide-up">
+               <div className="bg-white text-slate-900 rounded-[2.5rem] p-8 text-left space-y-8 shadow-2xl animate-slide-up border border-slate-100">
                  {(() => {
                     const validation = getEntryValidation(scannedTicket);
                     return (
@@ -222,25 +230,25 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
                                <p className="text-[10px] uppercase text-slate-400 font-black tracking-widest mb-1">Pass ID</p>
                                <h4 className="text-4xl font-black text-slate-900">{scannedTicket.id}</h4>
                            </div>
-                           <div className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase ${validation.isValid ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
+                           <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase ${validation.isValid ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
                                {validation.message}
                            </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-8 border-y border-slate-100 py-6">
+                        <div className="grid grid-cols-2 gap-x-8 gap-y-6 border-y border-slate-100 py-6">
                            <div><p className="text-[10px] uppercase text-slate-400 font-black mb-1">Guest</p><p className="font-black text-lg">{scannedTicket.name}</p></div>
                            <div><p className="text-[10px] uppercase text-slate-400 font-black mb-1">Slot</p><p className="font-black text-lg">{scannedTicket.time.split(':')[0]}</p></div>
                            <div><p className="text-[10px] uppercase text-slate-400 font-black mb-1">Date</p><p className="font-black text-lg">{scannedTicket.date}</p></div>
-                           <div><p className="text-[10px] uppercase text-slate-400 font-black mb-1">Total Persons</p><p className="font-black text-lg">{scannedTicket.adults + scannedTicket.kids}</p></div>
+                           <div><p className="text-[10px] uppercase text-slate-400 font-black mb-1">Guests</p><p className="font-black text-lg">{scannedTicket.adults + scannedTicket.kids}</p></div>
                         </div>
 
                         <div className="flex flex-col gap-3">
                            {validation.isValid && (
-                             <button onClick={handleConfirmEntry} disabled={isSyncing} className="w-full h-20 bg-blue-600 text-white rounded-[1.5rem] font-black uppercase text-sm tracking-widest shadow-xl shadow-blue-200 transition-all">
+                             <button onClick={handleConfirmEntry} disabled={isSyncing} className="w-full h-20 bg-blue-600 text-white rounded-[1.5rem] font-black uppercase text-sm tracking-widest shadow-xl shadow-blue-200 active:scale-95 transition-all">
                                 {isSyncing ? 'CONFIRMING...' : 'ALLOW ENTRY'}
                              </button>
                            )}
-                           <button onClick={startScanner} className="w-full py-4 text-[10px] font-black uppercase text-slate-400 hover:text-slate-900">Scan Another Ticket</button>
+                           <button onClick={() => setScannedTicket(null)} className="w-full py-4 text-[10px] font-black uppercase text-slate-400 hover:text-slate-900">Close Result</button>
                         </div>
                       </>
                     );
@@ -261,8 +269,39 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
                 <option value="morning">Morning Shift</option><option value="evening">Evening Shift</option>
             </select>
           </div>
-          <button onClick={generateReceipt} className="w-full h-20 bg-emerald-500 text-slate-900 font-black uppercase text-lg rounded-3xl">Generate Rental Bill</button>
-          {receipt && <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-6 z-[2000]"><div className="bg-white p-10 rounded-[3rem] text-slate-900 w-full max-w-md space-y-8"><h2 className="text-2xl font-black uppercase tracking-tighter text-center">Confirm Asset Issue</h2><div className="bg-slate-50 p-6 rounded-2xl"><p className="text-xs font-black uppercase text-slate-400">Guest</p><p className="font-black text-xl">{receipt.guestName}</p></div><button onClick={confirmAndPrint} className="w-full bg-emerald-500 py-6 rounded-2xl font-black uppercase text-white shadow-xl">Confirm & Print</button><button onClick={() => setReceipt(null)} className="w-full py-2 text-[10px] font-black uppercase text-slate-400">Cancel</button></div></div>}
+          <button onClick={() => {
+              if(!guestName) return alert("Guest Name required.");
+              const { todayStr } = getISTInfo();
+              const countToday = allRentals.filter(r => r.date === todayStr && r.shift === shift).length + 1;
+              const datePart = todayStr.replace(/-/g, '').slice(2);
+              const receiptNo = `SWP/${datePart}${shift==='morning'?'1':'2'}-${String(countToday).padStart(3,'0')}`;
+              setReceipt({
+                receiptNo, guestName, guestMobile, date: todayStr, shift, maleLockers: [], femaleLockers: [],
+                maleCostumes: 0, femaleCostumes: 0, rentAmount: 0, securityDeposit: 0, totalCollected: 0,
+                refundableAmount: 0, status: 'issued', createdAt: new Date().toISOString()
+              });
+          }} className="w-full h-20 bg-emerald-500 text-slate-900 font-black uppercase text-lg rounded-3xl">Generate Rental Bill</button>
+          
+          {receipt && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-6 z-[2000]">
+                <div className="bg-white p-10 rounded-[3rem] text-slate-900 w-full max-w-md space-y-8">
+                    <h2 className="text-2xl font-black uppercase tracking-tighter text-center">Confirm Asset Issue</h2>
+                    <div className="bg-slate-50 p-6 rounded-2xl">
+                        <p className="text-xs font-black uppercase text-slate-400">Guest</p>
+                        <p className="font-black text-xl">{receipt.guestName}</p>
+                    </div>
+                    <button onClick={async () => {
+                        setIsSyncing(true);
+                        try {
+                            const success = await cloudSync.saveRental(receipt);
+                            if (success) { window.print(); setReceipt(null); refreshActive(); }
+                            else alert("Sync Failed.");
+                        } finally { setIsSyncing(false); }
+                    }} className="w-full bg-emerald-500 py-6 rounded-2xl font-black uppercase text-white shadow-xl">Confirm & Print</button>
+                    <button onClick={() => setReceipt(null)} className="w-full py-2 text-[10px] font-black uppercase text-slate-400">Cancel</button>
+                </div>
+            </div>
+          )}
         </div>
       )}
     </div>
