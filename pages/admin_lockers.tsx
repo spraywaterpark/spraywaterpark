@@ -35,12 +35,12 @@ const AdminLockers: React.FC = () => {
   }, []);
 
   const handleShiftCheckout = async () => {
-    if (!window.confirm("RESET WARNING: This will mark all currently issued lockers as returned and reset counters. Continue?")) return;
+    if (!window.confirm("RESET WARNING: This will mark all currently issued lockers as returned and reset counters to ZERO. Continue?")) return;
     setIsLoading(true);
     const success = await cloudSync.checkoutShift();
     if (success) {
-      alert("Shift Reset Successful.");
-      await fetchLiveRentals();
+      alert("Shift Reset Successful. All counters are now zero.");
+      await fetchLiveRentals(); // Force refresh to show zero
     } else {
       alert("Reset failed. Check Cloud Sync.");
     }
@@ -84,11 +84,11 @@ const AdminLockers: React.FC = () => {
   };
 
   return (
-    <div className="p-4 md:p-10 glass-card rounded-[2.5rem] border border-white/30 space-y-10 animate-slide-up max-w-7xl mx-auto my-6 shadow-2xl">
+    <div className="p-4 md:p-10 glass-card rounded-[2.5rem] border border-white/30 space-y-10 animate-slide-up max-w-7xl mx-auto my-6 shadow-2xl relative">
       <div className="flex flex-col md:flex-row justify-between items-center gap-6 no-print">
         <div className="flex items-center gap-4">
-           <button onClick={() => navigate('/admin')} className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center hover:scale-110 transition-all">
-              <i className="fas fa-arrow-left"></i>
+           <button onClick={() => navigate('/admin')} className="bg-slate-900 text-white px-6 py-3 rounded-2xl flex items-center justify-center gap-2 hover:scale-105 transition-all shadow-xl font-black text-[10px] uppercase">
+              <i className="fas fa-arrow-left"></i> BACK
            </button>
            <div>
               <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Locker Analytics</h2>
@@ -225,7 +225,7 @@ const AdminLockers: React.FC = () => {
       )}
 
       {/* Hidden Print Report Layout */}
-      <div className="hidden print:block fixed inset-0 bg-white p-12 text-black font-mono space-y-10">
+      <div className="hidden print:block fixed inset-0 bg-white p-12 text-black font-mono space-y-10 z-[3000]">
           <div className="text-center border-b-2 border-black pb-4">
               <h1 className="text-3xl font-bold uppercase">Spray Aqua Resort</h1>
               <p className="text-sm font-bold mt-1">Locker & Asset Shift Report</p>
@@ -249,15 +249,13 @@ const AdminLockers: React.FC = () => {
               <div className="text-center border-t border-black w-40 pt-2"><p className="text-[10px]">Staff Signature</p></div>
               <div className="text-center border-t border-black w-40 pt-2"><p className="text-[10px]">Manager Signature</p></div>
           </div>
-          
-          <p className="text-center text-[8px] pt-10">Software Sync ID: {cloudSync.fetchSettings.name}</p>
       </div>
 
       <style>{`
         @media print {
-            body * { visibility: hidden; }
-            .print\\:block, .print\\:block * { visibility: visible; }
-            .print\\:block { position: absolute; left: 0; top: 0; width: 100%; }
+            body * { visibility: hidden !important; }
+            .print\\:block, .print\\:block * { visibility: visible !important; }
+            .print\\:block { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; }
         }
       `}</style>
     </div>
