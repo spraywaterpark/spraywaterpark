@@ -10,14 +10,14 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     role === 'staff1' ? 'entry' : 'issue'
   );
   
-  // --- STAFF 1 STATES (PRESERVED) ---
+  // --- STAFF 1 STATES ---
   const [scannedTicket, setScannedTicket] = useState<Booking | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const scannerRef = useRef<any>(null);
   const [manualId, setManualId] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // --- STAFF 2 STATES (RESTORED GRID & ASSETS) ---
+  // --- STAFF 2 STATES ---
   const [guestName, setGuestName] = useState('');
   const [guestMobile, setGuestMobile] = useState('');
   const [shift, setShift] = useState<ShiftType>('morning');
@@ -108,9 +108,14 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
         });
         const data = await res.json();
         if (data.success) {
-            // Trigger welcome message explicitly and wait for it
-            await notificationService.sendWelcomeMessage(scannedTicket).catch(() => {});
-            alert("ENTRY CONFIRMED!");
+            // Trigger welcome message explicitly
+            const waRes = await notificationService.sendWelcomeMessage(scannedTicket);
+            if (!waRes.success) {
+              console.warn("Welcome message failed:", waRes.details);
+              alert(`ENTRY OK! But Welcome WhatsApp failed: ${waRes.details}`);
+            } else {
+              alert("ENTRY CONFIRMED & WELCOME SENT!");
+            }
             setScannedTicket(null);
             setManualId('');
         }
