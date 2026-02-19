@@ -141,38 +141,6 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    if (type === 'reset_shift') {
-      if (req.method === "POST") {
-        const response = await sheets.spreadsheets.values.get({
-          spreadsheetId: process.env.SHEET_ID,
-          range: "Lockers!A2:N2000"
-        });
-        const rows = response.data.values || [];
-        const nowIST = getISTFullTimestamp();
-        
-        const updates = rows.map((row, index) => {
-          if (row[13] === 'issued') {
-            return {
-              range: `Lockers!N${index + 2}:P${index + 2}`,
-              values: [['returned', '', nowIST]]
-            };
-          }
-          return null;
-        }).filter(Boolean);
-
-        if (updates.length > 0) {
-          await sheets.spreadsheets.values.batchUpdate({
-            spreadsheetId: process.env.SHEET_ID,
-            requestBody: {
-              valueInputOption: "RAW",
-              data: updates as any
-            }
-          });
-        }
-        return res.status(200).json({ success: true });
-      }
-    }
-
     if (type === 'whatsapp') {
       const { mobile, booking, isWelcome, customText } = req.body;
       const token = (process.env.WHATSAPP_TOKEN || "").trim();
@@ -180,7 +148,9 @@ export default async function handler(req: any, res: any) {
       
       if (!token || !phoneId) return res.status(400).json({ success: false, details: "WhatsApp API Config missing" });
       
+      // Strict cleaning of mobile number - ensure it's precisely formatted for Meta
       let cleanMobile = String(mobile || "").replace(/\D/g, '');
+      if (cleanMobile.startsWith('0')) cleanMobile = cleanMobile.substring(1);
       if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
 
       let payload: any = {};
@@ -194,7 +164,7 @@ export default async function handler(req: any, res: any) {
         };
       } else {
         const templateName = isWelcome ? "welcome" : "ticket";
-        const langCode = isWelcome ? "en_US" : "en_US"; 
+        const langCode = "en_US"; 
         
         const components = isWelcome 
           ? [ { type: "body", parameters: [ { type: "text", text: String(booking?.name || "Guest") } ] } ]
@@ -213,17 +183,32 @@ export default async function handler(req: any, res: any) {
           messaging_product: "whatsapp",
           to: cleanMobile,
           type: "template",
-          template: { name: templateName, language: { code: langCode }, components }
+          template: { 
+            name: templateName, 
+            language: { code: langCode }, 
+            components: components 
+          }
         };
       }
 
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 
+          'Authorization': `Bearer ${token}`, 
+          'Content-Type': 'application/json' 
+        },
         body: JSON.stringify(payload)
       });
       const waData = await waRes.json();
-      return res.status(waRes.status).json({ success: waRes.ok, details: waData.error?.message || "Sent Successfully" });
+      
+      if (!waRes.ok) {
+        return res.status(waRes.status).json({ 
+          success: false, 
+          details: waData.error?.message || "WhatsApp API Error" 
+        });
+      }
+      
+      return res.status(200).json({ success: true, details: "Sent Successfully" });
     }
 
     if (type === 'checkin') {
@@ -293,6 +278,6 @@ export default async function handler(req: any, res: any) {
       })).reverse());
     }
   } catch (e: any) {
-    return res.status(500).json({ success: false, details: "Sync Error" });
+    return res.status(500).json({ success: false, details: e.message || "Sync Error" });
   }
 }
