@@ -11,7 +11,6 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
   );
   
   // --- STAFF 1 STATES (PRESERVED) ---
-  const [ticketInput, setTicketInput] = useState('');
   const [scannedTicket, setScannedTicket] = useState<Booking | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const scannerRef = useRef<any>(null);
@@ -31,7 +30,6 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
   const [searchCode, setSearchCode] = useState('');
   const [returnReceipt, setReturnReceipt] = useState<LockerReceipt | null>(null);
 
-  const [activeLockers, setActiveLockers] = useState<{ male: number[]; female: number[] }>({ male: [], female: [] });
   const [allRentals, setAllRentals] = useState<LockerReceipt[]>([]);
   
   const inventory = useMemo(() => {
@@ -54,10 +52,6 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     const rentals = await cloudSync.fetchRentals();
     if (rentals) {
       setAllRentals(rentals);
-      const activeRecords = rentals.filter(r => r.status === 'issued');
-      const cloudMaleBusy = activeRecords.flatMap(r => Array.isArray(r.maleLockers) ? r.maleLockers : []);
-      const cloudFemaleBusy = activeRecords.flatMap(r => Array.isArray(r.femaleLockers) ? r.femaleLockers : []);
-      setActiveLockers({ male: cloudMaleBusy, female: cloudFemaleBusy });
     }
   };
 
@@ -174,7 +168,9 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     setIsSyncing(true);
     const success = await cloudSync.saveRental(receipt);
     if (success) {
-      alert("SUCCESS: Bill Generated & Saved.");
+      // Trigger browser print
+      setTimeout(() => window.print(), 500);
+      alert("SUCCESS: Bill Saved & Printing...");
       setGuestName(''); setGuestMobile(''); setMaleLockers([]); setFemaleLockers([]); setMaleCostumes(0); setFemaleCostumes(0); setReceipt(null);
       await refreshActive();
     } else alert("Sync failed.");
@@ -226,7 +222,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
           </button>
       </div>
 
-      {/* --- STAFF 1: GATE ENTRY --- */}
+      {/* --- STAFF 1: GATE ENTRY (NO TOUCH) --- */}
       {mode === 'entry' && (
         <div className="w-full max-w-2xl space-y-6">
            <div className="bg-slate-900/60 rounded-[3rem] p-10 md:p-14 text-center space-y-10 border border-white/10 shadow-2xl backdrop-blur-3xl animate-slide-up">
@@ -301,7 +297,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
 
       {/* --- STAFF 2: ISSUE --- */}
       {mode === 'issue' && (
-        <div className="bg-slate-900/60 border border-white/10 rounded-[3rem] p-8 md:p-14 w-full max-w-6xl space-y-12 shadow-2xl backdrop-blur-3xl animate-slide-up">
+        <div className="bg-slate-900/60 border border-white/10 rounded-[3rem] p-8 md:p-14 w-full max-w-6xl space-y-12 shadow-2xl backdrop-blur-3xl animate-slide-up no-print">
           <div className="text-center md:text-left"><p className="text-emerald-400 text-[9px] font-black uppercase tracking-[0.2em]">Asset Terminal</p><p className="text-white/40 text-[8px] font-black uppercase tracking-widest">User: Staff2</p></div>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -382,7 +378,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
 
       {/* --- STAFF 2: RETURN --- */}
       {mode === 'return' && (
-        <div className="w-full max-w-md space-y-6">
+        <div className="w-full max-w-md space-y-6 no-print">
            <div className="bg-slate-900/60 rounded-[3rem] p-12 text-center space-y-8 border border-white/10 shadow-2xl backdrop-blur-xl">
               <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center text-3xl text-amber-400 mx-auto border border-amber-500/20"><i className="fas fa-undo"></i></div>
               <h3 className="text-3xl font-black uppercase tracking-tight">Return Assets</h3>
@@ -429,6 +425,41 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
            </div>
         </div>
       )}
+
+      {/* Hidden Receipt for Printing (Staff 2) */}
+      {receipt && (
+        <div className="hidden print:block fixed inset-0 bg-white text-black font-mono p-10 z-[6000]">
+           <div className="text-center border-b-2 border-black pb-4 mb-6">
+              <h2 className="text-2xl font-bold uppercase">Spray Aqua Resort</h2>
+              <p className="text-xs uppercase font-bold">Locker & Asset Receipt</p>
+           </div>
+           <div className="grid grid-cols-2 gap-y-2 text-xs font-bold border-b pb-4 mb-4">
+              <p>Receipt No:</p><p className="text-right">{receipt.receiptNo}</p>
+              <p>Guest Name:</p><p className="text-right uppercase">{receipt.guestName}</p>
+              <p>Mobile:</p><p className="text-right">{receipt.guestMobile}</p>
+              <p>Date:</p><p className="text-right">{receipt.date}</p>
+           </div>
+           <div className="space-y-4 text-sm font-bold border-b pb-4 mb-4">
+              <div className="flex justify-between"><span>Locker Keys Issued:</span><span>M:{receipt.maleLockers.join(',')} F:{receipt.femaleLockers.join(',')}</span></div>
+              <div className="flex justify-between"><span>Male Costumes:</span><span>{receipt.maleCostumes}</span></div>
+              <div className="flex justify-between"><span>Female Costumes:</span><span>{receipt.femaleCostumes}</span></div>
+           </div>
+           <div className="space-y-3 text-sm font-bold border-b pb-4 mb-4">
+              <div className="flex justify-between"><span>Total Rent Paid:</span><span>₹{receipt.rentAmount}</span></div>
+              <div className="flex justify-between text-lg border-t pt-2"><span>Security Deposit:</span><span>₹{receipt.securityDeposit}</span></div>
+              <div className="flex justify-between text-xl border-t-2 border-black pt-2"><span>Total Collected:</span><span>₹{receipt.totalCollected}</span></div>
+           </div>
+           <p className="text-[10px] text-center font-bold">* Keep this receipt safe to collect your security refund. *</p>
+        </div>
+      )}
+
+      <style>{`
+        @media print {
+            body * { visibility: hidden !important; }
+            .print\\:block, .print\\:block * { visibility: visible !important; }
+            .print\\:block { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; }
+        }
+      `}</style>
     </div>
   );
 };
