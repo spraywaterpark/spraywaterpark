@@ -3,7 +3,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { LockerReceipt, ShiftType, UserRole, Booking } from '../types';
 import { cloudSync } from '../services/cloud_sync';
 import { notificationService } from '../services/notification_service';
-import { COSTUME_RULES, LOCKER_RULES } from '../constants';
 
 const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
   const [mode, setMode] = useState<'entry' | 'issue' | 'return'>(role === 'staff1' ? 'entry' : 'issue');
@@ -11,15 +10,6 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
   const [isScanning, setIsScanning] = useState(false);
   const scannerRef = useRef<any>(null);
   const [manualId, setManualId] = useState('');
-  
-  const [guestName, setGuestName] = useState('');
-  const [guestMobile, setGuestMobile] = useState('');
-  const [shift, setShift] = useState<ShiftType>('morning');
-  const [maleLockers, setMaleLockers] = useState<number[]>([]);
-  const [femaleLockers, setFemaleLockers] = useState<number[]>([]);
-  const [maleCostumes, setMaleCostumes] = useState(0);
-  const [femaleCostumes, setFemaleCostumes] = useState(0);
-  const [receipt, setReceipt] = useState<LockerReceipt | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [allRentals, setAllRentals] = useState<LockerReceipt[]>([]);
 
@@ -41,28 +31,37 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
 
   useEffect(() => {
     refreshActive();
-    const interval = setInterval(refreshActive, 15000); 
+    const interval = setInterval(refreshActive, 20000); 
     return () => clearInterval(interval);
   }, [mode]);
 
   const startScanner = () => {
     setScannedTicket(null);
     setIsScanning(true);
+    // Give DOM a moment to render the #reader div
     setTimeout(() => {
-      const html5QrCode = new (window as any).Html5Qrcode("reader");
-      scannerRef.current = html5QrCode;
-      html5QrCode.start(
-        { facingMode: "environment" }, 
-        { fps: 10, qrbox: 250 }, 
-        (decoded: string) => { 
-          stopScanner().then(() => fetchTicketDetails(decoded)); 
-        }, 
-        () => {}
-      ).catch(err => {
-        console.error("Scanner Error", err);
+      try {
+        const html5QrCode = new (window as any).Html5Qrcode("reader");
+        scannerRef.current = html5QrCode;
+        const config = { fps: 15, qrbox: { width: 250, height: 250 } };
+        
+        html5QrCode.start(
+          { facingMode: "environment" }, 
+          config, 
+          (decoded: string) => { 
+            stopScanner().then(() => fetchTicketDetails(decoded)); 
+          }, 
+          () => {} // Ignored for noise
+        ).catch(err => {
+          console.error("Scanner start error:", err);
+          alert("Camera access failed. Please check permissions.");
+          setIsScanning(false);
+        });
+      } catch (e) {
+        console.error("Scanner Init Fail", e);
         setIsScanning(false);
-      });
-    }, 200);
+      }
+    }, 300);
   };
 
   const stopScanner = async () => { 
@@ -86,7 +85,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
       const res = await fetch(`/api/booking?type=ticket_details&id=${cleanId}`);
       if (!res.ok) {
         if (res.status === 404) alert("TICKET NOT FOUND");
-        else throw new Error("Connection failed");
+        else alert("Sync error. Try manual ID.");
         return;
       }
       const data = await res.json();
@@ -97,7 +96,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
         alert("TICKET NOT FOUND");
       }
     } catch (e) { 
-      alert("ERROR: Check Internet Connection"); 
+      alert("ERROR: Check Connection"); 
     } finally { 
       setIsSyncing(false); 
     }
@@ -106,30 +105,29 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
   const getEntryValidation = (ticket: Booking) => {
     const { todayStr, currentHour } = getISTInfo();
     
-    // 1. Check if used
     if (ticket.status === 'checked-in') {
-        return { isValid: false, message: "TICKET ALREADY USED", color: "text-red-600" };
+        return { isValid: false, message: "TICKET ALREADY USED", color: "text-red-600", bg: "bg-red-50" };
     }
 
-    // 2. Check Date
     if (ticket.date < todayStr) {
-        return { isValid: false, message: "TICKET EXPIRED", color: "text-red-600" };
+        return { isValid: false, message: "TICKET EXPIRED", color: "text-red-600", bg: "bg-red-50" };
     }
+    
     if (ticket.date > todayStr) {
-        return { isValid: false, message: "PRE-ENTRY NOT ALLOWED (For " + ticket.date + ")", color: "text-amber-600" };
+        return { isValid: false, message: "PRE-ENTRY NOT ALLOWED", sub: "Ticket for: " + ticket.date, color: "text-amber-600", bg: "bg-amber-50" };
     }
 
-    // 3. Check Slot on Same Day
+    // Slot validation for current day
     const isMorning = ticket.time.toLowerCase().includes('morning');
     if (isMorning) {
-        if (currentHour < 9) return { isValid: false, message: "PRE-ENTRY NOT ALLOWED (Opens at 10 AM)", color: "text-amber-600" };
-        if (currentHour >= 14) return { isValid: false, message: "TICKET EXPIRED (Morning slot over)", color: "text-red-600" };
+        if (currentHour < 9) return { isValid: false, message: "PRE-ENTRY NOT ALLOWED", sub: "Opens at 10 AM", color: "text-amber-600", bg: "bg-amber-50" };
+        if (currentHour >= 14) return { isValid: false, message: "TICKET EXPIRED", sub: "Morning slot over", color: "text-red-600", bg: "bg-red-50" };
     } else {
-        if (currentHour < 15) return { isValid: false, message: "PRE-ENTRY NOT ALLOWED (Opens at 4 PM)", color: "text-amber-600" };
-        if (currentHour >= 21) return { isValid: false, message: "TICKET EXPIRED (Evening slot over)", color: "text-red-600" };
+        if (currentHour < 15) return { isValid: false, message: "PRE-ENTRY NOT ALLOWED", sub: "Opens at 4 PM", color: "text-amber-600", bg: "bg-amber-50" };
+        if (currentHour >= 21) return { isValid: false, message: "TICKET EXPIRED", sub: "Evening slot over", color: "text-red-600", bg: "bg-red-50" };
     }
 
-    return { isValid: true, message: "TICKET VALID", color: "text-emerald-600" };
+    return { isValid: true, message: "TICKET VALID", color: "text-emerald-600", bg: "bg-emerald-50" };
   };
 
   const handleConfirmEntry = async () => {
@@ -147,108 +145,123 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
         const data = await res.json();
         
         if (data.success) {
+            // Trigger Welcome Notification
             notificationService.sendWelcomeMessage(scannedTicket)
-                .catch(e => console.warn("Welcome Message Failed", e));
+                .catch(err => console.error("Notification Error:", err));
             
-            alert("SUCCESS: Entry Confirmed! Welcome message sent.");
+            alert("ENTRY CONFIRMED!\nWelcome message sent to guest.");
             setScannedTicket(null);
         } else {
-            alert(data.details || "Server check-in failed");
+            alert(data.details || "Server error.");
         }
     } catch (e) {
-        alert("SYNC ERROR: Ticket could not be verified.");
+        alert("Network error. Try again.");
     } finally {
         setIsSyncing(false);
     }
   };
 
   return (
-    <div className="w-full flex flex-col items-center py-6 text-white min-h-[90vh]">
-      <div className="w-full max-w-5xl flex justify-between items-center mb-10 px-4 no-print">
-          <div className="flex bg-white/10 rounded-full p-1 border border-white/10">
+    <div className="w-full flex flex-col items-center py-4 px-2 text-white min-h-[90vh]">
+      {/* Tab Switcher */}
+      <div className="w-full max-w-xl flex justify-between items-center mb-8 no-print">
+          <div className="flex bg-white/10 rounded-full p-1 border border-white/10 w-full">
             {['entry', 'issue', 'return'].map(m => (
-              <button key={m} onClick={() => { stopScanner(); setMode(m as any); }} className={`px-8 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest ${mode === m ? 'bg-blue-600' : 'text-white/40'}`}>{m}</button>
+              <button 
+                key={m} 
+                onClick={() => { stopScanner(); setMode(m as any); setScannedTicket(null); }} 
+                className={`flex-1 py-3 rounded-full font-black text-[9px] uppercase tracking-widest transition-all ${mode === m ? 'bg-blue-600 shadow-lg' : 'text-white/40'}`}
+              >
+                {m}
+              </button>
             ))}
           </div>
-          {isSyncing && <div className="text-[10px] font-black uppercase text-blue-400 animate-pulse">Syncing...</div>}
       </div>
 
       {mode === 'entry' && (
-        <div className="w-full max-w-2xl px-4 no-print space-y-6">
-          <div className="bg-white/10 rounded-[3rem] p-10 text-center space-y-8 backdrop-blur-3xl border border-white/10 shadow-2xl">
-             <h3 className="text-3xl font-black uppercase tracking-tighter">Gate Control</h3>
+        <div className="w-full max-w-md space-y-6">
+          <div className="bg-white/10 rounded-[2.5rem] p-6 sm:p-10 text-center space-y-6 backdrop-blur-3xl border border-white/10 shadow-2xl">
+             <div className="space-y-1">
+                <h3 className="text-2xl font-black uppercase tracking-tight">Gate Control</h3>
+                {isSyncing && <p className="text-[8px] font-black uppercase text-blue-400 animate-pulse tracking-widest">Processing Data...</p>}
+             </div>
              
-             {/* Manual Entry Section */}
-             <div className="flex flex-col gap-2">
-                <label className="text-[10px] font-black uppercase text-white/40 text-left px-4 tracking-widest">Manual Ticket ID Search</label>
-                <div className="flex gap-2">
+             {/* Manual Entry Section - Optimized for small screens */}
+             <div className="space-y-3">
+                <p className="text-[9px] font-black uppercase text-white/40 text-left px-2 tracking-widest">Search by Ticket ID</p>
+                <div className="flex flex-col sm:flex-row gap-2">
                    <input 
                      type="text" 
-                     placeholder="SAR/0101251-001" 
-                     className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 font-black text-white uppercase outline-none focus:border-blue-500 transition-all"
+                     placeholder="SAR/XXXXXX-XXX" 
+                     className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-5 py-4 font-black text-white uppercase outline-none focus:border-blue-500 transition-all text-sm"
                      value={manualId}
                      onChange={e => setManualId(e.target.value)}
                    />
                    <button 
                      onClick={() => fetchTicketDetails(manualId)}
                      disabled={!manualId.trim() || isSyncing}
-                     className="bg-blue-600 px-8 rounded-2xl font-black uppercase text-[10px] tracking-widest disabled:opacity-30 active:scale-95 transition-all"
+                     className="bg-blue-600 h-14 sm:h-auto px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest disabled:opacity-30 active:scale-95 transition-all shadow-xl"
                    >
                      Search
                    </button>
                 </div>
              </div>
 
-             <div className="flex items-center gap-4 py-4">
+             <div className="flex items-center gap-4 py-2">
                 <div className="h-px flex-1 bg-white/10"></div>
-                <span className="text-[10px] font-black uppercase text-white/20">OR</span>
+                <span className="text-[9px] font-black uppercase text-white/20">OR</span>
                 <div className="h-px flex-1 bg-white/10"></div>
              </div>
 
+             {/* Scanner Box */}
              {!isScanning && !scannedTicket && (
-               <button onClick={startScanner} className="w-full h-40 bg-white/5 border-2 border-dashed border-white/20 rounded-[2.5rem] font-black uppercase tracking-widest hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-4">
-                 <i className="fas fa-camera text-4xl"></i>
-                 <span>Tap to Scan Ticket QR</span>
+               <button onClick={startScanner} className="w-full h-32 bg-white/5 border-2 border-dashed border-white/20 rounded-[2rem] font-black uppercase tracking-widest hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3">
+                 <i className="fas fa-qrcode text-3xl"></i>
+                 <span className="text-[10px]">Open Camera Scanner</span>
                </button>
              )}
              
              {isScanning && (
                <div className="space-y-4">
-                  <div id="reader" className="w-full rounded-[2.5rem] overflow-hidden border-4 border-blue-600"></div>
-                  <button onClick={stopScanner} className="bg-red-600/20 text-red-400 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest">Cancel Scanner</button>
+                  <div id="reader" className="w-full rounded-[2rem] overflow-hidden border-4 border-blue-600 bg-black min-h-[250px]"></div>
+                  <button onClick={stopScanner} className="bg-red-500/20 text-red-400 px-6 py-3 rounded-full text-[9px] font-black uppercase tracking-widest border border-red-500/20">Cancel Scanner</button>
                </div>
              )}
 
+             {/* Result Card - Fully Responsive */}
              {scannedTicket && (
-               <div className="bg-white text-slate-900 rounded-[2.5rem] p-8 text-left space-y-8 shadow-2xl animate-slide-up border border-slate-100">
+               <div className="bg-white text-slate-900 rounded-[2rem] p-6 text-left space-y-6 shadow-2xl animate-slide-up border border-slate-100 w-full overflow-hidden">
                  {(() => {
-                    const validation = getEntryValidation(scannedTicket);
+                    const v = getEntryValidation(scannedTicket);
                     return (
                       <>
-                        <div className="flex justify-between items-start">
-                           <div>
-                               <p className="text-[10px] uppercase text-slate-400 font-black tracking-widest mb-1">Pass ID</p>
-                               <h4 className="text-4xl font-black text-slate-900">{scannedTicket.id}</h4>
+                        <div className="flex flex-col gap-2">
+                           <div className="flex justify-between items-start gap-4">
+                               <div className="min-w-0">
+                                   <p className="text-[8px] uppercase text-slate-400 font-black tracking-widest mb-0.5">ID</p>
+                                   <h4 className="text-xl font-black text-slate-900 truncate">{scannedTicket.id}</h4>
+                               </div>
+                               <div className={`shrink-0 px-3 py-1.5 rounded-lg text-[8px] font-black uppercase ${v.color} ${v.bg}`}>
+                                   {v.message}
+                               </div>
                            </div>
-                           <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase ${validation.isValid ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
-                               {validation.message}
-                           </div>
+                           {v.sub && <p className="text-[9px] font-bold text-slate-500 uppercase">{v.sub}</p>}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-x-8 gap-y-6 border-y border-slate-100 py-6">
-                           <div><p className="text-[10px] uppercase text-slate-400 font-black mb-1">Guest</p><p className="font-black text-lg">{scannedTicket.name}</p></div>
-                           <div><p className="text-[10px] uppercase text-slate-400 font-black mb-1">Slot</p><p className="font-black text-lg">{scannedTicket.time.split(':')[0]}</p></div>
-                           <div><p className="text-[10px] uppercase text-slate-400 font-black mb-1">Date</p><p className="font-black text-lg">{scannedTicket.date}</p></div>
-                           <div><p className="text-[10px] uppercase text-slate-400 font-black mb-1">Guests</p><p className="font-black text-lg">{scannedTicket.adults + scannedTicket.kids}</p></div>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-4 border-y border-slate-100 py-5">
+                           <div className="min-w-0"><p className="text-[8px] uppercase text-slate-400 font-black mb-0.5">Guest</p><p className="font-black text-sm truncate">{scannedTicket.name}</p></div>
+                           <div className="min-w-0"><p className="text-[8px] uppercase text-slate-400 font-black mb-0.5">Slot</p><p className="font-black text-sm truncate">{scannedTicket.time.split(':')[0]}</p></div>
+                           <div className="min-w-0"><p className="text-[8px] uppercase text-slate-400 font-black mb-0.5">Date</p><p className="font-black text-sm">{scannedTicket.date}</p></div>
+                           <div className="min-w-0"><p className="text-[8px] uppercase text-slate-400 font-black mb-0.5">Pax</p><p className="font-black text-sm">{scannedTicket.adults + scannedTicket.kids}</p></div>
                         </div>
 
-                        <div className="flex flex-col gap-3">
-                           {validation.isValid && (
-                             <button onClick={handleConfirmEntry} disabled={isSyncing} className="w-full h-20 bg-blue-600 text-white rounded-[1.5rem] font-black uppercase text-sm tracking-widest shadow-xl shadow-blue-200 active:scale-95 transition-all">
-                                {isSyncing ? 'CONFIRMING...' : 'ALLOW ENTRY'}
+                        <div className="flex flex-col gap-2">
+                           {v.isValid && (
+                             <button onClick={handleConfirmEntry} disabled={isSyncing} className="w-full h-16 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-200 active:scale-95 transition-all">
+                                {isSyncing ? 'Wait...' : 'Confirm Entry'}
                              </button>
                            )}
-                           <button onClick={() => setScannedTicket(null)} className="w-full py-4 text-[10px] font-black uppercase text-slate-400 hover:text-slate-900">Close Result</button>
+                           <button onClick={() => setScannedTicket(null)} className="w-full py-3 text-[9px] font-black uppercase text-slate-400 hover:text-slate-900">Close Result</button>
                         </div>
                       </>
                     );
@@ -259,50 +272,12 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
         </div>
       )}
 
-      {/* ISSUE MODE remains for staff use */}
-      {mode === 'issue' && (
-        <div className="bg-white/5 rounded-[3rem] p-14 w-full max-w-6xl space-y-12 no-print border border-white/5">
-           <div className="grid md:grid-cols-3 gap-6">
-            <input className="input-premium !bg-slate-900/50 !text-white border-white/10" placeholder="Guest Name" value={guestName} onChange={e => setGuestName(e.target.value)} />
-            <input className="input-premium !bg-slate-900/50 !text-white border-white/10" placeholder="Mobile Number" value={guestMobile} onChange={e => setGuestMobile(e.target.value)} />
-            <select className="input-premium !bg-slate-900/50 !text-white border-white/10" value={shift} onChange={e => setShift(e.target.value as any)}>
-                <option value="morning">Morning Shift</option><option value="evening">Evening Shift</option>
-            </select>
-          </div>
-          <button onClick={() => {
-              if(!guestName) return alert("Guest Name required.");
-              const { todayStr } = getISTInfo();
-              const countToday = allRentals.filter(r => r.date === todayStr && r.shift === shift).length + 1;
-              const datePart = todayStr.replace(/-/g, '').slice(2);
-              const receiptNo = `SWP/${datePart}${shift==='morning'?'1':'2'}-${String(countToday).padStart(3,'0')}`;
-              setReceipt({
-                receiptNo, guestName, guestMobile, date: todayStr, shift, maleLockers: [], femaleLockers: [],
-                maleCostumes: 0, femaleCostumes: 0, rentAmount: 0, securityDeposit: 0, totalCollected: 0,
-                refundableAmount: 0, status: 'issued', createdAt: new Date().toISOString()
-              });
-          }} className="w-full h-20 bg-emerald-500 text-slate-900 font-black uppercase text-lg rounded-3xl">Generate Rental Bill</button>
-          
-          {receipt && (
-            <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-6 z-[2000]">
-                <div className="bg-white p-10 rounded-[3rem] text-slate-900 w-full max-w-md space-y-8">
-                    <h2 className="text-2xl font-black uppercase tracking-tighter text-center">Confirm Asset Issue</h2>
-                    <div className="bg-slate-50 p-6 rounded-2xl">
-                        <p className="text-xs font-black uppercase text-slate-400">Guest</p>
-                        <p className="font-black text-xl">{receipt.guestName}</p>
-                    </div>
-                    <button onClick={async () => {
-                        setIsSyncing(true);
-                        try {
-                            const success = await cloudSync.saveRental(receipt);
-                            if (success) { window.print(); setReceipt(null); refreshActive(); }
-                            else alert("Sync Failed.");
-                        } finally { setIsSyncing(false); }
-                    }} className="w-full bg-emerald-500 py-6 rounded-2xl font-black uppercase text-white shadow-xl">Confirm & Print</button>
-                    <button onClick={() => setReceipt(null)} className="w-full py-2 text-[10px] font-black uppercase text-slate-400">Cancel</button>
-                </div>
-            </div>
-          )}
-        </div>
+      {/* Asset Management Modes */}
+      {(mode === 'issue' || mode === 'return') && (
+         <div className="w-full max-w-xl bg-white/5 rounded-[2.5rem] p-6 sm:p-10 border border-white/5 space-y-8 no-print">
+            <p className="text-center text-[10px] font-black text-white/40 uppercase tracking-widest">Asset Management - Under Development</p>
+            <button onClick={() => setMode('entry')} className="w-full py-4 border border-white/10 rounded-2xl text-[10px] font-black uppercase opacity-60">Back to Gate Control</button>
+         </div>
       )}
     </div>
   );
