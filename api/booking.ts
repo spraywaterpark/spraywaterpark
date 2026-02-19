@@ -30,11 +30,8 @@ export default async function handler(req: any, res: any) {
   });
   const sheets = google.sheets({ version: "v4", auth });
   const type = req.query.type;
-  const id = req.query.id;
-  const action = req.query.action;
 
   try {
-    // 1. SETTINGS SYNC
     if (type === 'settings') {
       if (req.method === "GET") {
         const response = await sheets.spreadsheets.values.get({ 
@@ -87,7 +84,6 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // 2. RENTALS (Lockers)
     if (type === 'rentals') {
       if (req.method === "GET") {
         const response = await sheets.spreadsheets.values.get({
@@ -108,7 +104,7 @@ export default async function handler(req: any, res: any) {
       }
 
       if (req.method === "POST") {
-        if (action === 'update') {
+        if (req.query.action === 'update') {
           const rental = req.body;
           const response = await sheets.spreadsheets.values.get({
             spreadsheetId: process.env.SHEET_ID, range: "Lockers!A2:A2000"
@@ -145,7 +141,6 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // RESET SHIFT (Mark all as returned)
     if (type === 'reset_shift') {
       if (req.method === "POST") {
         const response = await sheets.spreadsheets.values.get({
@@ -155,7 +150,6 @@ export default async function handler(req: any, res: any) {
         const rows = response.data.values || [];
         const nowIST = getISTFullTimestamp();
         
-        // Prepare updates: for rows with status "issued", set to "returned"
         const updates = rows.map((row, index) => {
           if (row[13] === 'issued') {
             return {
@@ -179,40 +173,59 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // 3. WHATSAPP
     if (type === 'whatsapp') {
-      const { mobile, booking, isWelcome } = req.body;
+      const { mobile, booking, isWelcome, customText } = req.body;
       const token = (process.env.WHATSAPP_TOKEN || "").trim();
       const phoneId = (process.env.WHATSAPP_PHONE_ID || "").trim();
+      
       if (!token || !phoneId) return res.status(400).json({ success: false, details: "WhatsApp API Config missing" });
+      
       let cleanMobile = String(mobile || "").replace(/\D/g, '');
       if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
-      const templateName = isWelcome ? "welcome" : "ticket";
-      const components = isWelcome 
-        ? [ { type: "body", parameters: [ { type: "text", text: String(booking.name) } ] } ]
-        : [
-            { type: "header", parameters: [{ type: "image", image: { link: `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking.id}` } }] },
-            { type: "body", parameters: [
-                { type: "text", text: String(booking.id) },
-                { type: "text", text: String(booking.adults) },
-                { type: "text", text: String(booking.kids) },
-                { type: "text", text: String(booking.date) },
-                { type: "text", text: String(booking.time) }
-            ]}
-          ];
+
+      let payload: any = {};
+      
+      if (customText) {
+        payload = {
+          messaging_product: "whatsapp",
+          to: cleanMobile,
+          type: "text",
+          text: { body: customText }
+        };
+      } else {
+        const templateName = isWelcome ? "welcome" : "ticket";
+        const langCode = isWelcome ? "en_US" : "en_US"; 
+        
+        const components = isWelcome 
+          ? [ { type: "body", parameters: [ { type: "text", text: String(booking?.name || "Guest") } ] } ]
+          : [
+              { type: "header", parameters: [{ type: "image", image: { link: `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking?.id}` } }] },
+              { type: "body", parameters: [
+                  { type: "text", text: String(booking?.id) },
+                  { type: "text", text: String(booking?.adults) },
+                  { type: "text", text: String(booking?.kids) },
+                  { type: "text", text: String(booking?.date) },
+                  { type: "text", text: String(booking?.time) }
+              ]}
+            ];
+            
+        payload = {
+          messaging_product: "whatsapp",
+          to: cleanMobile,
+          type: "template",
+          template: { name: templateName, language: { code: langCode }, components }
+        };
+      }
+
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messaging_product: "whatsapp", to: cleanMobile, type: "template",
-          template: { name: templateName, language: { code: "en_US" }, components }
-        })
+        body: JSON.stringify(payload)
       });
       const waData = await waRes.json();
       return res.status(waRes.status).json({ success: waRes.ok, details: waData.error?.message || "Sent Successfully" });
     }
 
-    // 4. GATE CHECK-IN
     if (type === 'checkin') {
       const { ticketId } = req.body;
       const response = await sheets.spreadsheets.values.get({ 
@@ -232,7 +245,6 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ success: true });
     }
 
-    // NEW: TICKET DETAILS SEARCH
     if (type === 'ticket_details') {
       const searchId = String(req.query.id).toUpperCase();
       const response = await sheets.spreadsheets.values.get({ 
@@ -253,8 +265,7 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    // 5. STANDARD POST (Booking)
-    if (req.method === "POST" && !type) {
+    if (req.method === "POST") {
       const b = req.body;
       const nowIST = getISTFullTimestamp();
       await sheets.spreadsheets.values.append({
@@ -268,8 +279,7 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ success: true });
     }
 
-    // 6. STANDARD GET (Bookings)
-    if (req.method === "GET" && !type) {
+    if (req.method === "GET") {
       const response = await sheets.spreadsheets.values.get({ 
         spreadsheetId: process.env.SHEET_ID, range: "booking!A2:L1000" 
       });
