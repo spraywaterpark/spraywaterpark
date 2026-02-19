@@ -18,12 +18,13 @@ export const notificationService = {
 
   sendWelcomeMessage: async (booking: any): Promise<{ success: boolean; details?: string }> => {
     try {
+      // Use the pre-approved 'welcome' template from Meta WhatsApp Manager
       const response = await fetch('/api/booking?type=whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           mobile: booking.mobile, 
-          booking: booking,
+          booking: { name: booking.name },
           isWelcome: true 
         })
       });
