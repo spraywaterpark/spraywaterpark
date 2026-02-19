@@ -198,6 +198,27 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ success: true });
     }
 
+    // NEW: TICKET DETAILS SEARCH
+    if (type === 'ticket_details') {
+      const searchId = String(req.query.id).toUpperCase();
+      const response = await sheets.spreadsheets.values.get({ 
+        spreadsheetId: process.env.SHEET_ID, range: "booking!A2:L1000" 
+      });
+      const rows = response.data.values || [];
+      const row = rows.find(r => r[0] === searchId);
+      if (!row) return res.status(404).json({ success: false, details: "Ticket Not Found" });
+      
+      return res.status(200).json({ 
+        success: true, 
+        booking: {
+          id: row[0], name: row[1], mobile: row[2], 
+          adults: parseInt(row[3])||0, kids: parseInt(row[4])||0, 
+          totalAmount: parseInt(row[6])||0, date: row[7], time: row[8], 
+          status: row[10] === "CHECKED-IN" ? "checked-in" : "confirmed"
+        } 
+      });
+    }
+
     // 5. STANDARD POST (Booking)
     if (req.method === "POST" && !type) {
       const b = req.body;
