@@ -148,7 +148,7 @@ export default async function handler(req: any, res: any) {
       
       if (!token || !phoneId) return res.status(400).json({ success: false, details: "WhatsApp API Config missing" });
       
-      // Strict cleaning of mobile number - ensure it's precisely formatted for Meta
+      // Clean mobile for Meta: remove all non-digits, ensure starts with 91
       let cleanMobile = String(mobile || "").replace(/\D/g, '');
       if (cleanMobile.startsWith('0')) cleanMobile = cleanMobile.substring(1);
       if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
@@ -163,20 +163,38 @@ export default async function handler(req: any, res: any) {
           text: { body: customText }
         };
       } else {
+        // AS PER YOUR SCREENSHOT:
+        // Template name: welcome
+        // Language: English (US) -> en_US
+        // Parameters: Exactly one {{1}} in body
         const templateName = isWelcome ? "welcome" : "ticket";
         const langCode = "en_US"; 
         
         const components = isWelcome 
-          ? [ { type: "body", parameters: [ { type: "text", text: String(booking?.name || "Guest") } ] } ]
+          ? [ { 
+              type: "body", 
+              parameters: [ 
+                { type: "text", text: String(booking?.name || "Guest") } 
+              ] 
+            } ]
           : [
-              { type: "header", parameters: [{ type: "image", image: { link: `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking?.id}` } }] },
-              { type: "body", parameters: [
+              { 
+                type: "header", 
+                parameters: [{ 
+                  type: "image", 
+                  image: { link: `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking?.id}` } 
+                }] 
+              },
+              { 
+                type: "body", 
+                parameters: [
                   { type: "text", text: String(booking?.id) },
                   { type: "text", text: String(booking?.adults) },
                   { type: "text", text: String(booking?.kids) },
                   { type: "text", text: String(booking?.date) },
                   { type: "text", text: String(booking?.time) }
-              ]}
+                ] 
+              }
             ];
             
         payload = {
