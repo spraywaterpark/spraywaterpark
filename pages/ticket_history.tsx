@@ -14,7 +14,6 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
     try {
       const res = await notificationService.sendWhatsAppTicket(booking);
       if (res.success) {
-        // Removed the window.alert to allow direct sending without "OK" click
         setSentStatus(booking.id);
         // Reset status after 3 seconds
         setTimeout(() => setSentStatus(null), 3000);
@@ -74,9 +73,9 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
                       <i className="fas fa-check-circle"></i>
                     </div>
                     <div className="max-w-xl space-y-3">
-                      <h3 className="text-2xl font-black text-emerald-900 uppercase tracking-tight">Booking Confirmed!</h3>
-                      <p className="text-emerald-700 font-semibold text-base leading-relaxed">
-                        Thank you for booking with us! 🌊 Click below to receive your ticket on WhatsApp.
+                      <h3 className="text-2xl font-black text-emerald-900 uppercase tracking-tight">TICKET CONFIRMED!</h3>
+                      <p className="text-emerald-700 font-semibold text-base leading-relaxed px-4">
+                        Thank you for booking with us, your confirmed ticket has been sent to your mobile. To resend the ticket on your phone, click the button below.
                       </p>
                     </div>
                     <div className="pt-4 w-full max-w-xs">
@@ -94,7 +93,7 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
                         ) : sentStatus === b.id ? (
                           <><i className="fas fa-check-double"></i> Ticket Sent! ✅</>
                         ) : (
-                          <><i className="fab fa-whatsapp text-lg"></i> Get Ticket on WhatsApp</>
+                          <><i className="fab fa-whatsapp text-lg"></i> Resend Ticket on WhatsApp</>
                         )}
                       </button>
                       {sentStatus === b.id && (
