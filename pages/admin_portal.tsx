@@ -19,14 +19,14 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const [draft, setDraft] = useState<AdminSettings>(settings);
   const [isSaving, setIsSaving] = useState(false);
   const [rentals, setRentals] = useState<LockerReceipt[]>([]);
-  
+  const [searchTerm, setSearchTerm] = useState('');
+
   useEffect(() => {
     setDraft(settings);
     cloudSync.fetchRentals().then(data => { if (data) setRentals(data); });
   }, [settings]);
 
   const stats = useMemo(() => {
-    // Correct IST Today
     const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
     const todayVisits = bookings.filter(b => b.date === todayStr);
     const totalAdults = todayVisits.reduce((s, b) => s + (Number(b.adults) || 0), 0);
@@ -35,29 +35,200 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     const checkedIn = todayVisits.filter(b => b.status === 'checked-in').reduce((s, b) => s + Number(b.adults) + Number(b.kids), 0);
 
     return { revenue, totalBookings: todayVisits.length, totalGuests: totalAdults + totalKids, checkedIn };
-  }, [bookings, rentals]);
+  }, [bookings]);
+
+  const filteredBookings = bookings.filter(b => 
+    b.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    b.mobile.includes(searchTerm)
+  ).slice(0, 50);
+
+  const handleSaveSettings = async () => {
+    setIsSaving(true);
+    const success = await cloudSync.saveSettings(draft);
+    if (success) {
+      onUpdateSettings(draft);
+      alert("Settings updated successfully!");
+    } else {
+      alert("Failed to save settings to cloud.");
+    }
+    setIsSaving(false);
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-8 animate-slide-up">
-      <div className="bg-slate-900 text-white p-12 rounded-[3rem] shadow-2xl relative border border-white/10">
+      {/* Revenue Header */}
+      <div className="bg-slate-900 text-white p-8 md:p-12 rounded-[3rem] shadow-2xl relative border border-white/10">
         <div className="flex flex-col md:flex-row justify-between items-center gap-10">
-          <div>
+          <div className="text-center md:text-left">
             <p className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.5em] mb-3">Today's Revenue (IST)</p>
-            <h2 className="text-6xl font-black tracking-tighter">₹{stats.revenue.toLocaleString()}</h2>
+            <h2 className="text-5xl md:text-6xl font-black tracking-tighter">₹{stats.revenue.toLocaleString()}</h2>
           </div>
-          <div className="grid grid-cols-2 gap-6 w-full md:w-auto">
+          <div className="grid grid-cols-2 gap-4 w-full md:w-auto">
              <div className="bg-white/5 p-6 rounded-3xl text-center"><p className="text-[9px] font-black opacity-40 uppercase">Total Guests</p><p className="text-2xl font-black">{stats.totalGuests}</p></div>
              <div className="bg-emerald-500/10 p-6 rounded-3xl text-center"><p className="text-[9px] font-black text-emerald-400 uppercase">Inside Park</p><p className="text-2xl font-black text-emerald-400">{stats.checkedIn}</p></div>
           </div>
         </div>
+        
+        {/* Navigation Tabs */}
         <div className="flex flex-wrap justify-center bg-white/5 p-1.5 rounded-2xl mt-12 gap-1 border border-white/10">
             {['bookings', 'pricing', 'slots'].map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase ${activeTab === tab ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50'}`}>{tab}</button>
+              <button 
+                key={tab} 
+                onClick={() => setActiveTab(tab as any)} 
+                className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${activeTab === tab ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50 hover:text-white'}`}
+              >
+                {tab}
+              </button>
             ))}
-            <button onClick={() => navigate('/admin-lockers')} className="px-6 py-3 text-[10px] font-black uppercase text-emerald-400 border border-emerald-500/20 rounded-xl ml-2">Lockers <i className="fas fa-external-link-alt ml-2"></i></button>
+            <button onClick={() => navigate('/admin-lockers')} className="px-6 py-3 text-[10px] font-black uppercase text-emerald-400 border border-emerald-500/20 rounded-xl ml-2 hover:bg-emerald-500/10 transition-all">
+              Lockers <i className="fas fa-external-link-alt ml-2"></i>
+            </button>
         </div>
       </div>
-      {/* ... rest of component same ... */}
+
+      {/* Tab Content */}
+      <div className="glass-card rounded-[3rem] p-8 md:p-12 min-h-[500px]">
+        {activeTab === 'bookings' && (
+          <div className="space-y-8">
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+              <h3 className="text-2xl font-black uppercase tracking-tight text-slate-900">Recent Bookings</h3>
+              <input 
+                type="text" 
+                placeholder="Search name, mobile or ID..." 
+                className="input-premium max-w-sm"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-[10px] font-black uppercase text-slate-400 border-b border-slate-100">
+                    <th className="pb-4 px-2">ID</th>
+                    <th className="pb-4 px-2">Guest</th>
+                    <th className="pb-4 px-2">Date/Slot</th>
+                    <th className="pb-4 px-2">Pax</th>
+                    <th className="pb-4 px-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filteredBookings.map(b => (
+                    <tr key={b.id} className="text-xs font-bold text-slate-700">
+                      <td className="py-4 px-2 text-blue-600 uppercase">{b.id}</td>
+                      <td className="py-4 px-2"><p className="font-black text-slate-900 uppercase">{b.name}</p><p className="text-[10px] opacity-50">{b.mobile}</p></td>
+                      <td className="py-4 px-2 uppercase">{b.date}<br/>{b.time.split(':')[0]}</td>
+                      <td className="py-4 px-2">{Number(b.adults) + Number(b.kids)}</td>
+                      <td className="py-4 px-2">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${b.status === 'checked-in' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
+                          {b.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'pricing' && (
+          <div className="max-w-2xl mx-auto space-y-10">
+             <div className="grid grid-cols-2 gap-8">
+                <div className="space-y-4">
+                   <h4 className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Morning Shift Rates</h4>
+                   <div className="space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase text-slate-400 px-2">Adult Rate</label>
+                        <input type="number" className="input-premium" value={draft.morningAdultRate} onChange={e=>setDraft({...draft, morningAdultRate: parseInt(e.target.value)})} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase text-slate-400 px-2">Kid Rate</label>
+                        <input type="number" className="input-premium" value={draft.morningKidRate} onChange={e=>setDraft({...draft, morningKidRate: parseInt(e.target.value)})} />
+                      </div>
+                   </div>
+                </div>
+                <div className="space-y-4">
+                   <h4 className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Evening Shift Rates</h4>
+                   <div className="space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase text-slate-400 px-2">Adult Rate</label>
+                        <input type="number" className="input-premium" value={draft.eveningAdultRate} onChange={e=>setDraft({...draft, eveningAdultRate: parseInt(e.target.value)})} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase text-slate-400 px-2">Kid Rate</label>
+                        <input type="number" className="input-premium" value={draft.eveningKidRate} onChange={e=>setDraft({...draft, eveningKidRate: parseInt(e.target.value)})} />
+                      </div>
+                   </div>
+                </div>
+             </div>
+             <button 
+               onClick={handleSaveSettings} 
+               disabled={isSaving}
+               className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl disabled:opacity-50"
+             >
+                {isSaving ? 'Saving Changes...' : 'Update All Pricing'}
+             </button>
+          </div>
+        )}
+
+        {activeTab === 'slots' && (
+          <div className="max-w-2xl mx-auto space-y-10">
+             <div className="text-center space-y-2">
+                <h3 className="text-2xl font-black uppercase text-slate-900 tracking-tight">Block Special Dates</h3>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Control park availability manually</p>
+             </div>
+             
+             <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100 space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                    <input type="date" className="input-premium" id="new-block-date" />
+                    <select className="input-premium" id="new-block-shift">
+                        <option value="morning">Morning Only</option>
+                        <option value="evening">Evening Only</option>
+                        <option value="all">Full Day</option>
+                    </select>
+                </div>
+                <button 
+                  onClick={() => {
+                    const d = (document.getElementById('new-block-date') as HTMLInputElement).value;
+                    const s = (document.getElementById('new-block-shift') as HTMLSelectElement).value as ShiftType;
+                    if (!d) return alert("Select a date");
+                    const updated = [...draft.blockedSlots, { date: d, shift: s }];
+                    setDraft({...draft, blockedSlots: updated});
+                  }}
+                  className="w-full bg-blue-600 text-white py-4 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg"
+                >
+                  Add Blocked Slot
+                </button>
+             </div>
+
+             <div className="space-y-3">
+                <p className="text-[10px] font-black uppercase text-slate-400 px-4">Currently Blocked</p>
+                {draft.blockedSlots.length === 0 ? (
+                  <p className="p-6 bg-slate-50 rounded-2xl text-[10px] font-bold text-slate-400 uppercase text-center border border-dashed">No slots blocked.</p>
+                ) : (
+                  draft.blockedSlots.map((bs, i) => (
+                    <div key={i} className="bg-white border p-4 rounded-2xl flex justify-between items-center px-6">
+                       <span className="font-black text-xs text-slate-900">{bs.date} — {bs.shift.toUpperCase()}</span>
+                       <button onClick={() => {
+                         const updated = draft.blockedSlots.filter((_, idx) => idx !== i);
+                         setDraft({...draft, blockedSlots: updated});
+                       }} className="text-red-500 text-xs font-black uppercase tracking-widest">Remove</button>
+                    </div>
+                  ))
+                )}
+             </div>
+
+             <button 
+               onClick={handleSaveSettings} 
+               disabled={isSaving}
+               className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl disabled:opacity-50"
+             >
+                Save Availability Changes
+             </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
