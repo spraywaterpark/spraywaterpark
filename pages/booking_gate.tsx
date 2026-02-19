@@ -7,7 +7,10 @@ import { TIME_SLOTS, TERMS_AND_CONDITIONS, OFFERS, DEFAULT_ADMIN_SETTINGS } from
 const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onProceed: any }> = ({ settings, bookings }) => {
   const navigate = useNavigate();
 
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  // GET LOCAL DATE YYYY-MM-DD
+  const getLocalDate = (date = new Date()) => date.toLocaleDateString('en-CA');
+
+  const [date, setDate] = useState(getLocalDate());
   const [slot, setSlot] = useState(TIME_SLOTS[0]);
   const [adults, setAdults] = useState(1);
   const [kids, setKids] = useState(0);
@@ -15,9 +18,14 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
   const [showTerms, setShowTerms] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
+  const todayStr = getLocalDate();
+  const maxDateObj = new Date();
+  maxDateObj.setDate(new Date().getDate() + 7);
+  const maxDateStr = getLocalDate(maxDateObj);
+
   // Check if a specific slot is blocked by admin or by time cut-off
   const isSlotBlocked = (checkDate: string, checkSlot: string) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDate();
     const now = new Date();
     const currentHour = now.getHours();
     
@@ -34,7 +42,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
     );
   };
 
-  // If the currently selected date/slot becomes blocked, update the selection if possible
+  // If the currently selected date/slot becomes blocked, update the selection
   useEffect(() => {
     if (isSlotBlocked(date, slot)) {
       const otherSlot = TIME_SLOTS.find(s => !isSlotBlocked(date, s));
@@ -42,15 +50,27 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
     }
   }, [date]);
 
-  // Robust Rate Selection with Fallbacks
+  // Handle Date Change with Force Validation for Mobiles
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.value;
+    if (!selected) return;
+
+    if (selected < todayStr) {
+      alert("Past dates are not available for booking.");
+      setDate(todayStr);
+    } else if (selected > maxDateStr) {
+      alert("Advance booking is limited to 7 days only.");
+      setDate(maxDateStr);
+    } else {
+      setDate(selected);
+    }
+  };
+
   const isMorning = slot.includes('Morning');
   const adultRate = (isMorning ? (settings?.morningAdultRate || DEFAULT_ADMIN_SETTINGS.morningAdultRate) : (settings?.eveningAdultRate || DEFAULT_ADMIN_SETTINGS.eveningAdultRate)) || 500;
   const kidRate = (isMorning ? (settings?.morningKidRate || DEFAULT_ADMIN_SETTINGS.morningKidRate) : (settings?.eveningKidRate || DEFAULT_ADMIN_SETTINGS.eveningKidRate)) || 350;
 
   const currentOffer = isMorning ? OFFERS.MORNING : OFFERS.EVENING;
-
-  const todayStr = new Date().toISOString().split('T')[0];
-  const maxDateStr = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
 
   const pricingData = useMemo(() => {
     const safeAdults = Number(adults) || 0;
@@ -117,8 +137,15 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                 <div className="space-y-4">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Preferred Date</label>
                     <div className="relative">
-                        <input type="date" className="w-full bg-white h-20 rounded-3xl border-2 border-slate-100 px-8 font-bold text-slate-900 focus:border-blue-500 transition-all outline-none" value={date} min={todayStr} max={maxDateStr} onChange={e => setDate(e.target.value)} />
-                        <p className="absolute -bottom-6 left-4 text-[9px] font-bold text-slate-400 uppercase">Max 7 Days advance booking allowed</p>
+                        <input 
+                            type="date" 
+                            className="w-full bg-white h-20 rounded-3xl border-2 border-slate-100 px-8 font-bold text-slate-900 focus:border-blue-500 transition-all outline-none" 
+                            value={date} 
+                            min={todayStr} 
+                            max={maxDateStr} 
+                            onChange={handleDateChange} 
+                        />
+                        <p className="absolute -bottom-6 left-4 text-[9px] font-bold text-slate-400 uppercase">Advance booking: {todayStr} to {maxDateStr}</p>
                     </div>
                 </div>
 
