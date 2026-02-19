@@ -5,9 +5,10 @@ import { cloudSync } from '../services/cloud_sync';
 import { notificationService } from '../services/notification_service';
 
 const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
-  // Determine initial mode based on role
-  const initialMode = role === 'staff1' ? 'entry' : 'issue';
-  const [mode, setMode] = useState<'entry' | 'issue' | 'return'>(initialMode);
+  // Mode logic based on role: staff1 only entry, staff2 only assets. Admin can switch.
+  const [mode, setMode] = useState<'entry' | 'issue' | 'return'>(
+    role === 'staff1' ? 'entry' : 'issue'
+  );
   
   const [scannedTicket, setScannedTicket] = useState<Booking | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -16,11 +17,10 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [allRentals, setAllRentals] = useState<LockerReceipt[]>([]);
 
-  // Asset states for staff2
+  // Asset states (Lockers/Costumes)
   const [guestName, setGuestName] = useState('');
   const [guestMobile, setGuestMobile] = useState('');
   const [shift, setShift] = useState<ShiftType>('morning');
-  const [receipt, setReceipt] = useState<LockerReceipt | null>(null);
 
   // IST HELPER
   const getISTInfo = () => {
@@ -34,7 +34,8 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
   };
 
   const refreshActive = async () => {
-    if (role === 'staff1') return; // Gate staff doesn't need locker sync
+    // Only fetch locker data if the user is authorized for locker modes
+    if (role === 'staff1') return;
     const rentals = await cloudSync.fetchRentals();
     if (rentals) setAllRentals(rentals);
   };
@@ -133,14 +134,15 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
         });
         const data = await res.json();
         if (data.success) {
+            // Trigger Welcome Notification after entry confirmation
             notificationService.sendWelcomeMessage(scannedTicket).catch(() => {});
-            alert("ENTRY CONFIRMED!\nWelcome message sent.");
+            alert("ENTRY CONFIRMED!\nWelcome message sent to guest.");
             setScannedTicket(null);
         } else {
             alert(data.details || "Check-in Failed.");
         }
     } catch (e) {
-        alert("Sync Error.");
+        alert("Sync Error. Check Internet.");
     } finally {
         setIsSyncing(false);
     }
@@ -149,28 +151,28 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
   return (
     <div className="w-full flex flex-col items-center py-4 px-3 text-white min-h-[90vh]">
       
-      {/* Role-Based Tab Switcher (Visible to Admin or shared roles only) */}
+      {/* Tab Switcher - Only Admin can switch. Staff are locked to their modes. */}
       {(role === 'admin' || !role) && (
         <div className="w-full max-w-md flex bg-white/10 rounded-full p-1 border border-white/10 mb-8">
             {['entry', 'issue', 'return'].map(m => (
-              <button key={m} onClick={() => setMode(m as any)} className={`flex-1 py-3 rounded-full font-black text-[9px] uppercase tracking-widest ${mode === m ? 'bg-blue-600 shadow-lg' : 'text-white/40'}`}>{m}</button>
+              <button key={m} onClick={() => setMode(m as any)} className={`flex-1 py-3 rounded-full font-black text-[9px] uppercase tracking-widest ${mode === m ? 'bg-blue-600 shadow-lg text-white' : 'text-white/40'}`}>{m}</button>
             ))}
         </div>
       )}
 
-      {/* staff1 View: Gate Control */}
-      {(mode === 'entry' || role === 'staff1') && (
-        <div className="w-full max-w-sm space-y-6">
-           <div className="bg-white/10 rounded-[2.5rem] p-6 sm:p-8 text-center space-y-6 backdrop-blur-3xl border border-white/10 shadow-2xl">
+      {/* Mode 1: Gate Control (Strictly for staff1 or admin in entry mode) */}
+      {(mode === 'entry' && (role === 'staff1' || role === 'admin' || !role)) && (
+        <div className="w-full max-w-md space-y-6">
+           <div className="bg-white/10 rounded-[2.5rem] p-6 sm:p-10 text-center space-y-8 backdrop-blur-3xl border border-white/10 shadow-2xl">
               <h3 className="text-2xl font-black uppercase tracking-tight">Gate Control</h3>
 
-              {/* Manual Entry - Stacks on mobile */}
+              {/* Manual Entry Section - Stacks on mobile */}
               <div className="space-y-3">
-                <p className="text-[9px] font-black uppercase text-white/40 text-left px-1 tracking-widest">Manual Search</p>
+                <p className="text-[9px] font-black uppercase text-white/40 text-left px-2 tracking-widest">Manual Ticket Search</p>
                 <div className="flex flex-col gap-3">
                     <input 
                       type="text" 
-                      placeholder="Ticket ID (e.g. SAR/...)" 
+                      placeholder="Ticket ID (SAR/...)" 
                       className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 font-black text-white uppercase text-sm outline-none focus:border-blue-500"
                       value={manualId}
                       onChange={e => setManualId(e.target.value)}
@@ -180,7 +182,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
                       disabled={!manualId.trim() || isSyncing}
                       className="w-full bg-blue-600 py-4 rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-xl active:scale-95 transition-all disabled:opacity-30"
                     >
-                      {isSyncing ? 'Searching...' : 'Search Ticket'}
+                      {isSyncing ? 'Searching...' : 'Search Details'}
                     </button>
                 </div>
               </div>
@@ -193,7 +195,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
 
               {!isScanning && !scannedTicket && (
                 <button onClick={startScanner} className="w-full h-32 bg-white/5 border-2 border-dashed border-white/20 rounded-[2rem] font-black uppercase tracking-widest hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-2">
-                  <i className="fas fa-qrcode text-3xl"></i>
+                  <i className="fas fa-camera text-3xl"></i>
                   <span className="text-[10px]">Open Scanner</span>
                 </button>
               )}
@@ -201,43 +203,44 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
               {isScanning && (
                 <div className="space-y-4">
                    <div id="reader" className="w-full rounded-[2rem] overflow-hidden border-4 border-blue-600 bg-black min-h-[250px]"></div>
-                   <button onClick={stopScanner} className="text-red-400 text-[10px] font-black uppercase tracking-widest">Cancel</button>
+                   <button onClick={stopScanner} className="text-red-400 text-[10px] font-black uppercase tracking-widest p-4">Cancel Camera</button>
                 </div>
               )}
 
+              {/* Result Card - Optimized for mobile */}
               {scannedTicket && (
-                <div className="bg-white text-slate-900 rounded-[2rem] p-5 text-left space-y-6 shadow-2xl border border-slate-100 animate-slide-up w-full overflow-hidden">
+                <div className="bg-white text-slate-900 rounded-[2rem] p-6 text-left space-y-6 shadow-2xl border border-slate-100 animate-slide-up w-full overflow-hidden">
                    {(() => {
                       const v = getValidation(scannedTicket);
                       return (
                         <>
                           <div className="flex flex-col gap-2">
-                             <div className="flex justify-between items-start gap-2">
-                                <div className="min-w-0">
+                             <div className="flex justify-between items-start gap-4">
+                                <div className="min-w-0 flex-1">
                                    <p className="text-[8px] uppercase text-slate-400 font-black tracking-widest mb-0.5">Ticket ID</p>
-                                   <h4 className="text-lg font-black text-slate-900 break-all">{scannedTicket.id}</h4>
+                                   <h4 className="text-lg font-black text-slate-900 break-words">{scannedTicket.id}</h4>
                                 </div>
-                                <div className={`shrink-0 px-2 py-1 rounded-md text-[8px] font-black uppercase ${v.color} ${v.bg}`}>
+                                <div className={`shrink-0 px-2 py-1.5 rounded-lg text-[8px] font-black uppercase ${v.color} ${v.bg}`}>
                                    {v.msg}
                                 </div>
                              </div>
                              {v.sub && <p className="text-[9px] font-bold text-slate-500 uppercase">{v.sub}</p>}
                           </div>
 
-                          <div className="grid grid-cols-2 gap-4 border-y border-slate-100 py-4">
-                             <div className="min-w-0"><p className="text-[8px] uppercase text-slate-400 font-black">Guest</p><p className="font-black text-xs truncate uppercase">{scannedTicket.name}</p></div>
-                             <div className="min-w-0"><p className="text-[8px] uppercase text-slate-400 font-black">Slot</p><p className="font-black text-xs truncate">{scannedTicket.time.split(':')[0]}</p></div>
-                             <div className="min-w-0"><p className="text-[8px] uppercase text-slate-400 font-black">Date</p><p className="font-black text-xs">{scannedTicket.date}</p></div>
-                             <div className="min-w-0"><p className="text-[8px] uppercase text-slate-400 font-black">Pax</p><p className="font-black text-xs">{scannedTicket.adults + scannedTicket.kids}</p></div>
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-6 border-y border-slate-100 py-6">
+                             <div className="min-w-0"><p className="text-[8px] uppercase text-slate-400 font-black mb-0.5">Guest</p><p className="font-black text-xs truncate uppercase">{scannedTicket.name}</p></div>
+                             <div className="min-w-0"><p className="text-[8px] uppercase text-slate-400 font-black mb-0.5">Slot</p><p className="font-black text-xs truncate uppercase">{scannedTicket.time.split(':')[0]}</p></div>
+                             <div className="min-w-0"><p className="text-[8px] uppercase text-slate-400 font-black mb-0.5">Date</p><p className="font-black text-xs">{scannedTicket.date}</p></div>
+                             <div className="min-w-0"><p className="text-[8px] uppercase text-slate-400 font-black mb-0.5">Guests</p><p className="font-black text-xs">{scannedTicket.adults + scannedTicket.kids}</p></div>
                           </div>
 
-                          <div className="space-y-2">
+                          <div className="space-y-3">
                              {v.valid && (
-                               <button onClick={confirmEntry} disabled={isSyncing} className="w-full h-16 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95">
+                               <button onClick={confirmEntry} disabled={isSyncing} className="w-full h-16 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all">
                                  Allow Entry
                                </button>
                              )}
-                             <button onClick={() => setScannedTicket(null)} className="w-full py-2 text-[9px] font-black uppercase text-slate-400 text-center">Close</button>
+                             <button onClick={() => setScannedTicket(null)} className="w-full py-2 text-[9px] font-black uppercase text-slate-400 text-center">Close Details</button>
                           </div>
                         </>
                       );
@@ -248,17 +251,17 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
         </div>
       )}
 
-      {/* staff2 View: Assets (Lockers/Costumes) */}
-      {(role === 'staff2' || (role === 'admin' && (mode === 'issue' || mode === 'return'))) && (
+      {/* Mode 2: Locker Management (Strictly for staff2 or admin in asset modes) */}
+      {((mode === 'issue' || mode === 'return') && (role === 'staff2' || role === 'admin' || !role)) && (
         <div className="w-full max-w-lg space-y-6">
            <div className="bg-white/10 rounded-[2.5rem] p-8 text-center border border-white/10 shadow-2xl space-y-8">
               <h3 className="text-2xl font-black uppercase tracking-tight">Locker Management</h3>
               <div className="space-y-4">
                  <input placeholder="Guest Name" className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white font-black uppercase" value={guestName} onChange={e=>setGuestName(e.target.value)} />
                  <input placeholder="Mobile Number" className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white font-black" value={guestMobile} onChange={e=>setGuestMobile(e.target.value)} />
-                 <button className="w-full bg-emerald-500 py-5 rounded-2xl font-black uppercase text-slate-900 shadow-xl">Issue Asset</button>
+                 <button className="w-full bg-emerald-500 py-5 rounded-2xl font-black uppercase text-slate-900 shadow-xl font-black">Generate Locker Receipt</button>
               </div>
-              <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Locker Section Under Active Dev</p>
+              <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Authorized for Locker Staff only</p>
            </div>
         </div>
       )}
