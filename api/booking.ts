@@ -145,6 +145,40 @@ export default async function handler(req: any, res: any) {
       }
     }
 
+    // RESET SHIFT (Mark all as returned)
+    if (type === 'reset_shift') {
+      if (req.method === "POST") {
+        const response = await sheets.spreadsheets.values.get({
+          spreadsheetId: process.env.SHEET_ID,
+          range: "Lockers!A2:N2000"
+        });
+        const rows = response.data.values || [];
+        const nowIST = getISTFullTimestamp();
+        
+        // Prepare updates: for rows with status "issued", set to "returned"
+        const updates = rows.map((row, index) => {
+          if (row[13] === 'issued') {
+            return {
+              range: `Lockers!N${index + 2}:P${index + 2}`,
+              values: [['returned', '', nowIST]]
+            };
+          }
+          return null;
+        }).filter(Boolean);
+
+        if (updates.length > 0) {
+          await sheets.spreadsheets.values.batchUpdate({
+            spreadsheetId: process.env.SHEET_ID,
+            requestBody: {
+              valueInputOption: "RAW",
+              data: updates as any
+            }
+          });
+        }
+        return res.status(200).json({ success: true });
+      }
+    }
+
     // 3. WHATSAPP
     if (type === 'whatsapp') {
       const { mobile, booking, isWelcome } = req.body;
