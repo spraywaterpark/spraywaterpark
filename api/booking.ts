@@ -1,6 +1,22 @@
 
 import { google } from "googleapis";
 
+// Helper for IST Time
+const getISTTime = (options?: Intl.DateTimeFormatOptions) => {
+  return new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    ...options
+  }).format(new Date());
+};
+
+const getISTFullTimestamp = () => {
+  return new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    dateStyle: 'short',
+    timeStyle: 'medium'
+  }).format(new Date());
+};
+
 export default async function handler(req: any, res: any) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
@@ -18,7 +34,7 @@ export default async function handler(req: any, res: any) {
   const action = req.query.action;
 
   try {
-    // 1. SETTINGS SYNC (Sheet: adminpanel)
+    // 1. SETTINGS SYNC
     if (type === 'settings') {
       if (req.method === "GET") {
         const response = await sheets.spreadsheets.values.get({ 
@@ -71,7 +87,7 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // 2. RENTALS (Sheet: Lockers)
+    // 2. RENTALS (Lockers)
     if (type === 'rentals') {
       if (req.method === "GET") {
         const response = await sheets.spreadsheets.values.get({
@@ -80,22 +96,13 @@ export default async function handler(req: any, res: any) {
         });
         const rows = response.data.values || [];
         const rentals = rows.map(r => ({
-          receiptNo: r[0],
-          guestName: r[1],
-          guestMobile: r[2],
-          date: r[3],
-          shift: r[4],
+          receiptNo: r[0], guestName: r[1], guestMobile: r[2], date: r[3], shift: r[4],
           maleLockers: r[5] ? r[5].split(',').map(Number) : [],
           femaleLockers: r[6] ? r[6].split(',').map(Number) : [],
-          maleCostumes: parseInt(r[7]) || 0,
-          femaleCostumes: parseInt(r[8]) || 0,
-          rentAmount: parseInt(r[9]) || 0,
-          securityDeposit: parseInt(r[10]) || 0,
-          totalCollected: parseInt(r[11]) || 0,
-          refundableAmount: parseInt(r[12]) || 0,
-          status: r[13],
-          createdAt: r[14],
-          returnedAt: r[15] || ''
+          maleCostumes: parseInt(r[7]) || 0, femaleCostumes: parseInt(r[8]) || 0,
+          rentAmount: parseInt(r[9]) || 0, securityDeposit: parseInt(r[10]) || 0,
+          totalCollected: parseInt(r[11]) || 0, refundableAmount: parseInt(r[12]) || 0,
+          status: r[13], createdAt: r[14], returnedAt: r[15] || ''
         }));
         return res.status(200).json(rentals);
       }
@@ -104,50 +111,32 @@ export default async function handler(req: any, res: any) {
         if (action === 'update') {
           const rental = req.body;
           const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: process.env.SHEET_ID,
-            range: "Lockers!A2:A2000"
+            spreadsheetId: process.env.SHEET_ID, range: "Lockers!A2:A2000"
           });
           const rows = response.data.values || [];
           const rowIndex = rows.findIndex(r => r[0] === rental.receiptNo);
           if (rowIndex === -1) return res.status(404).json({ success: false, details: "Receipt not found" });
 
-          // Update Status (N) and ReturnedAt (P)
+          const nowIST = getISTFullTimestamp();
           await sheets.spreadsheets.values.update({
             spreadsheetId: process.env.SHEET_ID,
             range: `Lockers!N${rowIndex + 2}:P${rowIndex + 2}`,
             valueInputOption: "RAW",
-            requestBody: {
-              values: [[rental.status, "", rental.returnedAt]] // Column O (createdAt) is skipped by making it empty string or we can just target N and P specifically
-            }
+            requestBody: { values: [[rental.status, "", nowIST]] }
           });
-          // Better way: target columns individually or ensure array length matches range
-          await sheets.spreadsheets.values.update({
-            spreadsheetId: process.env.SHEET_ID,
-            range: `Lockers!N${rowIndex + 2}`,
-            valueInputOption: "RAW",
-            requestBody: { values: [[rental.status]] }
-          });
-          await sheets.spreadsheets.values.update({
-            spreadsheetId: process.env.SHEET_ID,
-            range: `Lockers!P${rowIndex + 2}`,
-            valueInputOption: "RAW",
-            requestBody: { values: [[rental.returnedAt]] }
-          });
-
           return res.status(200).json({ success: true });
         } else {
           const r = req.body;
+          const nowIST = getISTFullTimestamp();
           await sheets.spreadsheets.values.append({
-            spreadsheetId: process.env.SHEET_ID,
-            range: "Lockers!A:P",
+            spreadsheetId: process.env.SHEET_ID, range: "Lockers!A:P",
             valueInputOption: "RAW",
             requestBody: {
               values: [[
                 r.receiptNo, r.guestName, r.guestMobile, r.date, r.shift,
                 r.maleLockers.join(','), r.femaleLockers.join(','),
-                r.maleCostumes, r.femaleCostumes,
-                r.rentAmount, r.securityDeposit, r.totalCollected,
-                r.refundableAmount, r.status, r.createdAt, ""
+                r.maleCostumes, r.femaleCostumes, r.rentAmount, r.securityDeposit, 
+                r.totalCollected, r.refundableAmount, r.status, nowIST, ""
               ]]
             }
           });
@@ -156,7 +145,7 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // 3. WHATSAPP NOTIFICATION
+    // 3. WHATSAPP
     if (type === 'whatsapp') {
       const { mobile, booking, isWelcome } = req.body;
       const token = (process.env.WHATSAPP_TOKEN || "").trim();
@@ -181,9 +170,7 @@ export default async function handler(req: any, res: any) {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messaging_product: "whatsapp",
-          to: cleanMobile,
-          type: "template",
+          messaging_product: "whatsapp", to: cleanMobile, type: "template",
           template: { name: templateName, language: { code: "en_US" }, components }
         })
       });
@@ -191,68 +178,45 @@ export default async function handler(req: any, res: any) {
       return res.status(waRes.status).json({ success: waRes.ok, details: waData.error?.message || "Sent Successfully" });
     }
 
-    // 4. TICKET DETAILS FOR SCANNER
-    if (type === 'ticket_details') {
-      const response = await sheets.spreadsheets.values.get({ 
-        spreadsheetId: process.env.SHEET_ID, 
-        range: "booking!A2:L1000" 
-      });
-      const rows = response.data.values || [];
-      const row = rows.find(r => r[0] === id);
-      if (!row) return res.status(404).json({ success: false, details: "Ticket Not Found" });
-      return res.status(200).json({ 
-        success: true, 
-        booking: { 
-          id: row[0], name: row[1], mobile: row[2], adults: parseInt(row[3])||0, kids: parseInt(row[4])||0, 
-          totalAmount: row[6], date: row[7], time: row[8], status: row[10] === "CHECKED-IN" ? "checked-in" : "confirmed",
-          checkinTime: row[11] || ''
-        }
-      });
-    }
-
-    // 5. GATE CHECK-IN
+    // 4. GATE CHECK-IN
     if (type === 'checkin') {
       const { ticketId } = req.body;
       const response = await sheets.spreadsheets.values.get({ 
-        spreadsheetId: process.env.SHEET_ID, 
-        range: "booking!A2:L1000" 
+        spreadsheetId: process.env.SHEET_ID, range: "booking!A2:L1000" 
       });
       const rows = response.data.values || [];
       const rowIndex = rows.findIndex(r => r[0] === ticketId);
       if (rowIndex === -1) return res.status(404).json({ success: false, details: "Ticket Not Found" });
       
-      const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-      
+      const nowIST = getISTTime({ hour: '2-digit', minute: '2-digit', hour12: true });
       await sheets.spreadsheets.values.update({
         spreadsheetId: process.env.SHEET_ID,
         range: `booking!K${rowIndex + 2}:L${rowIndex + 2}`,
         valueInputOption: "RAW",
-        requestBody: { values: [["CHECKED-IN", now]] }
+        requestBody: { values: [["CHECKED-IN", nowIST]] }
       });
       return res.status(200).json({ success: true });
     }
 
-    // 6. STANDARD BOOKING POST
+    // 5. STANDARD POST (Booking)
     if (req.method === "POST" && !type) {
       const b = req.body;
+      const nowIST = getISTFullTimestamp();
       await sheets.spreadsheets.values.append({
-        spreadsheetId: process.env.SHEET_ID,
-        range: "booking!A:L",
+        spreadsheetId: process.env.SHEET_ID, range: "booking!A:L",
         valueInputOption: "RAW",
         requestBody: { values: [[
-          b.id, b.name, b.mobile, b.adults, b.kids, 
-          Number(b.adults) + Number(b.kids), b.amount, 
-          b.date, b.time, "PAID", "YET TO ARRIVE", ""
+          b.id, b.name, b.mobile, b.adults, b.kids, Number(b.adults) + Number(b.kids), 
+          b.amount, b.date, b.time, "PAID", "YET TO ARRIVE", ""
         ]] }
       });
       return res.status(200).json({ success: true });
     }
 
-    // 7. STANDARD BOOKING GET
+    // 6. STANDARD GET (Bookings)
     if (req.method === "GET" && !type) {
       const response = await sheets.spreadsheets.values.get({ 
-        spreadsheetId: process.env.SHEET_ID, 
-        range: "booking!A2:L1000" 
+        spreadsheetId: process.env.SHEET_ID, range: "booking!A2:L1000" 
       });
       const rows = response.data.values || [];
       return res.status(200).json(rows.map(row => ({
@@ -264,7 +228,6 @@ export default async function handler(req: any, res: any) {
       })).reverse());
     }
   } catch (e: any) {
-    console.error("Critical API Error:", e.message);
-    return res.status(500).json({ success: false, details: "Server Sync Error" });
+    return res.status(500).json({ success: false, details: "Sync Error" });
   }
 }
