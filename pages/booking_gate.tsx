@@ -179,7 +179,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                 </div>
             </div>
 
-            {/* FOOD OPTION BANNER */}
+            {/* FOOD OPTION BANNER - RESTORED */}
             <div className="bg-emerald-500/10 border border-emerald-500/20 p-6 rounded-[2.5rem] flex items-center gap-6 animate-pulse shadow-sm">
                 <div className="w-12 h-12 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xl shadow-lg shadow-emerald-200">
                     <i className="fas fa-gift"></i>
@@ -194,6 +194,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
         {/* Checkout Summary */}
         <div className="flex justify-center pt-10">
             <div className="w-full max-w-md bg-slate-900 rounded-[3rem] p-10 shadow-2xl space-y-8 border border-white/5">
+                {/* DISCOUNT DETAILS - RESTORED */}
                 <div className="space-y-4 border-b border-white/10 pb-6">
                     <div className="flex justify-between items-center text-[10px] font-black uppercase text-white/40 tracking-widest">
                         <span>Subtotal</span>
