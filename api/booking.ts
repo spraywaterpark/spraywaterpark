@@ -1,4 +1,5 @@
 
+
 import { google } from "googleapis";
 
 // Helper for IST Time
@@ -148,20 +149,10 @@ export default async function handler(req: any, res: any) {
       
       if (!token || !phoneId) return res.status(400).json({ success: false, details: "WhatsApp API Config missing" });
       
-      // Clean mobile number strictly for Meta Cloud API
+      // Clean mobile for Meta: remove all non-digits, ensure starts with 91
       let cleanMobile = String(mobile || "").replace(/\D/g, '');
-      
-      // Remove any leading '0' or double '91' patterns
-      if (cleanMobile.startsWith('910') && cleanMobile.length === 13) {
-        cleanMobile = '91' + cleanMobile.substring(3);
-      } else if (cleanMobile.startsWith('0')) {
-        cleanMobile = cleanMobile.substring(1);
-      }
-      
-      // Ensure 91 prefix for 10-digit India numbers
-      if (cleanMobile.length === 10) {
-        cleanMobile = "91" + cleanMobile;
-      }
+      if (cleanMobile.startsWith('0')) cleanMobile = cleanMobile.substring(1);
+      if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
 
       let payload: any = {};
       
@@ -173,20 +164,18 @@ export default async function handler(req: any, res: any) {
           text: { body: customText }
         };
       } else {
-        // AS PER SCREENSHOT: 
+        // AS PER YOUR SCREENSHOT:
         // Template name: welcome
         // Language: English (US) -> en_US
         // Parameters: Exactly one {{1}} in body
         const templateName = isWelcome ? "welcome" : "ticket";
-        
-        // Use en_US for the welcome template as shown in your screenshot
-        const langCode = isWelcome ? "en_US" : "en"; 
+        const langCode = "en_US"; 
         
         const components = isWelcome 
           ? [ { 
               type: "body", 
               parameters: [ 
-                { type: "text", text: String(booking?.name || "Guest").trim() } 
+                { type: "text", text: String(booking?.name || "Guest") } 
               ] 
             } ]
           : [
