@@ -148,19 +148,10 @@ export default async function handler(req: any, res: any) {
       
       if (!token || !phoneId) return res.status(400).json({ success: false, details: "WhatsApp API Config missing" });
       
-      // Clean mobile number strictly for Meta Cloud API
+      // Clean mobile for Meta: remove all non-digits, ensure starts with 91
       let cleanMobile = String(mobile || "").replace(/\D/g, '');
-      
-      // Handle India specific prefix scenarios
-      if (cleanMobile.startsWith('910') && cleanMobile.length === 13) {
-        cleanMobile = '91' + cleanMobile.substring(3);
-      }
-      if (cleanMobile.startsWith('0')) {
-        cleanMobile = cleanMobile.substring(1);
-      }
-      if (cleanMobile.length === 10) {
-        cleanMobile = "91" + cleanMobile;
-      }
+      if (cleanMobile.startsWith('0')) cleanMobile = cleanMobile.substring(1);
+      if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
 
       let payload: any = {};
       
@@ -172,15 +163,18 @@ export default async function handler(req: any, res: any) {
           text: { body: customText }
         };
       } else {
-        // AS PER SCREENSHOT: Template 'welcome', Language 'English (US)' (en_US)
+        // AS PER YOUR SCREENSHOT:
+        // Template name: welcome
+        // Language: English (US) -> en_US
+        // Parameters: Exactly one {{1}} in body
         const templateName = isWelcome ? "welcome" : "ticket";
-        const langCode = isWelcome ? "en_US" : "en"; // Try en_US specifically for welcome
+        const langCode = "en_US"; 
         
         const components = isWelcome 
           ? [ { 
               type: "body", 
               parameters: [ 
-                { type: "text", text: String(booking?.name || "Guest").trim() } 
+                { type: "text", text: String(booking?.name || "Guest") } 
               ] 
             } ]
           : [
@@ -226,7 +220,6 @@ export default async function handler(req: any, res: any) {
       const waData = await waRes.json();
       
       if (!waRes.ok) {
-        console.error("Meta API Error:", waData);
         return res.status(waRes.status).json({ 
           success: false, 
           details: waData.error?.message || "WhatsApp API Error" 
@@ -303,7 +296,6 @@ export default async function handler(req: any, res: any) {
       })).reverse());
     }
   } catch (e: any) {
-    console.error("Handler Error:", e);
     return res.status(500).json({ success: false, details: e.message || "Sync Error" });
   }
 }
