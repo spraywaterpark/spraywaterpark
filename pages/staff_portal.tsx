@@ -109,6 +109,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
         const data = await res.json();
         if (data.success) {
             // Send WELCOME Message explicitly on Staff 1 Confirmation
+            // Passes current scanned ticket which has both mobile and name
             const waRes = await notificationService.sendWelcomeMessage(scannedTicket);
             if (!waRes.success) {
               console.warn("Welcome message failed:", waRes.details);
