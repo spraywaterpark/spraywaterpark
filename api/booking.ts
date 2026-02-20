@@ -37,6 +37,83 @@ export default async function handler(req: any, res: any) {
   const type = req.query.type;
 
   try {
+    // --- SETTINGS LOGIC ---
+    if (type === 'settings') {
+      if (req.method === "GET") {
+        const response = await sheets.spreadsheets.values.get({ 
+          spreadsheetId: process.env.SHEET_ID, 
+          range: "adminpanel!A2:H100" 
+        });
+        const rows = response.data.values || [];
+        if (rows.length === 0) return res.status(200).json({});
+        
+        const firstRow = rows[0];
+        const settings: any = {
+          morningAdultRate: parseInt(firstRow[0]) || 0,
+          morningKidRate: parseInt(firstRow[1]) || 0,
+          eveningAdultRate: parseInt(firstRow[2]) || 0,
+          eveningKidRate: parseInt(firstRow[3]) || 0,
+          earlyBirdDiscount: parseInt(firstRow[4]) || 0,
+          extraDiscountPercent: parseInt(firstRow[5]) || 0,
+          blockedSlots: []
+        };
+
+        // Parse Blocked Slots from columns G (6) and H (7)
+        rows.forEach(row => {
+          if (row[6] && row[7]) {
+            settings.blockedSlots.push({ date: row[6], shift: row[7] });
+          }
+        });
+        
+        return res.status(200).json(settings);
+      }
+
+      if (req.method === "POST") {
+        const s = req.body;
+        const primaryValues = [
+          s.morningAdultRate, 
+          s.morningKidRate, 
+          s.eveningAdultRate, 
+          s.eveningKidRate, 
+          s.earlyBirdDiscount, 
+          s.extraDiscountPercent
+        ];
+        
+        const blockedSlots = s.blockedSlots || [];
+        const rowsToUpdate = [];
+        const maxRows = Math.max(1, blockedSlots.length);
+
+        for (let i = 0; i < maxRows; i++) {
+          // Row structure: A-F (Rates), G-H (Blocked Slots)
+          const row = i === 0 ? [...primaryValues] : ["", "", "", "", "", ""];
+          if (blockedSlots[i]) {
+            row[6] = blockedSlots[i].date;
+            row[7] = blockedSlots[i].shift;
+          } else {
+            row[6] = ""; 
+            row[7] = "";
+          }
+          rowsToUpdate.push(row);
+        }
+
+        // Clear and Update
+        await sheets.spreadsheets.values.clear({ 
+          spreadsheetId: process.env.SHEET_ID, 
+          range: "adminpanel!A2:H100" 
+        });
+        
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: process.env.SHEET_ID,
+          range: "adminpanel!A2",
+          valueInputOption: "RAW",
+          requestBody: { values: rowsToUpdate }
+        });
+
+        return res.status(200).json({ success: true });
+      }
+    }
+
+    // --- WHATSAPP LOGIC ---
     if (type === 'whatsapp') {
       const { mobile, booking, isWelcome } = req.body;
       const token = (process.env.WHATSAPP_TOKEN || "").trim();
@@ -51,7 +128,6 @@ export default async function handler(req: any, res: any) {
       let payload: any = {};
       
       if (isWelcome) {
-        // Welcome Template - en_US (Screenshot 1)
         payload = {
           messaging_product: "whatsapp",
           to: cleanMobile,
@@ -66,7 +142,6 @@ export default async function handler(req: any, res: any) {
           }
         };
       } else {
-        // Ticket Template - en_US (Screenshot 2)
         payload = {
           messaging_product: "whatsapp",
           to: cleanMobile,
@@ -85,11 +160,11 @@ export default async function handler(req: any, res: any) {
               { 
                 type: "body", 
                 parameters: [
-                  { type: "text", text: String(booking?.id) },     // {{1}} Ticket No
-                  { type: "text", text: String(booking?.adults) }, // {{2}} Adults
-                  { type: "text", text: String(booking?.kids) },   // {{3}} Kids
-                  { type: "text", text: String(booking?.date) },   // {{4}} Date
-                  { type: "text", text: String(booking?.time) }   // {{5}} Slot
+                  { type: "text", text: String(booking?.id) },
+                  { type: "text", text: String(booking?.adults) },
+                  { type: "text", text: String(booking?.kids) },
+                  { type: "text", text: String(booking?.date) },
+                  { type: "text", text: String(booking?.time) }
                 ] 
               }
             ]
@@ -106,6 +181,7 @@ export default async function handler(req: any, res: any) {
       return res.status(waRes.ok ? 200 : 400).json({ success: waRes.ok, details: waData.error?.message || "Success" });
     }
 
+    // --- GATE ENTRY VALIDATION ---
     if (type === 'ticket_details') {
       const searchId = String(req.query.id).toUpperCase();
       const response = await sheets.spreadsheets.values.get({ 
@@ -125,7 +201,6 @@ export default async function handler(req: any, res: any) {
       else if (bDate < todayStr) validation = "EXPIRED";
       else if (bDate > todayStr) validation = "FUTURE_DATE";
       else {
-        // Same day, check shift
         const isMorningShift = bSlot.includes("morning");
         const currentShift = currentHour < 15 ? "morning" : "evening";
         if (isMorningShift && currentShift === "evening") validation = "EXPIRED_SLOT";
@@ -163,7 +238,7 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ success: true });
     }
 
-    // Default POST for booking
+    // --- DEFAULT POST (BOOKING) ---
     if (req.method === "POST") {
       const b = req.body;
       await sheets.spreadsheets.values.append({
@@ -177,25 +252,7 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ success: true });
     }
 
-    // Default GET for settings
-    if (type === 'settings' && req.method === "GET") {
-      const response = await sheets.spreadsheets.values.get({ 
-        spreadsheetId: process.env.SHEET_ID, range: "adminpanel!A2:H100" 
-      });
-      const rows = response.data.values || [];
-      if (rows.length === 0) return res.status(200).json({});
-      const firstRow = rows[0];
-      return res.status(200).json({
-        morningAdultRate: parseInt(firstRow[0]) || 0,
-        morningKidRate: parseInt(firstRow[1]) || 0,
-        eveningAdultRate: parseInt(firstRow[2]) || 0,
-        eveningKidRate: parseInt(firstRow[3]) || 0,
-        earlyBirdDiscount: parseInt(firstRow[4]) || 0,
-        extraDiscountPercent: parseInt(firstRow[5]) || 0,
-        blockedSlots: []
-      });
-    }
-
+    // --- DEFAULT GET (BOOKINGS LIST) ---
     if (req.method === "GET") {
       const response = await sheets.spreadsheets.values.get({ 
         spreadsheetId: process.env.SHEET_ID, range: "booking!A2:L1000" 
