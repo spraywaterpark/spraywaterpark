@@ -1,5 +1,4 @@
 
-
 import { google } from "googleapis";
 
 // Helper for IST Time
@@ -149,10 +148,16 @@ export default async function handler(req: any, res: any) {
       
       if (!token || !phoneId) return res.status(400).json({ success: false, details: "WhatsApp API Config missing" });
       
-      // Clean mobile for Meta: remove all non-digits, ensure starts with 91
+      // Strict cleaning for India numbers (91 prefix)
       let cleanMobile = String(mobile || "").replace(/\D/g, '');
-      if (cleanMobile.startsWith('0')) cleanMobile = cleanMobile.substring(1);
-      if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
+      if (cleanMobile.startsWith('910') && cleanMobile.length === 13) {
+        cleanMobile = '91' + cleanMobile.substring(3);
+      } else if (cleanMobile.startsWith('0')) {
+        cleanMobile = cleanMobile.substring(1);
+      }
+      if (cleanMobile.length === 10) {
+        cleanMobile = "91" + cleanMobile;
+      }
 
       let payload: any = {};
       
@@ -164,50 +169,57 @@ export default async function handler(req: any, res: any) {
           text: { body: customText }
         };
       } else {
-        // AS PER YOUR SCREENSHOT:
-        // Template name: welcome
-        // Language: English (US) -> en_US
-        // Parameters: Exactly one {{1}} in body
-        const templateName = isWelcome ? "welcome" : "ticket";
-        const langCode = "en_US"; 
-        
-        const components = isWelcome 
-          ? [ { 
-              type: "body", 
-              parameters: [ 
-                { type: "text", text: String(booking?.name || "Guest") } 
-              ] 
-            } ]
-          : [
-              { 
-                type: "header", 
-                parameters: [{ 
-                  type: "image", 
-                  image: { link: `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking?.id}` } 
-                }] 
-              },
-              { 
-                type: "body", 
-                parameters: [
-                  { type: "text", text: String(booking?.id) },
-                  { type: "text", text: String(booking?.adults) },
-                  { type: "text", text: String(booking?.kids) },
-                  { type: "text", text: String(booking?.date) },
-                  { type: "text", text: String(booking?.time) }
-                ] 
-              }
-            ];
-            
-        payload = {
-          messaging_product: "whatsapp",
-          to: cleanMobile,
-          type: "template",
-          template: { 
-            name: templateName, 
-            language: { code: langCode }, 
-            components: components 
-          }
-        };
+        // Distinct handling for two separate templates
+        if (isWelcome) {
+            // WELCOME TEMPLATE (Meta approved: 'welcome', lang: 'en_US', one body variable)
+            payload = {
+                messaging_product: "whatsapp",
+                to: cleanMobile,
+                type: "template",
+                template: { 
+                    name: "welcome", 
+                    language: { code: "en_US" }, 
+                    components: [
+                        { 
+                            type: "body", 
+                            parameters: [ 
+                                { type: "text", text: String(booking?.name || "Guest").trim() } 
+                            ] 
+                        }
+                    ]
+                }
+            };
+        } else {
+            // TICKET TEMPLATE (Meta approved: 'ticket', lang: 'en')
+            payload = {
+                messaging_product: "whatsapp",
+                to: cleanMobile,
+                type: "template",
+                template: { 
+                    name: "ticket", 
+                    language: { code: "en" }, 
+                    components: [
+                        { 
+                            type: "header", 
+                            parameters: [{ 
+                                type: "image", 
+                                image: { link: `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking?.id}` } 
+                            }] 
+                        },
+                        { 
+                            type: "body", 
+                            parameters: [
+                                { type: "text", text: String(booking?.id) },
+                                { type: "text", text: String(booking?.adults) },
+                                { type: "text", text: String(booking?.kids) },
+                                { type: "text", text: String(booking?.date) },
+                                { type: "text", text: String(booking?.time) }
+                            ] 
+                        }
+                    ]
+                }
+            };
+        }
       }
 
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
