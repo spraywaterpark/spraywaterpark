@@ -24,42 +24,49 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
   const fetchRentals = async () => {
     setIsLoadingRentals(true);
-    const data = await cloudSync.fetchRentals();
-    if (data) setRentals(data);
-    setIsLoadingRentals(false);
+    try {
+      const data = await cloudSync.fetchRentals();
+      if (Array.isArray(data)) setRentals(data);
+    } catch (e) {
+      console.error("Rental sync error", e);
+    } finally {
+      setIsLoadingRentals(false);
+    }
   };
 
   useEffect(() => {
-    setDraft(settings);
+    if (settings) {
+      setDraft({ ...settings, blockedSlots: settings.blockedSlots || [] });
+    }
     fetchRentals();
   }, [settings]);
 
   const stats = useMemo(() => {
     const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-    const todayVisits = bookings.filter(b => b.date === todayStr);
+    const todayVisits = (bookings || []).filter(b => b.date === todayStr);
     const totalAdults = todayVisits.reduce((s, b) => s + (Number(b.adults) || 0), 0);
     const totalKids = todayVisits.reduce((s, b) => s + (Number(b.kids) || 0), 0);
     const revenue = todayVisits.reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
-    const checkedIn = todayVisits.filter(b => b.status === 'checked-in').reduce((s, b) => s + Number(b.adults) + Number(b.kids), 0);
+    const checkedIn = todayVisits.filter(b => b.status === 'checked-in').reduce((s, b) => s + (Number(b.adults) || 0) + (Number(b.kids) || 0), 0);
 
-    const activeRentals = rentals.filter(r => r.status === 'issued');
+    const activeRentals = (rentals || []).filter(r => r.status === 'issued');
     const securityHeld = activeRentals.reduce((s, r) => s + (Number(r.refundableAmount) || 0), 0);
     const maleBusy = activeRentals.flatMap(r => r.maleLockers || []).length;
     const femaleBusy = activeRentals.flatMap(r => r.femaleLockers || []).length;
 
     return { 
-      revenue, 
+      revenue: revenue || 0, 
       totalBookings: todayVisits.length, 
       totalGuests: totalAdults + totalKids, 
-      checkedIn,
+      checkedIn: checkedIn || 0,
       activeRentals: activeRentals.length,
-      securityHeld,
+      securityHeld: securityHeld || 0,
       maleBusy,
       femaleBusy
     };
   }, [bookings, rentals]);
 
-  const filteredBookings = bookings.filter(b => 
+  const filteredBookings = (bookings || []).filter(b => 
     b.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
     b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     b.mobile.includes(searchTerm)
@@ -240,11 +247,11 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                    <div className="space-y-3">
                       <div className="space-y-1">
                         <label className="text-[9px] font-black uppercase text-slate-400 px-2">Adult Rate</label>
-                        <input type="number" className="input-premium" value={draft.morningAdultRate} onChange={e=>setDraft({...draft, morningAdultRate: parseInt(e.target.value)})} />
+                        <input type="number" className="input-premium" value={draft.morningAdultRate} onChange={e=>setDraft({...draft, morningAdultRate: parseInt(e.target.value) || 0})} />
                       </div>
                       <div className="space-y-1">
                         <label className="text-[9px] font-black uppercase text-slate-400 px-2">Kid Rate</label>
-                        <input type="number" className="input-premium" value={draft.morningKidRate} onChange={e=>setDraft({...draft, morningKidRate: parseInt(e.target.value)})} />
+                        <input type="number" className="input-premium" value={draft.morningKidRate} onChange={e=>setDraft({...draft, morningKidRate: parseInt(e.target.value) || 0})} />
                       </div>
                    </div>
                 </div>
@@ -253,11 +260,11 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                    <div className="space-y-3">
                       <div className="space-y-1">
                         <label className="text-[9px] font-black uppercase text-slate-400 px-2">Adult Rate</label>
-                        <input type="number" className="input-premium" value={draft.eveningAdultRate} onChange={e=>setDraft({...draft, eveningAdultRate: parseInt(e.target.value)})} />
+                        <input type="number" className="input-premium" value={draft.eveningAdultRate} onChange={e=>setDraft({...draft, eveningAdultRate: parseInt(e.target.value) || 0})} />
                       </div>
                       <div className="space-y-1">
                         <label className="text-[9px] font-black uppercase text-slate-400 px-2">Kid Rate</label>
-                        <input type="number" className="input-premium" value={draft.eveningKidRate} onChange={e=>setDraft({...draft, eveningKidRate: parseInt(e.target.value)})} />
+                        <input type="number" className="input-premium" value={draft.eveningKidRate} onChange={e=>setDraft({...draft, eveningKidRate: parseInt(e.target.value) || 0})} />
                       </div>
                    </div>
                 </div>
@@ -293,8 +300,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                     const d = (document.getElementById('new-block-date') as HTMLInputElement).value;
                     const s = (document.getElementById('new-block-shift') as HTMLSelectElement).value as ShiftType;
                     if (!d) return alert("Select a date");
-                    // Important: Update local draft state
-                    const updated = [...draft.blockedSlots, { date: d, shift: s }];
+                    const updated = [...(draft.blockedSlots || []), { date: d, shift: s }];
                     setDraft({...draft, blockedSlots: updated});
                   }}
                   className="w-full bg-blue-600 text-white py-4 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg"
@@ -305,7 +311,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
              <div className="space-y-3">
                 <p className="text-[10px] font-black uppercase text-slate-400 px-4">Currently Blocked</p>
-                {draft.blockedSlots.length === 0 ? (
+                {(!draft.blockedSlots || draft.blockedSlots.length === 0) ? (
                   <p className="p-6 bg-slate-50 rounded-2xl text-[10px] font-bold text-slate-400 uppercase text-center border border-dashed">No slots blocked.</p>
                 ) : (
                   draft.blockedSlots.map((bs, i) => (
