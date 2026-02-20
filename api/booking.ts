@@ -148,12 +148,12 @@ export default async function handler(req: any, res: any) {
       
       if (!token || !phoneId) return res.status(400).json({ success: false, details: "WhatsApp API Config missing" });
       
-      // Robust India Mobile Number Cleaning
+      // Strict 12-digit Indian number formatting (91XXXXXXXXXX)
       let cleanMobile = String(mobile || "").replace(/\D/g, '');
       if (cleanMobile.length > 10) {
-        cleanMobile = cleanMobile.slice(-10); // Take last 10 digits
+        cleanMobile = cleanMobile.slice(-10); 
       }
-      cleanMobile = "91" + cleanMobile; // Ensure 91 prefix
+      cleanMobile = "91" + cleanMobile;
 
       let payload: any = {};
       
@@ -166,7 +166,7 @@ export default async function handler(req: any, res: any) {
         };
       } else {
         if (isWelcome) {
-          // SECOND STEP: Welcome Message after verification
+          // 'welcome' template - Language 'en_US' as seen in screenshot
           payload = {
             messaging_product: "whatsapp",
             to: cleanMobile,
@@ -185,14 +185,14 @@ export default async function handler(req: any, res: any) {
             }
           };
         } else {
-          // FIRST STEP: Ticket after booking
+          // 'ticket' template - Language 'en_US' as seen in screenshot
           payload = {
             messaging_product: "whatsapp",
             to: cleanMobile,
             type: "template",
             template: { 
               name: "ticket", 
-              language: { code: "en" }, 
+              language: { code: "en_US" }, 
               components: [
                 { 
                   type: "header", 
@@ -204,11 +204,11 @@ export default async function handler(req: any, res: any) {
                 { 
                   type: "body", 
                   parameters: [
-                    { type: "text", text: String(booking?.id) },
-                    { type: "text", text: String(booking?.adults) },
-                    { type: "text", text: String(booking?.kids) },
-                    { type: "text", text: String(booking?.date) },
-                    { type: "text", text: String(booking?.time) }
+                    { type: "text", text: String(booking?.id) },      // {{1}} Ticket No.
+                    { type: "text", text: String(booking?.adults) },  // {{2}} Adults
+                    { type: "text", text: String(booking?.kids) },    // {{3}} Kids
+                    { type: "text", text: String(booking?.date) },    // {{4}} Date
+                    { type: "text", text: String(booking?.time) }    // {{5}} Slot
                   ] 
                 }
               ]
