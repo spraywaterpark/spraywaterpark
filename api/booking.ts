@@ -87,15 +87,15 @@ export default async function handler(req: any, res: any) {
     if (type === 'rentals') {
       if (req.method === "GET") {
         const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Lockers!A2:P2000" });
-        const rows = response.data.values || [];
+        const rows = (response.data.values || []).filter(r => r[0]); // Filter empty rows
         return res.status(200).json(rows.map(r => ({
-          receiptNo: r[0], guestName: r[1], guestMobile: r[2], date: r[3], shift: r[4],
+          receiptNo: r[0] || "", guestName: r[1] || "", guestMobile: r[2] || "", date: r[3] || "", shift: r[4] || "",
           maleLockers: r[5] ? r[5].split(',').map(Number) : [],
           femaleLockers: r[6] ? r[6].split(',').map(Number) : [],
           maleCostumes: parseInt(r[7]) || 0, femaleCostumes: parseInt(r[8]) || 0,
           rentAmount: parseInt(r[9]) || 0, securityDeposit: parseInt(r[10]) || 0,
           totalCollected: parseInt(r[11]) || 0, refundableAmount: parseInt(r[12]) || 0,
-          status: r[13], createdAt: r[14], returnedAt: r[15] || ''
+          status: r[13] || "issued", createdAt: r[14] || "", returnedAt: r[15] || ''
         })));
       }
       if (req.method === "POST") {
@@ -205,9 +205,9 @@ export default async function handler(req: any, res: any) {
 
     if (req.method === "GET") {
       const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:L1000" });
-      const rows = resp.data.values || [];
+      const rows = (resp.data.values || []).filter(row => row[0]); // Ensure ID exists
       return res.status(200).json(rows.map(row => ({ 
-        id: row[0], name: row[1], mobile: row[2], adults: row[3], kids: row[4], totalAmount: row[6], date: row[7], time: row[8], 
+        id: row[0] || "", name: row[1] || "", mobile: row[2] || "", adults: row[3] || 0, kids: row[4] || 0, totalAmount: row[6] || 0, date: row[7] || "", time: row[8] || "", 
         status: row[10] === "CHECKED-IN" ? "checked-in" : "confirmed" 
       })).reverse());
     }
