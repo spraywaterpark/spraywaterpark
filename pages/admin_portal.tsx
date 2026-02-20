@@ -70,8 +70,8 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   }, [bookings, rentals]);
 
   const filteredBookings = (Array.isArray(bookings) ? bookings : []).filter(b => 
-    b.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (b.id?.toLowerCase() || "").includes(searchTerm.toLowerCase()) || 
+    (b.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
     (b.mobile && b.mobile.includes(searchTerm))
   ).slice(0, 50);
 
@@ -133,7 +133,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                     <tr key={b.id} className="text-xs font-bold text-slate-700">
                       <td className="py-4 px-2 text-blue-600 uppercase">{b.id}</td>
                       <td className="py-4 px-2"><p className="font-black text-slate-900 uppercase">{b.name}</p><p className="text-[10px] opacity-50">{b.mobile}</p></td>
-                      <td className="py-4 px-2 uppercase">{b.date}<br/>{b.time.split(':')[0]}</td>
+                      <td className="py-4 px-2 uppercase">{b.date}<br/>{(b.time || "").split(':')[0]}</td>
                       <td className="py-4 px-2">{Number(b.adults) + Number(b.kids)}</td>
                       <td className="py-4 px-2"><span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${b.status === 'checked-in' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>{b.status}</span></td>
                     </tr>
@@ -164,7 +164,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                      <tr key={r.receiptNo} className="text-xs font-bold text-slate-700">
                         <td className="py-4 px-2 text-blue-600">{r.receiptNo}</td>
                         <td className="py-4 px-2 uppercase">{r.guestName}</td>
-                        <td className="py-4 px-2">{r.maleLockers.length > 0 && <span className="text-blue-500 mr-2">M:{r.maleLockers.join(',')}</span>}{r.femaleLockers.length > 0 && <span className="text-pink-500">F:{r.femaleLockers.join(',')}</span>}</td>
+                        <td className="py-4 px-2">{r.maleLockers.length > 0 && <span className="text-blue-500 mr-2">M:{(r.maleLockers || []).join(',')}</span>}{r.femaleLockers.length > 0 && <span className="text-pink-500">F:{(r.femaleLockers || []).join(',')}</span>}</td>
                         <td className="py-4 px-2">₹{r.securityDeposit}</td>
                         <td className="py-4 px-2"><span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-[9px] font-black uppercase">ISSUED</span></td>
                      </tr>
@@ -211,7 +211,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                 ) : (
                   draft.blockedSlots.map((bs, i) => (
                     <div key={i} className="bg-white border p-4 rounded-2xl flex justify-between items-center px-6 shadow-sm"><span className="font-black text-xs text-slate-900">{bs.date} — {bs.shift.toUpperCase()}</span>
-                       <button onClick={() => setDraft({...draft, blockedSlots: draft.blockedSlots.filter((_, idx) => idx !== i)})} className="text-red-500 text-xs font-black uppercase px-3 py-1 rounded-lg">Remove</button>
+                       <button onClick={() => setDraft({...draft, blockedSlots: (draft.blockedSlots || []).filter((_, idx) => idx !== i)})} className="text-red-500 text-xs font-black uppercase px-3 py-1 rounded-lg">Remove</button>
                     </div>
                   ))
                 )}
