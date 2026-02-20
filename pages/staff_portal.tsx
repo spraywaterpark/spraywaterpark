@@ -108,7 +108,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
         });
         const data = await res.json();
         if (data.success) {
-            // Trigger welcome message explicitly
+            // Send WELCOME Message explicitly on Staff 1 Confirmation
             const waRes = await notificationService.sendWelcomeMessage(scannedTicket);
             if (!waRes.success) {
               console.warn("Welcome message failed:", waRes.details);
