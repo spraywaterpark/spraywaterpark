@@ -67,14 +67,19 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
   const handleSaveSettings = async () => {
     setIsSaving(true);
-    const success = await cloudSync.saveSettings(draft);
-    if (success) {
-      onUpdateSettings(draft);
-      alert("Settings updated successfully!");
-    } else {
-      alert("Failed to save settings to cloud.");
+    try {
+      const success = await cloudSync.saveSettings(draft);
+      if (success) {
+        onUpdateSettings(draft);
+        alert("Success: Admin settings and availability saved to cloud!");
+      } else {
+        alert("Failed to save settings. Please check your internet connection.");
+      }
+    } catch (e) {
+      alert("Error: Something went wrong while saving.");
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
   };
 
   const handleResetShift = async () => {
@@ -262,7 +267,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                disabled={isSaving}
                className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl disabled:opacity-50"
              >
-                {isSaving ? 'Saving Changes...' : 'Update All Pricing'}
+                {isSaving ? <><i className="fas fa-spinner fa-spin mr-2"></i> Saving...</> : 'Update All Pricing'}
              </button>
           </div>
         )}
@@ -288,6 +293,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                     const d = (document.getElementById('new-block-date') as HTMLInputElement).value;
                     const s = (document.getElementById('new-block-shift') as HTMLSelectElement).value as ShiftType;
                     if (!d) return alert("Select a date");
+                    // Important: Update local draft state
                     const updated = [...draft.blockedSlots, { date: d, shift: s }];
                     setDraft({...draft, blockedSlots: updated});
                   }}
@@ -303,12 +309,12 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                   <p className="p-6 bg-slate-50 rounded-2xl text-[10px] font-bold text-slate-400 uppercase text-center border border-dashed">No slots blocked.</p>
                 ) : (
                   draft.blockedSlots.map((bs, i) => (
-                    <div key={i} className="bg-white border p-4 rounded-2xl flex justify-between items-center px-6">
+                    <div key={i} className="bg-white border p-4 rounded-2xl flex justify-between items-center px-6 shadow-sm">
                        <span className="font-black text-xs text-slate-900">{bs.date} — {bs.shift.toUpperCase()}</span>
                        <button onClick={() => {
                          const updated = draft.blockedSlots.filter((_, idx) => idx !== i);
                          setDraft({...draft, blockedSlots: updated});
-                       }} className="text-red-500 text-xs font-black uppercase tracking-widest">Remove</button>
+                       }} className="text-red-500 text-xs font-black uppercase tracking-widest hover:bg-red-50 px-3 py-1 rounded-lg">Remove</button>
                     </div>
                   ))
                 )}
@@ -319,7 +325,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                disabled={isSaving}
                className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl disabled:opacity-50"
              >
-                Save Availability Changes
+                {isSaving ? <><i className="fas fa-spinner fa-spin mr-2"></i> Syncing to Cloud...</> : 'Save Availability Changes'}
              </button>
           </div>
         )}
