@@ -148,9 +148,12 @@ export default async function handler(req: any, res: any) {
       
       if (!token || !phoneId) return res.status(400).json({ success: false, details: "WhatsApp API Config missing" });
       
-      // Basic cleaning for India numbers
+      // Robust India Mobile Number Cleaning
       let cleanMobile = String(mobile || "").replace(/\D/g, '');
-      if (cleanMobile.length === 10) cleanMobile = "91" + cleanMobile;
+      if (cleanMobile.length > 10) {
+        cleanMobile = cleanMobile.slice(-10); // Take last 10 digits
+      }
+      cleanMobile = "91" + cleanMobile; // Ensure 91 prefix
 
       let payload: any = {};
       
@@ -163,8 +166,7 @@ export default async function handler(req: any, res: any) {
         };
       } else {
         if (isWelcome) {
-          // SECOND TEMPLATE: 'welcome' (After Staff 1 verification)
-          // Language shown in screenshot is 'English (US)' which is en_US
+          // SECOND STEP: Welcome Message after verification
           payload = {
             messaging_product: "whatsapp",
             to: cleanMobile,
@@ -183,7 +185,7 @@ export default async function handler(req: any, res: any) {
             }
           };
         } else {
-          // FIRST TEMPLATE: 'ticket' (After Booking)
+          // FIRST STEP: Ticket after booking
           payload = {
             messaging_product: "whatsapp",
             to: cleanMobile,
