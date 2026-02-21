@@ -69,7 +69,6 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
   useEffect(() => {
     // Auto-Shift Logic based on IST
     const istHour = getISTHour();
-    // Default to morning if before 3 PM, otherwise evening
     const suggestedShift = istHour < 15 ? 'morning' : 'evening';
     setShift(suggestedShift);
     refreshActive();
@@ -142,12 +141,25 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     const mLockers = maleLockers.length, fLockers = femaleLockers.length;
     const mCostumesNum = Math.max(0, Number(maleCostumes) || 0);
     const fCostumesNum = Math.max(0, Number(femaleCostumes) || 0);
+    
+    // Rents
     const lockerRent = (mLockers * LOCKER_RULES.MALE_LOCKER_RENT) + (fLockers * LOCKER_RULES.FEMALE_LOCKER_RENT);
-    const mCostumeRent = mCostumesNum * COSTUME_RULES.MALE_COSTUME_RENT, fCostumeRent = fCostumesNum * COSTUME_RULES.FEMALE_COSTUME_RENT;
+    const costumeRent = (mCostumesNum * COSTUME_RULES.MALE_COSTUME_RENT) + (fCostumesNum * COSTUME_RULES.FEMALE_COSTUME_RENT);
+    
+    // Deposits
     const lockerDep = (mLockers * LOCKER_RULES.MALE_LOCKER_DEPOSIT) + (fLockers * LOCKER_RULES.FEMALE_LOCKER_DEPOSIT);
-    const mCostumeDep = mCostumesNum * COSTUME_RULES.MALE_COSTUME_DEPOSIT, fCostumeDep = fCostumesNum * COSTUME_RULES.FEMALE_COSTUME_DEPOSIT;
-    const totalRent = lockerRent + mCostumeRent + fCostumeRent, totalDeposit = lockerDep + mCostumeDep + fCostumeDep;
-    return { totalRent, totalDeposit, total: totalRent + totalDeposit };
+    const costumeDep = (mCostumesNum * COSTUME_RULES.MALE_COSTUME_DEPOSIT) + (fCostumesNum * COSTUME_RULES.FEMALE_COSTUME_DEPOSIT);
+    
+    const totalRent = lockerRent + costumeRent;
+    const totalDeposit = lockerDep + costumeDep;
+    
+    return { 
+      lockerRent, 
+      costumeRent, 
+      totalRent, 
+      totalDeposit, 
+      total: totalRent + totalDeposit 
+    };
   };
 
   const handleGenerateBill = () => {
@@ -190,7 +202,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
   };
 
   const istHourNow = getISTHour();
-  const isMorningDisabled = istHourNow >= 15; // Disable morning if past 3:00 PM IST
+  const isMorningDisabled = istHourNow >= 15;
 
   return (
     <div className="w-full flex flex-col items-center py-4 px-3 text-white min-h-[90vh]">
@@ -290,20 +302,44 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
             <div className="fixed inset-0 z-[5000] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6">
               <div className="bg-white text-slate-900 rounded-[3rem] w-full max-w-xl p-10 space-y-8 shadow-2xl animate-scale-in">
                 <h2 className="text-3xl font-black uppercase text-center tracking-tighter">Confirmation</h2>
-                <div className="bg-slate-50 p-6 rounded-2xl space-y-4 text-sm font-bold border">
-                   <div className="flex justify-between"><span>Guest:</span><span className="uppercase">{receipt.guestName}</span></div>
-                   <div className="flex justify-between"><span>Total Assets:</span><span>{receipt.maleLockers.length + receipt.femaleLockers.length} Lockers, {receipt.maleCostumes + receipt.femaleCostumes} Costumes</span></div>
-                   <div className="flex justify-between pt-4 border-t-2 text-xl font-black"><span>Total Bill:</span><span className="text-blue-600">₹{receipt.totalCollected}</span></div>
+                <div className="bg-slate-50 p-8 rounded-2xl space-y-4 text-sm font-bold border border-slate-100 shadow-inner">
+                   <div className="flex justify-between items-center">
+                     <span className="text-[10px] uppercase text-slate-400 font-black tracking-widest">Guest:</span>
+                     <span className="uppercase text-slate-900 font-black">{receipt.guestName}</span>
+                   </div>
+                   <hr className="opacity-40" />
+                   <div className="flex justify-between items-center">
+                     <span className="text-[10px] uppercase text-slate-500 font-black">Locker Charge:</span>
+                     <span>₹{(receipt.maleLockers.length * LOCKER_RULES.MALE_LOCKER_RENT) + (receipt.femaleLockers.length * LOCKER_RULES.FEMALE_LOCKER_RENT)}</span>
+                   </div>
+                   <div className="flex justify-between items-center">
+                     <span className="text-[10px] uppercase text-slate-500 font-black">Costume Charge:</span>
+                     <span>₹{(receipt.maleCostumes * COSTUME_RULES.MALE_COSTUME_RENT) + (receipt.femaleCostumes * COSTUME_RULES.FEMALE_COSTUME_RENT)}</span>
+                   </div>
+                   <div className="flex justify-between items-center">
+                     <span className="text-[10px] uppercase text-slate-500 font-black">Security Deposit:</span>
+                     <span className="text-blue-600">₹{receipt.securityDeposit}</span>
+                   </div>
+                   <div className="flex justify-between items-center pt-4 border-t-2 border-slate-200">
+                     <span className="text-sm font-black uppercase text-slate-900">Total Bill:</span>
+                     <span className="text-3xl font-black text-slate-900 tracking-tighter">₹{receipt.totalCollected}</span>
+                   </div>
+                   <div className="mt-4 bg-emerald-100/50 p-4 rounded-xl border border-emerald-500/20 flex justify-between items-center">
+                      <div className="flex flex-col">
+                        <span className="text-[8px] font-black uppercase text-emerald-600">Refund Amount</span>
+                        <span className="text-[7px] uppercase text-emerald-500 leading-tight">Return receipt to collect this cash</span>
+                      </div>
+                      <span className="text-2xl font-black text-emerald-700">₹{receipt.refundableAmount}</span>
+                   </div>
                 </div>
-                <button onClick={confirmAndSave} className="w-full bg-emerald-500 text-slate-900 py-6 rounded-2xl font-black uppercase shadow-xl">Confirm & Print</button>
-                <button onClick={()=>setReceipt(null)} className="w-full text-slate-400 uppercase text-xs font-black">Go Back</button>
+                <button onClick={confirmAndSave} className="w-full bg-emerald-500 text-slate-900 py-6 rounded-2xl font-black uppercase shadow-xl hover:scale-[1.02] active:scale-95 transition-all">Confirm & Print</button>
+                <button onClick={()=>setReceipt(null)} className="w-full text-slate-400 uppercase text-[10px] font-black tracking-widest">Go Back</button>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Entry and Return sections remain functional and similar */}
       {mode === 'entry' && (
         <div className="w-full max-w-2xl no-print animate-slide-up">
            <div className="bg-slate-900/60 rounded-[3rem] p-10 md:p-14 text-center border border-white/10 shadow-2xl backdrop-blur-3xl">
