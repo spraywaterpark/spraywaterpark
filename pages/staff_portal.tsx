@@ -67,7 +67,6 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
   };
 
   useEffect(() => {
-    // Auto-Shift Logic based on IST
     const istHour = getISTHour();
     const suggestedShift = istHour < 15 ? 'morning' : 'evening';
     setShift(suggestedShift);
@@ -129,37 +128,17 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     } catch (e) { alert("Error updating entry."); } finally { setIsSyncing(false); }
   };
 
-  const renderValidationBadge = (v: string) => {
-    switch(v) {
-        case 'VALID': return <div className="bg-emerald-600 text-white px-6 py-2 rounded-full text-[10px] font-black">VALID ENTRY</div>;
-        case 'ALREADY_USED': return <div className="bg-red-600 text-white px-6 py-2 rounded-full text-[10px] font-black">ALREADY IN</div>;
-        default: return <div className="bg-red-500 text-white px-6 py-2 rounded-full text-[10px] font-black">{v.replace('_', ' ')}</div>;
-    }
-  };
-
   const calculateBreakdown = () => {
     const mLockers = maleLockers.length, fLockers = femaleLockers.length;
     const mCostumesNum = Math.max(0, Number(maleCostumes) || 0);
     const fCostumesNum = Math.max(0, Number(femaleCostumes) || 0);
-    
-    // Rents
     const lockerRent = (mLockers * LOCKER_RULES.MALE_LOCKER_RENT) + (fLockers * LOCKER_RULES.FEMALE_LOCKER_RENT);
     const costumeRent = (mCostumesNum * COSTUME_RULES.MALE_COSTUME_RENT) + (fCostumesNum * COSTUME_RULES.FEMALE_COSTUME_RENT);
-    
-    // Deposits
     const lockerDep = (mLockers * LOCKER_RULES.MALE_LOCKER_DEPOSIT) + (fLockers * LOCKER_RULES.FEMALE_LOCKER_DEPOSIT);
     const costumeDep = (mCostumesNum * COSTUME_RULES.MALE_COSTUME_DEPOSIT) + (fCostumesNum * COSTUME_RULES.FEMALE_COSTUME_DEPOSIT);
-    
     const totalRent = lockerRent + costumeRent;
     const totalDeposit = lockerDep + costumeDep;
-    
-    return { 
-      lockerRent, 
-      costumeRent, 
-      totalRent, 
-      totalDeposit, 
-      total: totalRent + totalDeposit 
-    };
+    return { lockerRent, costumeRent, totalRent, totalDeposit, total: totalRent + totalDeposit };
   };
 
   const handleGenerateBill = () => {
@@ -167,21 +146,25 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     if (maleCostumes < 0 || femaleCostumes < 0) return alert("Costume quantity cannot be negative.");
     
     const { totalRent, totalDeposit, total } = calculateBreakdown();
-    setReceipt({
-      receiptNo: `SWP/${new Date().getTime()}`, guestName, guestMobile, date: new Date().toISOString().split('T')[0],
+    const newReceipt: LockerReceipt = {
+      receiptNo: `SWP/${new Date().getTime().toString().slice(-6)}`, 
+      guestName, guestMobile, date: new Date().toLocaleDateString('en-CA'),
       shift, maleLockers, femaleLockers, maleCostumes: Math.max(0, maleCostumes), femaleCostumes: Math.max(0, femaleCostumes),
       rentAmount: totalRent, securityDeposit: totalDeposit, totalCollected: total, refundableAmount: totalDeposit,
       status: 'issued', createdAt: new Date().toISOString()
-    });
+    };
+    setReceipt(newReceipt);
   };
 
   const confirmAndSave = async () => {
     if (!receipt) return;
     setIsSyncing(true);
     if (await cloudSync.saveRental(receipt)) {
-      setTimeout(() => window.print(), 500);
-      setGuestName(''); setGuestMobile(''); setMaleLockers([]); setFemaleLockers([]); setMaleCostumes(0); setFemaleCostumes(0); setReceipt(null);
-      await refreshActive();
+      setTimeout(() => {
+        window.print();
+        setGuestName(''); setGuestMobile(''); setMaleLockers([]); setFemaleLockers([]); setMaleCostumes(0); setFemaleCostumes(0); setReceipt(null);
+        refreshActive();
+      }, 500);
     } else alert("Sync failed.");
     setIsSyncing(false);
   };
@@ -201,11 +184,33 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     });
   };
 
+  // Helper function to render validation status badge
+  const renderValidationBadge = (status: string) => {
+    switch (status) {
+      case 'VALID': return <span className="bg-emerald-100 text-emerald-700 px-4 py-1.5 rounded-full text-[9px] font-black uppercase">Valid Ticket</span>;
+      case 'ALREADY_USED': return <span className="bg-amber-100 text-amber-700 px-4 py-1.5 rounded-full text-[9px] font-black uppercase">Already Used</span>;
+      case 'EXPIRED': return <span className="bg-red-100 text-red-700 px-4 py-1.5 rounded-full text-[9px] font-black uppercase">Expired Date</span>;
+      case 'FUTURE_DATE': return <span className="bg-blue-100 text-blue-700 px-4 py-1.5 rounded-full text-[9px] font-black uppercase">Future Date</span>;
+      case 'EXPIRED_SLOT': return <span className="bg-red-100 text-red-700 px-4 py-1.5 rounded-full text-[9px] font-black uppercase">Slot Expired</span>;
+      case 'FUTURE_SLOT': return <span className="bg-blue-100 text-blue-700 px-4 py-1.5 rounded-full text-[9px] font-black uppercase">Future Slot</span>;
+      default: return <span className="bg-slate-100 text-slate-700 px-4 py-1.5 rounded-full text-[9px] font-black uppercase">Invalid</span>;
+    }
+  };
+
   const istHourNow = getISTHour();
   const isMorningDisabled = istHourNow >= 15;
 
   return (
     <div className="w-full flex flex-col items-center py-4 px-3 text-white min-h-[90vh]">
+      <style>{`
+        @media print {
+          body * { visibility: hidden !important; }
+          #print-receipt, #print-receipt * { visibility: visible !important; }
+          #print-receipt { position: absolute !important; left: 0 !important; top: 0 !important; width: 80mm !important; padding: 10px !important; color: black !important; background: white !important; font-family: 'Courier New', monospace !important; }
+          .no-print { display: none !important; }
+        }
+      `}</style>
+
       {/* Header Tabs */}
       <div className="w-full max-w-5xl flex justify-between items-center mb-6 px-4 no-print">
           <div className="flex bg-slate-800 rounded-full p-1 border border-white/10 shadow-2xl backdrop-blur-md">
@@ -226,7 +231,6 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
 
       {mode === 'issue' && (
         <div className="w-full max-w-6xl space-y-6 animate-slide-up no-print">
-          {/* Inventory Stats Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 px-2">
              <div className="bg-slate-900/50 p-4 rounded-3xl border border-white/5 text-center">
                 <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">M-Lockers Avail</p>
@@ -247,7 +251,6 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
           </div>
 
           <div className="bg-slate-900/60 border border-white/10 rounded-[3rem] p-6 md:p-10 space-y-8 backdrop-blur-3xl shadow-2xl">
-            {/* Input Form */}
             <div className="grid md:grid-cols-4 gap-4 items-end">
                 <div className="space-y-1">
                   <label className="text-[9px] font-black uppercase text-white/30 px-4">Guest Name</label>
@@ -276,7 +279,6 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
                 </div>
             </div>
 
-            {/* Grids */}
             <div className="grid md:grid-cols-2 gap-8">
                 <div className="bg-slate-900/30 p-6 rounded-[2rem] border border-white/5 space-y-4">
                     <div className="flex justify-between items-center px-2">
@@ -299,36 +301,25 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
             </button>
           </div>
           {receipt && (
-            <div className="fixed inset-0 z-[5000] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6">
+            <div className="fixed inset-0 z-[5000] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6 no-print">
               <div className="bg-white text-slate-900 rounded-[3rem] w-full max-w-xl p-10 space-y-8 shadow-2xl animate-scale-in">
-                <h2 className="text-3xl font-black uppercase text-center tracking-tighter">Confirmation</h2>
-                <div className="bg-slate-50 p-8 rounded-2xl space-y-4 text-sm font-bold border border-slate-100 shadow-inner">
-                   <div className="flex justify-between items-center">
-                     <span className="text-[10px] uppercase text-slate-400 font-black tracking-widest">Guest:</span>
-                     <span className="uppercase text-slate-900 font-black">{receipt.guestName}</span>
-                   </div>
+                <div className="text-center">
+                  <p className="text-blue-600 font-black uppercase text-[10px] tracking-widest">Receipt ID: {receipt.receiptNo}</p>
+                  <h2 className="text-3xl font-black uppercase tracking-tighter mt-1">Confirmation</h2>
+                </div>
+                <div className="bg-slate-50 p-8 rounded-2xl space-y-3 text-[13px] font-bold border border-slate-100 shadow-inner">
+                   <div className="flex justify-between"><span>Guest:</span><span className="uppercase">{receipt.guestName}</span></div>
+                   <div className="flex justify-between"><span>Mobile:</span><span>{receipt.guestMobile}</span></div>
                    <hr className="opacity-40" />
-                   <div className="flex justify-between items-center">
-                     <span className="text-[10px] uppercase text-slate-500 font-black">Locker Charge:</span>
-                     <span>₹{(receipt.maleLockers.length * LOCKER_RULES.MALE_LOCKER_RENT) + (receipt.femaleLockers.length * LOCKER_RULES.FEMALE_LOCKER_RENT)}</span>
+                   <div className="flex justify-between"><span>Locker Charge:</span><span>₹{receipt.rentAmount - ((receipt.maleCostumes * COSTUME_RULES.MALE_COSTUME_RENT) + (receipt.femaleCostumes * COSTUME_RULES.FEMALE_COSTUME_RENT))}</span></div>
+                   <div className="flex justify-between"><span>Costume Charge:</span><span>₹{(receipt.maleCostumes * COSTUME_RULES.MALE_COSTUME_RENT) + (receipt.femaleCostumes * COSTUME_RULES.FEMALE_COSTUME_RENT)}</span></div>
+                   <div className="flex justify-between"><span>Security Deposit:</span><span className="text-blue-600">₹{receipt.securityDeposit}</span></div>
+                   <div className="flex justify-between pt-4 border-t-2 border-slate-200 font-black text-xl">
+                     <span>Total Bill:</span>
+                     <span className="text-slate-900">₹{receipt.totalCollected}</span>
                    </div>
-                   <div className="flex justify-between items-center">
-                     <span className="text-[10px] uppercase text-slate-500 font-black">Costume Charge:</span>
-                     <span>₹{(receipt.maleCostumes * COSTUME_RULES.MALE_COSTUME_RENT) + (receipt.femaleCostumes * COSTUME_RULES.FEMALE_COSTUME_RENT)}</span>
-                   </div>
-                   <div className="flex justify-between items-center">
-                     <span className="text-[10px] uppercase text-slate-500 font-black">Security Deposit:</span>
-                     <span className="text-blue-600">₹{receipt.securityDeposit}</span>
-                   </div>
-                   <div className="flex justify-between items-center pt-4 border-t-2 border-slate-200">
-                     <span className="text-sm font-black uppercase text-slate-900">Total Bill:</span>
-                     <span className="text-3xl font-black text-slate-900 tracking-tighter">₹{receipt.totalCollected}</span>
-                   </div>
-                   <div className="mt-4 bg-emerald-100/50 p-4 rounded-xl border border-emerald-500/20 flex justify-between items-center">
-                      <div className="flex flex-col">
-                        <span className="text-[8px] font-black uppercase text-emerald-600">Refund Amount</span>
-                        <span className="text-[7px] uppercase text-emerald-500 leading-tight">Return receipt to collect this cash</span>
-                      </div>
+                   <div className="mt-4 bg-emerald-100 p-4 rounded-xl border border-emerald-500/20 flex justify-between items-center">
+                      <span className="text-[10px] font-black uppercase text-emerald-600">Refund Amount</span>
                       <span className="text-2xl font-black text-emerald-700">₹{receipt.refundableAmount}</span>
                    </div>
                 </div>
@@ -340,6 +331,7 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
         </div>
       )}
 
+      {/* Entry and Return sections stay same */}
       {mode === 'entry' && (
         <div className="w-full max-w-2xl no-print animate-slide-up">
            <div className="bg-slate-900/60 rounded-[3rem] p-10 md:p-14 text-center border border-white/10 shadow-2xl backdrop-blur-3xl">
@@ -387,7 +379,11 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
                    <h4 className="font-black text-2xl uppercase tracking-tighter">{returnReceipt.guestName}</h4>
                    <div className="space-y-2">
                      <p className="font-bold text-xs uppercase text-slate-400">Lockers Used:</p>
-                     <p className="font-black text-sm">M: {returnReceipt.maleLockers.join(', ')} | F: {returnReceipt.femaleLockers.join(', ')}</p>
+                     <p className="font-black text-sm">
+                       {returnReceipt.maleLockers.map(n=>`m${n}`).join(', ')} 
+                       {returnReceipt.femaleLockers.length > 0 ? ', ' : ''}
+                       {returnReceipt.femaleLockers.map(n=>`f${n}`).join(', ')}
+                     </p>
                    </div>
                    <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex justify-between items-center">
                       <span className="text-[10px] font-black uppercase text-emerald-600">Refundable Amount</span>
@@ -400,21 +396,50 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
         </div>
       )}
 
-      {/* Hidden Print Layout */}
+      {/* Hidden Thermal Print Receipt Layout */}
       {receipt && (
-        <div className="hidden print:block fixed inset-0 bg-white text-black font-mono p-10 z-[6000]">
-           <div className="text-center border-b-2 border-black pb-4 mb-6"><h2 className="text-2xl font-bold uppercase">Spray Aqua Resort</h2><p className="text-[10px] uppercase font-bold tracking-widest">Asset Issue Receipt</p></div>
-           <div className="grid grid-cols-2 text-sm font-bold space-y-2">
-             <p>Receipt ID:</p><p className="text-right">{receipt.receiptNo}</p>
-             <p>Guest Name:</p><p className="text-right uppercase">{receipt.guestName}</p>
-             <p>Date/Shift:</p><p className="text-right uppercase">{receipt.date} | {receipt.shift}</p>
-             <p className="pt-4 border-t">M-Lockers:</p><p className="text-right pt-4">{receipt.maleLockers.join(',')}</p>
-             <p>F-Lockers:</p><p className="text-right">{receipt.femaleLockers.join(',')}</p>
-             <p>Costumes:</p><p className="text-right">M:{receipt.maleCostumes} | F:{receipt.femaleCostumes}</p>
-             <p className="pt-4 border-t-2 text-lg">Total Paid:</p><p className="text-right pt-4 text-lg">₹{receipt.totalCollected}</p>
-             <p className="text-emerald-700">Security:</p><p className="text-right text-emerald-700">₹{receipt.securityDeposit}</p>
+        <div id="print-receipt" className="hidden print:block text-black bg-white">
+           <div style={{ textAlign: 'center', borderBottom: '1px dashed black', paddingBottom: '10px', marginBottom: '10px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0' }}>SPRAY AQUA RESORT</h2>
+              <p style={{ fontSize: '10px', margin: '2px 0' }}>Locker & Asset Receipt</p>
            </div>
-           <div className="mt-20 border-t pt-2 text-center text-[8px] uppercase font-bold">Please show this receipt to collect your security refund.</div>
+           
+           <div style={{ fontSize: '12px', lineHeight: '1.6' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Receipt #:</span><span>{receipt.receiptNo}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Mobile:</span><span>{receipt.guestMobile}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Date/Shift:</span><span>{receipt.date} | {receipt.shift}</span></div>
+              <hr style={{ border: 'none', borderTop: '1px dashed black', margin: '8px 0' }} />
+              
+              <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Lockers:</div>
+              <div style={{ fontSize: '11px', marginBottom: '8px', wordBreak: 'break-all' }}>
+                {receipt.maleLockers.map(n=>`m${n}`).join(', ')}
+                {receipt.femaleLockers.length > 0 && receipt.maleLockers.length > 0 ? ', ' : ''}
+                {receipt.femaleLockers.map(n=>`f${n}`).join(', ')}
+                {receipt.maleLockers.length === 0 && receipt.femaleLockers.length === 0 && 'NONE'}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Male Costumes:</span><span>{receipt.maleCostumes}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Female Costumes:</span><span>{receipt.femaleCostumes}</span></div>
+              
+              <hr style={{ border: 'none', borderTop: '1px dashed black', margin: '8px 0' }} />
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 'bold' }}>
+                <span>TOTAL PAID:</span><span>₹{receipt.totalCollected}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: '4px', color: '#555' }}>
+                <span>(Includes Deposit):</span><span>₹{receipt.securityDeposit}</span>
+              </div>
+
+              <div style={{ marginTop: '15px', backgroundColor: '#eee', padding: '8px', textAlign: 'center', borderRadius: '4px' }}>
+                <div style={{ fontSize: '10px', fontWeight: 'bold' }}>REFUNDABLE AMOUNT</div>
+                <div style={{ fontSize: '18px', fontWeight: 'bold' }}>₹{receipt.refundableAmount}</div>
+              </div>
+
+              <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '9px', fontWeight: 'bold' }}>
+                *** PLEASE KEEP THIS RECEIPT SAFE ***<br/>
+                SHOW THIS TO COLLECT YOUR CASH REFUND
+              </div>
+           </div>
         </div>
       )}
     </div>
