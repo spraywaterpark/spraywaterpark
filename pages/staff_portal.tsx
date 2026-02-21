@@ -62,10 +62,16 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     }
   };
 
+  const getISTHour = () => {
+    return new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"})).getHours();
+  };
+
   useEffect(() => {
     // Auto-Shift Logic based on IST
-    const istHour = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"})).getHours();
-    setShift(istHour < 15 ? 'morning' : 'evening');
+    const istHour = getISTHour();
+    // Default to morning if before 3 PM, otherwise evening
+    const suggestedShift = istHour < 15 ? 'morning' : 'evening';
+    setShift(suggestedShift);
     refreshActive();
   }, [mode]);
 
@@ -134,7 +140,8 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
 
   const calculateBreakdown = () => {
     const mLockers = maleLockers.length, fLockers = femaleLockers.length;
-    const mCostumesNum = Number(maleCostumes) || 0, fCostumesNum = Number(femaleCostumes) || 0;
+    const mCostumesNum = Math.max(0, Number(maleCostumes) || 0);
+    const fCostumesNum = Math.max(0, Number(femaleCostumes) || 0);
     const lockerRent = (mLockers * LOCKER_RULES.MALE_LOCKER_RENT) + (fLockers * LOCKER_RULES.FEMALE_LOCKER_RENT);
     const mCostumeRent = mCostumesNum * COSTUME_RULES.MALE_COSTUME_RENT, fCostumeRent = fCostumesNum * COSTUME_RULES.FEMALE_COSTUME_RENT;
     const lockerDep = (mLockers * LOCKER_RULES.MALE_LOCKER_DEPOSIT) + (fLockers * LOCKER_RULES.FEMALE_LOCKER_DEPOSIT);
@@ -145,10 +152,12 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
 
   const handleGenerateBill = () => {
     if (!guestName) return alert("Please enter Guest Name.");
+    if (maleCostumes < 0 || femaleCostumes < 0) return alert("Costume quantity cannot be negative.");
+    
     const { totalRent, totalDeposit, total } = calculateBreakdown();
     setReceipt({
       receiptNo: `SWP/${new Date().getTime()}`, guestName, guestMobile, date: new Date().toISOString().split('T')[0],
-      shift, maleLockers, femaleLockers, maleCostumes, femaleCostumes,
+      shift, maleLockers, femaleLockers, maleCostumes: Math.max(0, maleCostumes), femaleCostumes: Math.max(0, femaleCostumes),
       rentAmount: totalRent, securityDeposit: totalDeposit, totalCollected: total, refundableAmount: totalDeposit,
       status: 'issued', createdAt: new Date().toISOString()
     });
@@ -179,6 +188,9 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
       );
     });
   };
+
+  const istHourNow = getISTHour();
+  const isMorningDisabled = istHourNow >= 15; // Disable morning if past 3:00 PM IST
 
   return (
     <div className="w-full flex flex-col items-center py-4 px-3 text-white min-h-[90vh]">
@@ -236,18 +248,18 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
                 <div className="space-y-1">
                   <label className="text-[9px] font-black uppercase text-white/30 px-4">Shift</label>
                   <div className="flex bg-slate-800 p-1 rounded-2xl border border-white/10">
-                    <button onClick={()=>setShift('morning')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${shift === 'morning' ? 'bg-white text-slate-900 shadow-md' : 'text-white/40'}`}>Morning</button>
+                    <button disabled={isMorningDisabled} onClick={()=>setShift('morning')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${shift === 'morning' ? 'bg-white text-slate-900 shadow-md' : 'text-white/40 disabled:opacity-20'}`}>Morning</button>
                     <button onClick={()=>setShift('evening')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${shift === 'evening' ? 'bg-white text-slate-900 shadow-md' : 'text-white/40'}`}>Evening</button>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                    <div className="space-y-1">
                       <label className="text-[8px] font-black uppercase text-blue-400 px-2">M-Costume</label>
-                      <input type="number" className="input-premium !bg-slate-800 !text-white !py-4 text-center" value={maleCostumes} onChange={e=>setMaleCostumes(parseInt(e.target.value)||0)} />
+                      <input type="number" min="0" className="input-premium !bg-slate-800 !text-white !py-4 text-center" value={maleCostumes} onChange={e=>setMaleCostumes(Math.max(0, parseInt(e.target.value)||0))} />
                    </div>
                    <div className="space-y-1">
                       <label className="text-[8px] font-black uppercase text-pink-400 px-2">F-Costume</label>
-                      <input type="number" className="input-premium !bg-slate-800 !text-white !py-4 text-center" value={femaleCostumes} onChange={e=>setFemaleCostumes(parseInt(e.target.value)||0)} />
+                      <input type="number" min="0" className="input-premium !bg-slate-800 !text-white !py-4 text-center" value={femaleCostumes} onChange={e=>setFemaleCostumes(Math.max(0, parseInt(e.target.value)||0))} />
                    </div>
                 </div>
             </div>
