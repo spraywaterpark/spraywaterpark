@@ -62,13 +62,22 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     }
   };
 
-  const getISTHour = () => {
-    return new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"})).getHours();
+  const getISTInfo = () => {
+    const d = new Date();
+    const istStr = d.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+    const istDate = new Date(istStr);
+    return {
+      todayStr: istDate.toLocaleDateString('en-CA'),
+      currentHour: istDate.getHours(),
+      dd: String(istDate.getDate()).padStart(2, '0'),
+      mm: String(istDate.getMonth() + 1).padStart(2, '0'),
+      yy: String(istDate.getFullYear()).slice(-2)
+    };
   };
 
   useEffect(() => {
-    const istHour = getISTHour();
-    const suggestedShift = istHour < 15 ? 'morning' : 'evening';
+    const { currentHour } = getISTInfo();
+    const suggestedShift = currentHour < 15 ? 'morning' : 'evening';
     setShift(suggestedShift);
     refreshActive();
   }, [mode]);
@@ -145,10 +154,18 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     if (!guestName) return alert("Please enter Guest Name.");
     if (maleCostumes < 0 || femaleCostumes < 0) return alert("Costume quantity cannot be negative.");
     
+    const { todayStr, dd, mm, yy } = getISTInfo();
     const { totalRent, totalDeposit, total } = calculateBreakdown();
+    
+    // Proper Sequential Format: SWP/ddmmyyS-NNN
+    const shiftCode = shift === 'morning' ? '1' : '2';
+    const countToday = (allRentals || []).filter(r => r.date === todayStr && r.shift === shift).length + 1;
+    const seq = String(countToday).padStart(3, '0');
+    const receiptNo = `SWP/${dd}${mm}${yy}${shiftCode}-${seq}`;
+
     const newReceipt: LockerReceipt = {
-      receiptNo: `SWP/${new Date().getTime().toString().slice(-6)}`, 
-      guestName, guestMobile, date: new Date().toLocaleDateString('en-CA'),
+      receiptNo, 
+      guestName, guestMobile, date: todayStr,
       shift, maleLockers, femaleLockers, maleCostumes: Math.max(0, maleCostumes), femaleCostumes: Math.max(0, femaleCostumes),
       rentAmount: totalRent, securityDeposit: totalDeposit, totalCollected: total, refundableAmount: totalDeposit,
       status: 'issued', createdAt: new Date().toISOString()
@@ -184,7 +201,6 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     });
   };
 
-  // Helper function to render validation status badge
   const renderValidationBadge = (status: string) => {
     switch (status) {
       case 'VALID': return <span className="bg-emerald-100 text-emerald-700 px-4 py-1.5 rounded-full text-[9px] font-black uppercase">Valid Ticket</span>;
@@ -197,8 +213,8 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
     }
   };
 
-  const istHourNow = getISTHour();
-  const isMorningDisabled = istHourNow >= 15;
+  const { currentHour } = getISTInfo();
+  const isMorningDisabled = currentHour >= 15;
 
   return (
     <div className="w-full flex flex-col items-center py-4 px-3 text-white min-h-[90vh]">
@@ -331,7 +347,6 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
         </div>
       )}
 
-      {/* Entry and Return sections stay same */}
       {mode === 'entry' && (
         <div className="w-full max-w-2xl no-print animate-slide-up">
            <div className="bg-slate-900/60 rounded-[3rem] p-10 md:p-14 text-center border border-white/10 shadow-2xl backdrop-blur-3xl">
