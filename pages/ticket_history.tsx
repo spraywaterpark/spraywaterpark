@@ -49,13 +49,13 @@ const TicketHistory: React.FC<{
     setIsProcessingUpgrade(true);
     
     const { diff } = getUpgradeRates(upgradingBooking);
-    const additionalAmount = upgradeCount * diff;
+    const additionalAmount = Number(upgradeCount) * Number(diff);
 
     const updatedBooking: Booking = {
       ...upgradingBooking,
-      adults: upgradingBooking.adults + upgradeCount,
-      kids: upgradingBooking.kids - upgradeCount,
-      totalAmount: upgradingBooking.totalAmount + additionalAmount
+      adults: Number(upgradingBooking.adults) + Number(upgradeCount),
+      kids: Number(upgradingBooking.kids) - Number(upgradeCount),
+      totalAmount: Number(upgradingBooking.totalAmount) + Number(additionalAmount)
     };
 
     try {
