@@ -186,6 +186,25 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ success: true });
     }
 
+    if (type === 'update_ticket') {
+      const b = req.body;
+      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:A1000" });
+      const rows = resp.data.values || [];
+      const idx = rows.findIndex(r => r[0] === b.id);
+      if (idx === -1) return res.status(404).json({ success: false });
+      
+      // Update columns: D (Adults), E (Kids), F (Total Guests), G (Amount)
+      // Columns are 0-indexed: A=0, B=1, C=2, D=3, E=4, F=5, G=6
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: process.env.SHEET_ID, range: `booking!D${idx + 2}:G${idx + 2}`,
+        valueInputOption: "RAW", 
+        requestBody: { 
+          values: [[b.adults, b.kids, Number(b.adults) + Number(b.kids), b.totalAmount]] 
+        }
+      });
+      return res.status(200).json({ success: true });
+    }
+
     if (type === 'reset_shift') {
       await sheets.spreadsheets.values.update({
         spreadsheetId: process.env.SHEET_ID, range: "Lockers!N2:N2000",
@@ -207,7 +226,14 @@ export default async function handler(req: any, res: any) {
       const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:L1000" });
       const rows = (resp.data.values || []).filter(row => row[0]); // Ensure ID exists
       return res.status(200).json(rows.map(row => ({ 
-        id: row[0] || "", name: row[1] || "", mobile: row[2] || "", adults: row[3] || 0, kids: row[4] || 0, totalAmount: row[6] || 0, date: row[7] || "", time: row[8] || "", 
+        id: row[0] || "", 
+        name: row[1] || "", 
+        mobile: row[2] || "", 
+        adults: Number(row[3]) || 0, 
+        kids: Number(row[4]) || 0, 
+        totalAmount: Number(row[6]) || 0, 
+        date: row[7] || "", 
+        time: row[8] || "", 
         status: row[10] === "CHECKED-IN" ? "checked-in" : "confirmed" 
       })).reverse());
     }
