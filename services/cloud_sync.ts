@@ -112,6 +112,19 @@ export const cloudSync = {
     console.debug("Local state sync active.");
   },
 
+  updateBooking: async (booking: Booking): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/booking?type=update_ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(booking)
+      });
+      return response.ok;
+    } catch (e) {
+      return false;
+    }
+  },
+
   createRoom: async (bookings: Booking[]): Promise<string> => {
     return Math.random().toString(36).substring(2, 11).toUpperCase();
   }
