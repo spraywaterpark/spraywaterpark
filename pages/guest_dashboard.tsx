@@ -1,10 +1,22 @@
 
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Booking } from '../types';
 
-const GuestDashboard: React.FC<{ name: string }> = ({ name }) => {
+interface GuestDashboardProps {
+  user: { name?: string; mobile?: string } | null;
+  bookings: Booking[];
+}
+
+const GuestDashboard: React.FC<GuestDashboardProps> = ({ user, bookings }) => {
   const navigate = useNavigate();
+  const name = user?.name || 'Guest';
+  const mobile = user?.mobile || '';
+
+  // Check if there's any booking matching BOTH name and mobile
+  const hasExistingBookings = bookings.some(
+    b => b.mobile === mobile && b.name.toLowerCase().trim() === name.toLowerCase().trim()
+  );
 
   return (
     <div className="w-full max-w-4xl mx-auto py-12 px-4 animate-slide-up space-y-12">
@@ -17,7 +29,7 @@ const GuestDashboard: React.FC<{ name: string }> = ({ name }) => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className={`grid grid-cols-1 ${hasExistingBookings ? 'md:grid-cols-2' : 'max-w-md mx-auto'} gap-8`}>
         {/* Option 1: Book New Ticket */}
         <button
           onClick={() => navigate('/book')}
@@ -40,27 +52,29 @@ const GuestDashboard: React.FC<{ name: string }> = ({ name }) => {
           </div>
         </button>
 
-        {/* Option 2: Upgrade Ticket */}
-        <button
-          onClick={() => navigate('/my-bookings')}
-          className="group relative bg-slate-900 rounded-[3rem] p-10 text-left border border-white/10 shadow-2xl hover:scale-[1.02] transition-all overflow-hidden"
-        >
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 group-hover:bg-white/10 transition-colors"></div>
-          <div className="relative z-10 space-y-6">
-            <div className="w-16 h-16 bg-emerald-500 text-white rounded-2xl flex items-center justify-center text-2xl shadow-lg shadow-emerald-900/20">
-              <i className="fas fa-arrow-up"></i>
+        {/* Option 2: Upgrade Ticket - Only show if match found */}
+        {hasExistingBookings && (
+          <button
+            onClick={() => navigate('/my-bookings')}
+            className="group relative bg-slate-900 rounded-[3rem] p-10 text-left border border-white/10 shadow-2xl hover:scale-[1.02] transition-all overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 group-hover:bg-white/10 transition-colors"></div>
+            <div className="relative z-10 space-y-6">
+              <div className="w-16 h-16 bg-emerald-500 text-white rounded-2xl flex items-center justify-center text-2xl shadow-lg shadow-emerald-900/20">
+                <i className="fas fa-arrow-up"></i>
+              </div>
+              <div>
+                <h3 className="text-2xl font-black text-white uppercase tracking-tight">Upgrade My Ticket</h3>
+                <p className="text-slate-400 text-sm font-medium mt-2 leading-relaxed">
+                  Convert your child tickets to adult tickets or view your existing bookings.
+                </p>
+              </div>
+              <div className="pt-4 flex items-center gap-2 text-emerald-400 font-black text-[10px] uppercase tracking-widest">
+                Manage Tickets <i className="fas fa-arrow-right group-hover:translate-x-2 transition-transform"></i>
+              </div>
             </div>
-            <div>
-              <h3 className="text-2xl font-black text-white uppercase tracking-tight">Upgrade My Ticket</h3>
-              <p className="text-slate-400 text-sm font-medium mt-2 leading-relaxed">
-                Convert your child tickets to adult tickets or view your existing bookings.
-              </p>
-            </div>
-            <div className="pt-4 flex items-center gap-2 text-emerald-400 font-black text-[10px] uppercase tracking-widest">
-              Manage Tickets <i className="fas fa-arrow-right group-hover:translate-x-2 transition-transform"></i>
-            </div>
-          </div>
-        </button>
+          </button>
+        )}
       </div>
 
       <div className="flex justify-center">
