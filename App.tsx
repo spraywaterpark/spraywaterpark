@@ -12,6 +12,7 @@ import { AuthState, Booking, AdminSettings, UserRole, LockerIssue } from './type
 import { DEFAULT_ADMIN_SETTINGS, MASTER_SYNC_ID } from './constants';
 import { cloudSync } from './services/cloud_sync';
 import AdminLockers from './pages/admin_lockers';
+import GuestDashboard from './pages/guest_dashboard';
 
 
 const AppContent: React.FC = () => {
@@ -146,9 +147,10 @@ const AppContent: React.FC = () => {
             <Route path="/" element={
               auth.role === 'admin' ? <Navigate to="/admin" /> :
               (auth.role === 'staff' || auth.role === 'staff1' || auth.role === 'staff2') ? <Navigate to="/staff" /> :
-              auth.role === 'guest' ? <Navigate to="/book" /> :
+              auth.role === 'guest' ? <Navigate to="/dashboard" /> :
               <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />
             } />
+            <Route path="/dashboard" element={auth.role === 'guest' ? <GuestDashboard name={auth.user?.name || 'Guest'} /> : <Navigate to="/" />} />
             <Route path="/book" element={auth.role === 'guest' ? <BookingGate settings={settings} bookings={bookings} onProceed={()=>{}} /> : <Navigate to="/" />} />
             <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} bookings={bookings} /> : <Navigate to="/" />} />
             <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} settings={settings} onUpdateBooking={updateBooking} /> : <Navigate to="/" />} />
