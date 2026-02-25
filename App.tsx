@@ -150,10 +150,10 @@ const AppContent: React.FC = () => {
               auth.role === 'guest' ? <Navigate to="/dashboard" /> :
               <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />
             } />
-            <Route path="/dashboard" element={auth.role === 'guest' ? <GuestDashboard name={auth.user?.name || 'Guest'} /> : <Navigate to="/" />} />
+            <Route path="/dashboard" element={auth.role === 'guest' ? <GuestDashboard user={auth.user} bookings={bookings} /> : <Navigate to="/" />} />
             <Route path="/book" element={auth.role === 'guest' ? <BookingGate settings={settings} bookings={bookings} onProceed={()=>{}} /> : <Navigate to="/" />} />
             <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} bookings={bookings} /> : <Navigate to="/" />} />
-            <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} mobile={auth.user?.mobile || ''} settings={settings} onUpdateBooking={updateBooking} /> : <Navigate to="/" />} />
+            <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} user={auth.user} settings={settings} onUpdateBooking={updateBooking} /> : <Navigate to="/" />} />
             <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={setSettings} syncId={syncId} onSyncSetup={setSyncId} onLogout={logout} /> : <Navigate to="/" />} />
             <Route path="/admin-lockers" element={auth.role === 'admin' ? <AdminLockers /> : <Navigate to="/" />} />
             <Route path="/staff" element={(auth.role === 'staff' || auth.role === 'staff1' || auth.role === 'staff2') ? <StaffPortal role={auth.role} /> : <Navigate to="/" />} />
