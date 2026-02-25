@@ -370,8 +370,16 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
                       {renderValidationBadge(scannedResult.validation)}
                    </div>
                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-slate-50 p-4 rounded-2xl"><p className="text-[8px] font-black uppercase text-slate-400 mb-1">Guest Name</p><p className="font-black uppercase text-sm">{scannedResult.booking.name}</p></div>
-                      <div className="bg-slate-50 p-4 rounded-2xl"><p className="text-[8px] font-black uppercase text-slate-400 mb-1">Schedule</p><p className="font-black uppercase text-xs">{scannedResult.booking.date} | {scannedResult.booking.time}</p></div>
+                      <div className="bg-slate-50 p-4 rounded-2xl col-span-2"><p className="text-[8px] font-black uppercase text-slate-400 mb-1">Guest Name</p><p className="font-black uppercase text-sm">{scannedResult.booking.name}</p></div>
+                      <div className="bg-slate-50 p-4 rounded-2xl col-span-2"><p className="text-[8px] font-black uppercase text-slate-400 mb-1">Schedule</p><p className="font-black uppercase text-xs">{scannedResult.booking.date} | {scannedResult.booking.time}</p></div>
+                      <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100 text-center">
+                        <p className="text-[10px] font-black uppercase text-blue-600 mb-1">Adults</p>
+                        <p className="font-black text-3xl text-blue-700">{scannedResult.booking.adults}</p>
+                      </div>
+                      <div className="bg-pink-50 p-5 rounded-2xl border border-pink-100 text-center">
+                        <p className="text-[10px] font-black uppercase text-pink-600 mb-1">Kids</p>
+                        <p className="font-black text-3xl text-pink-700">{scannedResult.booking.kids}</p>
+                      </div>
                    </div>
                    <button onClick={confirmEntry} disabled={isSyncing || scannedResult.validation !== 'VALID'} 
                     className={`w-full py-6 rounded-2xl font-black uppercase tracking-widest shadow-xl transition-all ${scannedResult.validation === 'VALID' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
