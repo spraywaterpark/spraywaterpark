@@ -1,12 +1,22 @@
 
 import React, { useState } from 'react';
-import { Booking } from '../types';
+import { Booking, AdminSettings } from '../types';
 import { notificationService } from '../services/notification_service';
 
-const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ bookings, mobile }) => {
+const TicketHistory: React.FC<{ 
+  bookings: Booking[], 
+  mobile: string, 
+  settings: AdminSettings, 
+  onUpdateBooking: (b: Booking) => Promise<void> 
+}> = ({ bookings, mobile, settings, onUpdateBooking }) => {
   const userList = bookings.filter(b => b.mobile === mobile);
   const [resending, setResending] = useState<string | null>(null);
   const [sentStatus, setSentStatus] = useState<string | null>(null);
+
+  // Upgrade State
+  const [upgradingBooking, setUpgradingBooking] = useState<Booking | null>(null);
+  const [upgradeCount, setUpgradeCount] = useState(1);
+  const [isProcessingUpgrade, setIsProcessingUpgrade] = useState(false);
 
   const handleResend = async (booking: Booking) => {
     setResending(booking.id);
@@ -24,6 +34,40 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
       alert("Error occurred while connecting to server.");
     } finally {
       setResending(null);
+    }
+  };
+
+  const getUpgradeRates = (booking: Booking) => {
+    const isMorning = booking.time.toLowerCase().includes('morning');
+    const adultRate = isMorning ? settings.morningAdultRate : settings.eveningAdultRate;
+    const kidRate = isMorning ? settings.morningKidRate : settings.eveningKidRate;
+    return { adultRate, kidRate, diff: adultRate - kidRate };
+  };
+
+  const handleConfirmUpgrade = async () => {
+    if (!upgradingBooking) return;
+    setIsProcessingUpgrade(true);
+    
+    const { diff } = getUpgradeRates(upgradingBooking);
+    const additionalAmount = upgradeCount * diff;
+
+    const updatedBooking: Booking = {
+      ...upgradingBooking,
+      adults: upgradingBooking.adults + upgradeCount,
+      kids: upgradingBooking.kids - upgradeCount,
+      totalAmount: upgradingBooking.totalAmount + additionalAmount
+    };
+
+    try {
+      await onUpdateBooking(updatedBooking);
+      // Send updated ticket on WhatsApp
+      notificationService.sendWhatsAppTicket(updatedBooking).catch(e => console.warn("WA Update fail:", e));
+      setUpgradingBooking(null);
+      alert("Ticket upgraded successfully!");
+    } catch (e) {
+      alert("Failed to upgrade ticket. Please try again.");
+    } finally {
+      setIsProcessingUpgrade(false);
     }
   };
 
@@ -126,13 +170,26 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
                     <p className="text-blue-700 font-black text-xs uppercase tracking-[0.3em]">
                       {b.time}
                     </p>
-                    <div className="flex gap-3 justify-center sm:justify-start">
+                    <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
                       <span className="bg-slate-100 px-4 py-2 rounded-lg text-xs font-black uppercase">
                         {b.adults} Adults
                       </span>
-                      <span className="bg-slate-100 px-4 py-2 rounded-lg text-xs font-black uppercase">
-                        {b.kids} Kids
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="bg-slate-100 px-4 py-2 rounded-lg text-xs font-black uppercase">
+                          {b.kids} Kids
+                        </span>
+                        {b.kids > 0 && (
+                          <button 
+                            onClick={() => {
+                              setUpgradingBooking(b);
+                              setUpgradeCount(1);
+                            }}
+                            className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 transition shadow-md no-print"
+                          >
+                            <i className="fas fa-arrow-up mr-1"></i> Upgrade to Adult
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="text-center sm:text-right">
@@ -147,6 +204,82 @@ const TicketHistory: React.FC<{ bookings: Booking[], mobile: string }> = ({ book
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Upgrade Modal */}
+      {upgradingBooking && (
+        <div className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6 animate-fade no-print">
+          <div className="bg-white rounded-[3rem] max-w-lg w-full p-10 space-y-8 shadow-2xl relative overflow-hidden border border-slate-200">
+            <div className="absolute top-0 left-0 w-full h-2 bg-blue-600"></div>
+            
+            <div className="text-center space-y-2">
+              <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Upgrade Ticket</h3>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Convert Child Pass to Adult Pass</p>
+            </div>
+
+            <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 space-y-6">
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-black uppercase text-slate-500 tracking-widest">Available Kids</span>
+                <span className="text-lg font-black text-slate-900">{upgradingBooking.kids}</span>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-[11px] font-black uppercase text-slate-500 tracking-widest block text-center">Number of kids to upgrade</label>
+                <div className="flex items-center justify-center gap-6 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+                  <button 
+                    onClick={() => setUpgradeCount(Math.max(1, upgradeCount - 1))}
+                    className="w-12 h-12 rounded-xl bg-slate-100 font-black text-xl hover:bg-slate-200 transition active:scale-90"
+                  >
+                    -
+                  </button>
+                  <span className="text-2xl font-black min-w-[2rem] text-center">{upgradeCount}</span>
+                  <button 
+                    onClick={() => setUpgradeCount(Math.min(upgradingBooking.kids, upgradeCount + 1))}
+                    className="w-12 h-12 rounded-xl bg-slate-100 font-black text-xl hover:bg-slate-200 transition active:scale-90"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-200 space-y-3">
+                <div className="flex justify-between items-center text-[10px] font-black uppercase text-slate-400">
+                  <span>Upgrade Fee (Per Person)</span>
+                  <span>₹{getUpgradeRates(upgradingBooking).diff}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-black uppercase text-slate-900">Total Payable</span>
+                  <span className="text-3xl font-black text-blue-600 tracking-tighter">₹{upgradeCount * getUpgradeRates(upgradingBooking).diff}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={handleConfirmUpgrade}
+                disabled={isProcessingUpgrade}
+                className="w-full bg-slate-900 text-white h-20 rounded-[2rem] font-black text-sm uppercase tracking-widest shadow-xl hover:bg-slate-800 transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
+              >
+                {isProcessingUpgrade ? (
+                  <><i className="fas fa-circle-notch fa-spin"></i> Processing...</>
+                ) : (
+                  <><i className="fas fa-shield-alt"></i> Pay & Upgrade Now</>
+                )}
+              </button>
+              <button 
+                onClick={() => setUpgradingBooking(null)}
+                disabled={isProcessingUpgrade}
+                className="w-full py-2 text-[10px] font-black uppercase text-slate-400 hover:text-slate-900 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+              <i className="fas fa-lock text-blue-400"></i> Secure Payment Gateway
+            </div>
+          </div>
         </div>
       )}
     </div>
