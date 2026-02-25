@@ -111,7 +111,7 @@ const AppContent: React.FC = () => {
   const updateBooking = async (updatedBooking: Booking) => {
     const updated = bookingsRef.current.map(b => b.id === updatedBooking.id ? updatedBooking : b);
     setBookings(updated);
-    if (syncId) await cloudSync.updateData(syncId, updated);
+    await cloudSync.updateBooking(updatedBooking);
   };
 
   return (
