@@ -5,11 +5,16 @@ import { notificationService } from '../services/notification_service';
 
 const TicketHistory: React.FC<{ 
   bookings: Booking[], 
-  mobile: string, 
+  user: { name?: string; mobile?: string } | null, 
   settings: AdminSettings, 
   onUpdateBooking: (b: Booking) => Promise<void> 
-}> = ({ bookings, mobile, settings, onUpdateBooking }) => {
-  const userList = bookings.filter(b => b.mobile === mobile);
+}> = ({ bookings, user, settings, onUpdateBooking }) => {
+  const name = user?.name || '';
+  const mobile = user?.mobile || '';
+
+  const userList = bookings.filter(b => 
+    b.mobile === mobile && b.name.toLowerCase().trim() === name.toLowerCase().trim()
+  );
   const [resending, setResending] = useState<string | null>(null);
   const [sentStatus, setSentStatus] = useState<string | null>(null);
 
