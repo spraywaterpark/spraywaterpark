@@ -1,6 +1,8 @@
 
 import { google } from "googleapis";
-import Razorpay from "razorpay";
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const Razorpay = require('razorpay');
 import crypto from "crypto";
 
 // Helper for IST Time & Date comparison
@@ -238,9 +240,7 @@ export default async function handler(req: any, res: any) {
       }
 
       try {
-        // Use a more universal way to initialize Razorpay in ESM/Vercel
-        const RazorpayLib = (Razorpay as any).default || Razorpay;
-        const razorpay = new RazorpayLib({
+        const razorpay = new Razorpay({
           key_id: keyId,
           key_secret: keySecret,
         });
