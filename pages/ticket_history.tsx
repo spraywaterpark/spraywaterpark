@@ -50,28 +50,80 @@ const TicketHistory: React.FC<{
   };
 
   const handleConfirmUpgrade = async () => {
-    if (!upgradingBooking) return;
+    if (!upgradingBooking || isProcessingUpgrade) return;
     setIsProcessingUpgrade(true);
     
     const { diff } = getUpgradeRates(upgradingBooking);
     const additionalAmount = Number(upgradeCount) * Number(diff);
 
-    const updatedBooking: Booking = {
-      ...upgradingBooking,
-      adults: Number(upgradingBooking.adults) + Number(upgradeCount),
-      kids: Number(upgradingBooking.kids) - Number(upgradeCount),
-      totalAmount: Number(upgradingBooking.totalAmount) + Number(additionalAmount)
-    };
-
     try {
-      await onUpdateBooking(updatedBooking);
-      // Send updated ticket on WhatsApp
-      notificationService.sendWhatsAppTicket(updatedBooking).catch(e => console.warn("WA Update fail:", e));
-      setUpgradingBooking(null);
-      alert("Ticket upgraded successfully!");
-    } catch (e) {
-      alert("Failed to upgrade ticket. Please try again.");
-    } finally {
+      // 1. Create Razorpay Order for the difference
+      const orderRes = await fetch('/api/booking?type=create_razorpay_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: additionalAmount,
+          receipt: `UPG-${upgradingBooking.id}-${Date.now()}`
+        })
+      });
+      const orderData = await orderRes.json();
+      if (!orderData.success) throw new Error("Failed to create upgrade payment");
+
+      // 2. Open Razorpay Checkout
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+        amount: orderData.order.amount,
+        currency: orderData.order.currency,
+        name: "Spray Aqua Resort",
+        description: `Upgrade for ${upgradingBooking.id}`,
+        order_id: orderData.order.id,
+        handler: async (response: any) => {
+          // 3. Verify Payment
+          const verifyRes = await fetch('/api/booking?type=verify_razorpay_payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            })
+          });
+          const verifyData = await verifyRes.json();
+
+          if (verifyData.success) {
+            // 4. Update Booking on Success
+            const updatedBooking: Booking = {
+              ...upgradingBooking,
+              adults: Number(upgradingBooking.adults) + Number(upgradeCount),
+              kids: Number(upgradingBooking.kids) - Number(upgradeCount),
+              totalAmount: Number(upgradingBooking.totalAmount) + Number(additionalAmount)
+            };
+
+            await onUpdateBooking(updatedBooking);
+            notificationService.sendWhatsAppTicket(updatedBooking).catch(e => console.warn("WA Update fail:", e));
+            setUpgradingBooking(null);
+            alert("Ticket upgraded successfully!");
+          } else {
+            alert("Payment verification failed.");
+            setIsProcessingUpgrade(false);
+          }
+        },
+        prefill: {
+          name: upgradingBooking.name,
+          contact: upgradingBooking.mobile
+        },
+        theme: { color: "#0284c7" },
+        modal: {
+          ondismiss: () => setIsProcessingUpgrade(false)
+        }
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+
+    } catch (e: any) {
+      console.error("Upgrade Error:", e);
+      alert(e.message || "Failed to upgrade ticket. Please try again.");
       setIsProcessingUpgrade(false);
     }
   };
