@@ -52,29 +52,81 @@ const SecurePayment: React.FC<SecurePaymentProps> = ({ addBooking, bookings }) =
 
     try {
       const bookingId = generateTicketId(draft.date, draft.time);
-      const final: Booking = {
-        ...draft,
-        id: bookingId,
-        status: 'confirmed',
-        createdAt: new Date().toISOString()
+      
+      // 1. Create Razorpay Order
+      const orderRes = await fetch('/api/booking?type=create_razorpay_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: draft.totalAmount,
+          receipt: bookingId
+        })
+      });
+      const orderData = await orderRes.json();
+      if (!orderData.success) throw new Error("Failed to create payment order");
+
+      // 2. Open Razorpay Checkout
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_placeholder', // Fallback for safety
+        amount: orderData.order.amount,
+        currency: orderData.order.currency,
+        name: "Spray Aqua Resort",
+        description: `Booking for ${draft.name}`,
+        order_id: orderData.order.id,
+        handler: async (response: any) => {
+          // 3. Verify Payment
+          const verifyRes = await fetch('/api/booking?type=verify_razorpay_payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            })
+          });
+          const verifyData = await verifyRes.json();
+
+          if (verifyData.success) {
+            // 4. Save Booking on Success
+            const final: Booking = {
+              ...draft,
+              id: bookingId,
+              status: 'confirmed',
+              createdAt: new Date().toISOString()
+            };
+
+            const saved = await cloudSync.saveBooking(final);
+            if (!saved) throw new Error("Cloud Sync Failed. Please contact support.");
+
+            addBooking(final);
+            sessionStorage.removeItem('swp_draft_booking');
+            notificationService.sendWhatsAppTicket(final).catch(e => console.warn("WA Deferred fail:", e));
+            
+            setStatus('done');
+            setTimeout(() => navigate('/my-bookings'), 1500);
+          } else {
+            alert("Payment verification failed. Please contact support.");
+            setIsPaying(false);
+            setStatus('idle');
+          }
+        },
+        prefill: {
+          name: draft.name,
+          contact: draft.mobile
+        },
+        theme: {
+          color: "#0284c7"
+        },
+        modal: {
+          ondismiss: () => {
+            setIsPaying(false);
+            setStatus('idle');
+          }
+        }
       };
 
-      const syncTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Network Timeout. Please check connection.")), 15000));
-      
-      const saved = await Promise.race([
-        cloudSync.saveBooking(final),
-        syncTimeout
-      ]);
-
-      if (!saved) throw new Error("Cloud Sync Failed. Please try again.");
-
-      addBooking(final);
-      sessionStorage.removeItem('swp_draft_booking');
-
-      notificationService.sendWhatsAppTicket(final).catch(e => console.warn("WA Deferred fail:", e));
-      
-      setStatus('done');
-      setTimeout(() => navigate('/my-bookings'), 1500);
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
 
     } catch (err: any) {
       console.error("Payment Error:", err);
