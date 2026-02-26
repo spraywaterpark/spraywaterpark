@@ -39,7 +39,7 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
       return alert(nameErr || mobileErr);
     }
     onGuestLogin(data.name.trim(), data.mobile.trim());
-    navigate('/dashboard');
+    navigate('/', { replace: true });
   };
 
   const handleAdmin = (e: React.FormEvent) => {
