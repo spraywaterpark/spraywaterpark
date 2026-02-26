@@ -31,10 +31,15 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({ success: false, details: "Server Configuration Missing" });
   }
 
-  const auth = new google.auth.GoogleAuth({
-    credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-  });
+  let auth;
+  try {
+    auth = new google.auth.GoogleAuth({
+      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, details: "Invalid GOOGLE_CREDENTIALS format" });
+  }
   const sheets = google.sheets({ version: "v4", auth });
   const type = req.query.type;
 
@@ -219,38 +224,56 @@ export default async function handler(req: any, res: any) {
     if (type === 'create_razorpay_order') {
       const { amount, currency = "INR", receipt } = req.body;
       
-      if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-        return res.status(500).json({ success: false, message: "Razorpay Keys Missing in Settings" });
+      const keyId = (process.env.RAZORPAY_KEY_ID || "").trim();
+      const keySecret = (process.env.RAZORPAY_KEY_SECRET || "").trim();
+
+      if (!keyId || !keySecret) {
+        return res.status(500).json({ success: false, message: "Razorpay Keys Missing in Settings. Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET." });
       }
 
-      const razorpay = new Razorpay({
-        key_id: process.env.RAZORPAY_KEY_ID,
-        key_secret: process.env.RAZORPAY_KEY_SECRET,
-      });
+      try {
+        // Handle both default and named imports for Razorpay
+        const RazorpayConstructor = (Razorpay as any).default || Razorpay;
+        const razorpay = new RazorpayConstructor({
+          key_id: keyId,
+          key_secret: keySecret,
+        });
 
-      const options = {
-        amount: Math.round(amount * 100), // amount in the smallest currency unit (paise)
-        currency,
-        receipt,
-      };
+        const options = {
+          amount: Math.round(Number(amount) * 100), // amount in the smallest currency unit (paise)
+          currency,
+          receipt: String(receipt),
+        };
 
-      const order = await razorpay.orders.create(options);
-      return res.status(200).json({ success: true, order });
+        const order = await razorpay.orders.create(options);
+        return res.status(200).json({ success: true, order });
+      } catch (err: any) {
+        console.error("Razorpay Order Error:", err);
+        return res.status(500).json({ success: false, message: err.message || "Razorpay Order Creation Failed" });
+      }
     }
 
     if (type === 'verify_razorpay_payment') {
       const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-      const key_secret = process.env.RAZORPAY_KEY_SECRET!;
+      const keySecret = (process.env.RAZORPAY_KEY_SECRET || "").trim();
 
-      const generated_signature = crypto
-        .createHmac("sha256", key_secret)
-        .update(razorpay_order_id + "|" + razorpay_payment_id)
-        .digest("hex");
+      if (!keySecret) {
+        return res.status(500).json({ success: false, message: "Razorpay Secret Missing" });
+      }
 
-      if (generated_signature === razorpay_signature) {
-        return res.status(200).json({ success: true });
-      } else {
-        return res.status(400).json({ success: false, message: "Invalid signature" });
+      try {
+        const generated_signature = crypto
+          .createHmac("sha256", keySecret)
+          .update(razorpay_order_id + "|" + razorpay_payment_id)
+          .digest("hex");
+
+        if (generated_signature === razorpay_signature) {
+          return res.status(200).json({ success: true });
+        } else {
+          return res.status(400).json({ success: false, message: "Invalid signature" });
+        }
+      } catch (err: any) {
+        return res.status(500).json({ success: false, message: "Verification failed" });
       }
     }
 
