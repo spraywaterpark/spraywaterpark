@@ -18,6 +18,14 @@ const GuestDashboard: React.FC<GuestDashboardProps> = ({ user, bookings }) => {
     b => b.mobile === mobile && b.name.toLowerCase().trim() === name.toLowerCase().trim()
   );
 
+  React.useEffect(() => {
+    if (!hasExistingBookings) {
+      navigate('/book', { replace: true });
+    }
+  }, [hasExistingBookings, navigate]);
+
+  if (!hasExistingBookings) return null;
+
   return (
     <div className="w-full max-w-4xl mx-auto py-12 px-4 animate-slide-up space-y-12">
       <div className="text-center space-y-4">
