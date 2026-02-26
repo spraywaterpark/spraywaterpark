@@ -235,7 +235,7 @@ const TicketHistory: React.FC<{
                         <span className="bg-slate-100 px-4 py-2 rounded-lg text-xs font-black uppercase">
                           {b.kids} Kids
                         </span>
-                        {b.kids > 0 && (
+                        {b.kids > 0 && b.status !== 'checked-in' && b.date >= new Date().toISOString().split('T')[0] && (
                           <button 
                             onClick={() => {
                               setUpgradingBooking(b);
