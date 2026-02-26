@@ -147,7 +147,12 @@ const AppContent: React.FC = () => {
             <Route path="/" element={
               auth.role === 'admin' ? <Navigate to="/admin" /> :
               (auth.role === 'staff' || auth.role === 'staff1' || auth.role === 'staff2') ? <Navigate to="/staff" /> :
-              auth.role === 'guest' ? <Navigate to="/dashboard" /> :
+              auth.role === 'guest' ? (
+                bookings.some(b => 
+                  b.mobile === auth.user?.mobile && 
+                  b.name.toLowerCase().trim() === auth.user?.name?.toLowerCase().trim()
+                ) ? <Navigate to="/dashboard" /> : <Navigate to="/book" />
+              ) :
               <LoginGate onGuestLogin={loginAsGuest} onAdminLogin={loginAsAdmin} />
             } />
             <Route path="/dashboard" element={auth.role === 'guest' ? <GuestDashboard user={auth.user} bookings={bookings} /> : <Navigate to="/" />} />
