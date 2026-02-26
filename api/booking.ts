@@ -218,9 +218,14 @@ export default async function handler(req: any, res: any) {
     // 5. RAZORPAY LOGIC
     if (type === 'create_razorpay_order') {
       const { amount, currency = "INR", receipt } = req.body;
+      
+      if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+        return res.status(500).json({ success: false, message: "Razorpay Keys Missing in Settings" });
+      }
+
       const razorpay = new Razorpay({
-        key_id: process.env.RAZORPAY_KEY_ID!,
-        key_secret: process.env.RAZORPAY_KEY_SECRET!,
+        key_id: process.env.RAZORPAY_KEY_ID,
+        key_secret: process.env.RAZORPAY_KEY_SECRET,
       });
 
       const options = {
