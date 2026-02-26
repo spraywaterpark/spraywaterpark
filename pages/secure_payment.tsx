@@ -62,8 +62,16 @@ const SecurePayment: React.FC<SecurePaymentProps> = ({ addBooking, bookings }) =
           receipt: bookingId
         })
       });
+
+      const contentType = orderRes.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await orderRes.text();
+        console.error("Server Error Response:", text);
+        throw new Error("Server returned an invalid response. Please check if Razorpay keys are correctly set in settings.");
+      }
+
       const orderData = await orderRes.json();
-      if (!orderData.success) throw new Error("Failed to create payment order");
+      if (!orderData.success) throw new Error(orderData.message || "Failed to create payment order");
 
       // 2. Open Razorpay Checkout
       const options = {
