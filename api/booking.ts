@@ -1,5 +1,7 @@
 
 import { google } from "googleapis";
+import Razorpay from "razorpay";
+import crypto from "crypto";
 
 // Helper for IST Time & Date comparison
 const getISTDateObject = () => {
@@ -211,6 +213,40 @@ export default async function handler(req: any, res: any) {
         valueInputOption: "RAW", requestBody: { values: Array(1999).fill(["returned"]) }
       });
       return res.status(200).json({ success: true });
+    }
+
+    // 5. RAZORPAY LOGIC
+    if (type === 'create_razorpay_order') {
+      const { amount, currency = "INR", receipt } = req.body;
+      const razorpay = new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID!,
+        key_secret: process.env.RAZORPAY_KEY_SECRET!,
+      });
+
+      const options = {
+        amount: Math.round(amount * 100), // amount in the smallest currency unit (paise)
+        currency,
+        receipt,
+      };
+
+      const order = await razorpay.orders.create(options);
+      return res.status(200).json({ success: true, order });
+    }
+
+    if (type === 'verify_razorpay_payment') {
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+      const key_secret = process.env.RAZORPAY_KEY_SECRET!;
+
+      const generated_signature = crypto
+        .createHmac("sha256", key_secret)
+        .update(razorpay_order_id + "|" + razorpay_payment_id)
+        .digest("hex");
+
+      if (generated_signature === razorpay_signature) {
+        return res.status(200).json({ success: true });
+      } else {
+        return res.status(400).json({ success: false, message: "Invalid signature" });
+      }
     }
 
     if (req.method === "POST") {
