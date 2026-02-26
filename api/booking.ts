@@ -224,23 +224,29 @@ export default async function handler(req: any, res: any) {
     if (type === 'create_razorpay_order') {
       const { amount, currency = "INR", receipt } = req.body;
       
-      const keyId = (process.env.RAZORPAY_KEY_ID || "").trim();
-      const keySecret = (process.env.RAZORPAY_KEY_SECRET || "").trim();
+      const keyId = (process.env.RAZORPAY_KEY_ID || "").trim().replace(/['"]/g, '');
+      const keySecret = (process.env.RAZORPAY_KEY_SECRET || "").trim().replace(/['"]/g, '');
+
+      // Log masked keys for debugging in Vercel Logs
+      console.log(`Attempting Razorpay Order: KeyID=${keyId.substring(0, 8)}..., Secret=${keySecret.substring(0, 4)}...`);
 
       if (!keyId || !keySecret) {
-        return res.status(500).json({ success: false, message: "Razorpay Keys Missing in Settings. Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET." });
+        return res.status(500).json({ 
+          success: false, 
+          message: "Razorpay Keys are missing in environment variables. Please check Vercel settings." 
+        });
       }
 
       try {
-        // Handle both default and named imports for Razorpay
-        const RazorpayConstructor = (Razorpay as any).default || Razorpay;
-        const razorpay = new RazorpayConstructor({
+        // Use a more universal way to initialize Razorpay in ESM/Vercel
+        const RazorpayLib = (Razorpay as any).default || Razorpay;
+        const razorpay = new RazorpayLib({
           key_id: keyId,
           key_secret: keySecret,
         });
 
         const options = {
-          amount: Math.round(Number(amount) * 100), // amount in the smallest currency unit (paise)
+          amount: Math.round(Number(amount) * 100),
           currency,
           receipt: String(receipt),
         };
@@ -249,7 +255,11 @@ export default async function handler(req: any, res: any) {
         return res.status(200).json({ success: true, order });
       } catch (err: any) {
         console.error("Razorpay Order Error:", err);
-        return res.status(500).json({ success: false, message: err.message || "Razorpay Order Creation Failed" });
+        return res.status(500).json({ 
+          success: false, 
+          message: `Razorpay Error: ${err.message || 'Unknown Error'}`,
+          stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        });
       }
     }
 
