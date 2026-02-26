@@ -9,18 +9,19 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/genai": "^1.34.0",
+    "googleapis": "^132.0.0",
+    "razorpay": "^2.9.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router-dom": "^7.1.0",
-    "@google/genai": "^1.34.0",
-    "googleapis": "^132.0.0"
+    "react-router-dom": "^7.1.0"
   },
   "devDependencies": {
+    "@types/node": "^20.11.30",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
-    "vite": "^6.0.0",
     "typescript": "^5.7.0",
-    "@types/node": "^20.11.30"
+    "vite": "^6.0.0"
   }
 }
