@@ -40,13 +40,11 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     
     for (const mobile of numbers) {
       try {
-        await fetch('/api/booking', {
+        await fetch('/api/send-bulk', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            action: 'whatsapp', 
-            booking: { mobile, name: 'Guest' }, 
-            isPromotion: true,
+            mobile, 
             templateName: customTemplate,
             promoImage: "https://lh3.googleusercontent.com/3RZ93oAVqtog6291LWQUCsBYhL0u5ULjCap1Pb3HAgPvhVMRoWq1gwUaVvheq0hAQt-7UUQdsMxKJPoPWg=s360-w360-h360"
           })
