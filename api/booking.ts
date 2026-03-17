@@ -148,14 +148,20 @@ export default async function handler(req: any, res: any) {
         payload.template.name = "welcome";
         payload.template.components = [{ type: "body", parameters: [{ type: "text", text: String(booking?.name || "Guest").trim() }] }];
       } else if (req.body.isPromotion) {
-        // Promotional Template Logic
-        payload.template.name = req.body.templateName || "promotion_offer"; 
+        // Promotional Template: offer_waterpark (with Image Header)
+        payload.template.name = req.body.templateName || "offer_waterpark"; 
         payload.template.components = [
-          { 
-            type: "body", 
+          {
+            type: "header",
             parameters: [
-              { type: "text", text: String(booking?.name || "Guest").trim() }
-            ] 
+              {
+                type: "image",
+                image: { 
+                  // Aap yahan apni promotional image ka permanent link daal sakte hain
+                  link: req.body.promoImage || "https://lh3.googleusercontent.com/3RZ93oAVqtog6291LWQUCsBYhL0u5ULjCap1Pb3HAgPvhVMRoWq1gwUaVvheq0hAQt-7UUQdsMxKJPoPWg=s360-w360-h360" 
+                }
+              }
+            ]
           }
         ];
       } else {
