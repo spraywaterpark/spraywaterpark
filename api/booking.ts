@@ -147,6 +147,17 @@ export default async function handler(req: any, res: any) {
       if (isWelcome) {
         payload.template.name = "welcome";
         payload.template.components = [{ type: "body", parameters: [{ type: "text", text: String(booking?.name || "Guest").trim() }] }];
+      } else if (req.body.isPromotion) {
+        // Promotional Template Logic
+        payload.template.name = req.body.templateName || "promotion_offer"; 
+        payload.template.components = [
+          { 
+            type: "body", 
+            parameters: [
+              { type: "text", text: String(booking?.name || "Guest").trim() }
+            ] 
+          }
+        ];
       } else {
         payload.template.name = "ticket";
         payload.template.components = [
