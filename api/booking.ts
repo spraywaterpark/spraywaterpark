@@ -147,31 +147,6 @@ export default async function handler(req: any, res: any) {
       if (isWelcome) {
         payload.template.name = "welcome";
         payload.template.components = [{ type: "body", parameters: [{ type: "text", text: String(booking?.name || "Guest").trim() }] }];
-      } else if (req.body.isPromotion) {
-        // Promotional Template: offer_waterpark (with Image Header and 1 Body Variable)
-        payload.template.name = req.body.templateName || "offer_waterpark"; 
-        payload.template.components = [
-          {
-            type: "header",
-            parameters: [
-              {
-                type: "image",
-                image: { 
-                  link: req.body.promoImage || "https://lh3.googleusercontent.com/3RZ93oAVqtog6291LWQUCsBYhL0u5ULjCap1Pb3HAgPvhVMRoWq1gwUaVvheq0hAQt-7UUQdsMxKJPoPWg=s360-w360-h360" 
-                }
-              }
-            ]
-          },
-          {
-            type: "body",
-            parameters: [
-              {
-                type: "text",
-                text: "Guest" // Template expects {{1}}, so we send a generic value
-              }
-            ]
-          }
-        ];
       } else {
         payload.template.name = "ticket";
         payload.template.components = [
