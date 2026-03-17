@@ -21,42 +21,6 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const [rentals, setRentals] = useState<LockerReceipt[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoadingRentals, setIsLoadingRentals] = useState(false);
-  const [isBroadcasting, setIsBroadcasting] = useState(false);
-  const [showCustomBroadcast, setShowCustomBroadcast] = useState(false);
-  const [customTemplate, setCustomTemplate] = useState('offer_waterpark');
-  const [customNumbers, setCustomNumbers] = useState('');
-
-  const handleCustomBroadcast = async () => {
-    if (!customTemplate.trim()) return alert("Please enter the Approved Template Name.");
-    if (!customNumbers.trim()) return alert("Please enter at least one mobile number.");
-    
-    const numbers = customNumbers.split(/[\n,]+/).map(n => n.trim()).filter(n => n.length >= 10);
-    if (numbers.length === 0) return alert("No valid mobile numbers found.");
-
-    if (!window.confirm(`Are you sure you want to send messages to ${numbers.length} numbers?`)) return;
-    
-    setIsBroadcasting(true);
-    let successCount = 0;
-    
-    for (const mobile of numbers) {
-      try {
-        await fetch('/api/send-bulk', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            mobile, 
-            templateName: customTemplate,
-            promoImage: "https://lh3.googleusercontent.com/3RZ93oAVqtog6291LWQUCsBYhL0u5ULjCap1Pb3HAgPvhVMRoWq1gwUaVvheq0hAQt-7UUQdsMxKJPoPWg=s360-w360-h360"
-          })
-        });
-        successCount++;
-      } catch (e) { console.error(e); }
-    }
-    
-    setIsBroadcasting(false);
-    alert(`Broadcast complete! Sent to ${successCount} numbers.`);
-    setShowCustomBroadcast(false);
-  };
 
   const fetchRentals = async () => {
     setIsLoadingRentals(true);
@@ -142,60 +106,11 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
             <p className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.5em] mb-3">Today's Revenue (IST)</p>
             <h2 className="text-5xl md:text-6xl font-black tracking-tighter">₹{stats.revenue.toLocaleString()}</h2>
           </div>
-          <div className="flex flex-col items-center md:items-end gap-4 w-full md:w-auto">
-            <div className="grid grid-cols-2 gap-4 w-full">
-               <div className="bg-white/5 p-6 rounded-3xl text-center"><p className="text-[9px] font-black opacity-40 uppercase">Total Guests</p><p className="text-2xl font-black">{stats.totalGuests}</p></div>
-               <div className="bg-emerald-500/10 p-6 rounded-3xl text-center"><p className="text-[9px] font-black text-emerald-400 uppercase">Inside Park</p><p className="text-2xl font-black text-emerald-400">{stats.checkedIn}</p></div>
-            </div>
-            
-            <button 
-              onClick={() => setShowCustomBroadcast(!showCustomBroadcast)}
-              className="w-full md:w-auto bg-emerald-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition shadow-lg"
-            >
-              <i className="fas fa-bullhorn mr-2"></i>
-              WhatsApp Promotion
-            </button>
+          <div className="grid grid-cols-2 gap-4 w-full md:w-auto">
+             <div className="bg-white/5 p-6 rounded-3xl text-center"><p className="text-[9px] font-black opacity-40 uppercase">Total Guests</p><p className="text-2xl font-black">{stats.totalGuests}</p></div>
+             <div className="bg-emerald-500/10 p-6 rounded-3xl text-center"><p className="text-[9px] font-black text-emerald-400 uppercase">Inside Park</p><p className="text-2xl font-black text-emerald-400">{stats.checkedIn}</p></div>
           </div>
         </div>
-
-        {showCustomBroadcast && (
-          <div className="mt-10 p-8 bg-white/5 rounded-[2rem] border border-white/10 space-y-6 animate-slide-up">
-            <div className="flex justify-between items-center">
-              <h4 className="text-sm font-black uppercase tracking-widest text-emerald-400">Custom WhatsApp Broadcast</h4>
-              <button onClick={() => setShowCustomBroadcast(false)} className="text-white/40 hover:text-white"><i className="fas fa-times"></i></button>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase text-white/50 px-2">Approved Template Name</label>
-                <input 
-                  type="text" 
-                  className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-[10px] text-white w-full focus:outline-none focus:border-emerald-500"
-                  value={customTemplate}
-                  onChange={(e) => setCustomTemplate(e.target.value)}
-                  placeholder="e.g. offer_waterpark"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase text-white/50 px-2">Mobile Numbers (Comma or Newline separated)</label>
-                <textarea 
-                  className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-[10px] text-white w-full h-24 focus:outline-none focus:border-emerald-500"
-                  value={customNumbers}
-                  onChange={(e) => setCustomNumbers(e.target.value)}
-                  placeholder="919876543210, 918877665544"
-                />
-              </div>
-            </div>
-
-            <button 
-              onClick={handleCustomBroadcast}
-              disabled={isBroadcasting}
-              className="w-full bg-emerald-500 text-slate-900 py-4 rounded-xl font-black uppercase text-[10px] shadow-lg hover:bg-emerald-400 transition disabled:opacity-50"
-            >
-              {isBroadcasting ? <><i className="fas fa-spinner fa-spin mr-2"></i> Sending...</> : 'Send Promotional Messages'}
-            </button>
-          </div>
-        )}
         <div className="flex flex-wrap justify-center bg-white/5 p-1.5 rounded-2xl mt-12 gap-1 border border-white/10">
             {['bookings', 'lockers', 'pricing', 'slots'].map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${activeTab === tab ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50 hover:text-white'}`}>{tab}</button>
