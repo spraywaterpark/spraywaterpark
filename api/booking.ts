@@ -45,6 +45,24 @@ export default async function handler(req: any, res: any) {
   const sheets = google.sheets({ version: "v4", auth });
   const type = req.query.type;
 
+  // Meta Webhook Verification
+  if (type === 'webhook' && req.method === 'GET') {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+
+    if (mode === 'subscribe' && token === 'spray_water_park_2024') {
+      res.setHeader('Content-Type', 'text/plain');
+      return res.status(200).send(challenge);
+    }
+    return res.status(403).send('Forbidden');
+  }
+
+  // Simple Test Route
+  if (type === 'test') {
+    return res.status(200).send('API is working fine');
+  }
+
   try {
     // 1. SETTINGS LOGIC
     if (type === 'settings') {
