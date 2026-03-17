@@ -135,9 +135,19 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
             <p className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.5em] mb-3">Today's Revenue (IST)</p>
             <h2 className="text-5xl md:text-6xl font-black tracking-tighter">₹{stats.revenue.toLocaleString()}</h2>
           </div>
-          <div className="grid grid-cols-2 gap-4 w-full md:w-auto">
-             <div className="bg-white/5 p-6 rounded-3xl text-center"><p className="text-[9px] font-black opacity-40 uppercase">Total Guests</p><p className="text-2xl font-black">{stats.totalGuests}</p></div>
-             <div className="bg-emerald-500/10 p-6 rounded-3xl text-center"><p className="text-[9px] font-black text-emerald-400 uppercase">Inside Park</p><p className="text-2xl font-black text-emerald-400">{stats.checkedIn}</p></div>
+          <div className="flex flex-col items-center md:items-end gap-4 w-full md:w-auto">
+            <div className="grid grid-cols-2 gap-4 w-full">
+               <div className="bg-white/5 p-6 rounded-3xl text-center"><p className="text-[9px] font-black opacity-40 uppercase">Total Guests</p><p className="text-2xl font-black">{stats.totalGuests}</p></div>
+               <div className="bg-emerald-500/10 p-6 rounded-3xl text-center"><p className="text-[9px] font-black text-emerald-400 uppercase">Inside Park</p><p className="text-2xl font-black text-emerald-400">{stats.checkedIn}</p></div>
+            </div>
+            <button 
+              onClick={broadcastPromotion}
+              disabled={isBroadcasting}
+              className="w-full md:w-auto bg-emerald-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition shadow-lg disabled:opacity-50"
+            >
+              <i className={`fas ${isBroadcasting ? 'fa-spinner fa-spin' : 'fa-bullhorn'} mr-2`}></i>
+              {isBroadcasting ? 'Sending...' : 'Broadcast Promotion'}
+            </button>
           </div>
         </div>
         <div className="flex flex-wrap justify-center bg-white/5 p-1.5 rounded-2xl mt-12 gap-1 border border-white/10">
@@ -151,17 +161,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         {activeTab === 'bookings' && (
           <div className="space-y-8">
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-              <div className="flex items-center gap-4">
-                <h3 className="text-2xl font-black uppercase tracking-tight text-slate-900">Recent Bookings</h3>
-                <button 
-                  onClick={broadcastPromotion}
-                  disabled={isBroadcasting}
-                  className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase shadow-lg disabled:opacity-50"
-                >
-                  <i className={`fas ${isBroadcasting ? 'fa-spinner fa-spin' : 'fa-bullhorn'} mr-2`}></i>
-                  {isBroadcasting ? 'Sending...' : 'Broadcast Promotion'}
-                </button>
-              </div>
+              <h3 className="text-2xl font-black uppercase tracking-tight text-slate-900">Recent Bookings</h3>
               <input type="text" placeholder="Search..." className="input-premium max-w-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
             </div>
             <div className="overflow-x-auto">
