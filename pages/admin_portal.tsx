@@ -21,6 +21,35 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const [rentals, setRentals] = useState<LockerReceipt[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoadingRentals, setIsLoadingRentals] = useState(false);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+
+  const broadcastPromotion = async () => {
+    if (!window.confirm("Are you sure you want to send promotional messages to ALL guests?")) return;
+    setIsBroadcasting(true);
+    let successCount = 0;
+    
+    // Get unique mobile numbers
+    const uniqueBookings = Array.from(new Map(bookings.map(b => [b.mobile, b])).values());
+    
+    for (const b of uniqueBookings) {
+      try {
+        await fetch('/api/booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            action: 'whatsapp', 
+            booking: b, 
+            isPromotion: true,
+            templateName: 'promotion_offer' // Change this to your approved template name
+          })
+        });
+        successCount++;
+      } catch (e) { console.error(e); }
+    }
+    
+    setIsBroadcasting(false);
+    alert(`Broadcast complete! Sent to ${successCount} unique guests.`);
+  };
 
   const fetchRentals = async () => {
     setIsLoadingRentals(true);
@@ -122,7 +151,17 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
         {activeTab === 'bookings' && (
           <div className="space-y-8">
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-              <h3 className="text-2xl font-black uppercase tracking-tight text-slate-900">Recent Bookings</h3>
+              <div className="flex items-center gap-4">
+                <h3 className="text-2xl font-black uppercase tracking-tight text-slate-900">Recent Bookings</h3>
+                <button 
+                  onClick={broadcastPromotion}
+                  disabled={isBroadcasting}
+                  className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase shadow-lg disabled:opacity-50"
+                >
+                  <i className={`fas ${isBroadcasting ? 'fa-spinner fa-spin' : 'fa-bullhorn'} mr-2`}></i>
+                  {isBroadcasting ? 'Sending...' : 'Broadcast Promotion'}
+                </button>
+              </div>
               <input type="text" placeholder="Search..." className="input-premium max-w-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
             </div>
             <div className="overflow-x-auto">
