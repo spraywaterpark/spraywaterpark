@@ -14,8 +14,8 @@ export const PRICING = {
 };
 
 export const OFFERS = {
-  MORNING: "FREE Chole Bhature (2:00 PM - 3:00 PM only)",
-  EVENING: "FREE Grand Buffet Dinner (8:00 PM - 10:00 PM)"
+  MORNING: "FIX SNACKS (12:00 PM - 3:00 PM ONLY)",
+  EVENING: "FREE Buffet Dinner (7:00 PM - 9:00 PM)"
 };
 
 export const DEFAULT_ADMIN_SETTINGS = {
