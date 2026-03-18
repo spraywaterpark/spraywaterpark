@@ -179,50 +179,70 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                 </div>
             </div>
 
-            {/* FOOD OPTION BANNER - RESTORED */}
-            <div className="bg-emerald-500/10 border border-emerald-500/20 p-6 rounded-[2.5rem] flex items-center gap-6 animate-pulse shadow-sm">
-                <div className="w-12 h-12 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xl shadow-lg shadow-emerald-200">
+            {/* FOOD OPTION BANNER - HIGHLIGHTED */}
+            <div className="bg-emerald-500 border-2 border-emerald-300 p-8 rounded-[2.5rem] flex items-center gap-8 shadow-2xl relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-emerald-600 opacity-100 transition-opacity"></div>
+                <div className="relative z-10 w-14 h-14 bg-white text-emerald-500 rounded-full flex items-center justify-center text-2xl shadow-xl">
                     <i className="fas fa-gift"></i>
                 </div>
-                <div>
-                    <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] mb-1">Included with your entry</p>
-                    <p className="text-sm font-black text-emerald-900 uppercase tracking-tight">{currentOffer}</p>
+                <div className="relative z-10">
+                    <p className="text-[11px] font-black text-white uppercase tracking-[0.3em] mb-1">Special Surprise Inclusion</p>
+                    <p className="text-xl md:text-2xl font-black text-white uppercase tracking-tighter leading-none">
+                        <span className="text-yellow-300">FREE</span> {currentOffer}
+                    </p>
                 </div>
+                <div className="absolute right-0 top-0 h-full w-24 bg-white/10 skew-x-[30deg] translate-x-12"></div>
             </div>
         </div>
 
-        {/* Checkout Summary */}
+        {/* Checkout Summary - REDESIGNED */}
         <div className="flex justify-center pt-10">
-            <div className="w-full max-w-md bg-slate-900 rounded-[3rem] p-10 shadow-2xl space-y-8 border border-white/5">
-                {/* DISCOUNT DETAILS - RESTORED */}
-                <div className="space-y-4 border-b border-white/10 pb-6">
-                    <div className="flex justify-between items-center text-[10px] font-black uppercase text-white/40 tracking-widest">
-                        <span>Subtotal</span>
+            <div className="w-full max-w-lg bg-slate-900 rounded-[3.5rem] p-12 shadow-[0_40px_80px_-15px_rgba(0,0,0,0.5)] space-y-10 border border-white/10 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+                
+                {/* Summary Details */}
+                <div className="space-y-6">
+                    <div className="flex justify-between items-center text-sm font-black uppercase text-white/30 tracking-widest px-2">
+                        <span>Base Subtotal</span>
                         <span>₹{pricingData.subtotal}</span>
                     </div>
+                    
                     {pricingData.discount > 0 && (
-                        <div className="flex justify-between items-center text-[10px] font-black uppercase text-emerald-400 tracking-widest">
-                            <span>Early Bird Discount ({pricingData.discountPercent}%)</span>
-                            <span>- ₹{pricingData.discount}</span>
+                        <div className="flex justify-between items-end bg-emerald-500/10 p-6 rounded-3xl border border-emerald-500/20">
+                            <div>
+                                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Early Bird Savings ({pricingData.discountPercent}%)</p>
+                                <p className="text-sm font-bold text-white/60">Limited Guest Special</p>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-3xl font-black text-emerald-400 tracking-tighter">- ₹{pricingData.discount}</span>
+                            </div>
                         </div>
                     )}
                 </div>
 
-                <div className="text-center space-y-2">
-                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Payable Amount</p>
-                    <div className="text-6xl font-black text-white tracking-tighter">₹{pricingData.total}</div>
+                <div className="text-center space-y-3 pt-4 border-t border-white/5">
+                    <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.4em]">Final Payable Amount</p>
+                    <div className="text-7xl font-black text-white tracking-tighter drop-shadow-2xl">
+                        <span className="text-4xl text-white/50 align-top mr-1">₹</span>
+                        {pricingData.total}
+                    </div>
                 </div>
                 
                 <button 
                   onClick={handleCheckout} 
                   disabled={isSlotBlocked(date, slot)} 
-                  className="w-full bg-white h-20 rounded-[2rem] text-slate-900 font-black uppercase tracking-[0.2em] text-sm shadow-xl active:scale-95 transition-all disabled:opacity-20 hover:bg-slate-50"
+                  className="w-full bg-white h-24 rounded-[2.5rem] text-slate-950 font-black uppercase tracking-[0.2em] text-lg shadow-[0_20px_40px_-10px_rgba(255,255,255,0.2)] active:scale-95 transition-all disabled:opacity-20 hover:bg-white/95 group"
                 >
-                    Checkout
+                    Complete Booking <i className="fas fa-arrow-right ml-3 group-hover:translate-x-2 transition-transform"></i>
                 </button>
 
-                <div className="flex items-center justify-center gap-2 text-[9px] font-black text-white/20 uppercase tracking-widest">
-                    <i className="fas fa-shield-alt text-emerald-500/50"></i> Secure Checkout Enabled
+                <div className="flex items-center justify-center gap-3 text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">
+                    <div className="flex gap-1">
+                      <i className="fas fa-star text-amber-500/40"></i>
+                      <i className="fas fa-star text-amber-500/40"></i>
+                      <i className="fas fa-star text-amber-500/40"></i>
+                    </div>
+                    Trusted by 10,000+ Guests
                 </div>
             </div>
         </div>
