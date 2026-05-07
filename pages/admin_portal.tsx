@@ -21,6 +21,42 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
   const [rentals, setRentals] = useState<LockerReceipt[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoadingRentals, setIsLoadingRentals] = useState(false);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [showCustomBroadcast, setShowCustomBroadcast] = useState(false);
+  const [customTemplate, setCustomTemplate] = useState('offer_waterpark');
+  const [customNumbers, setCustomNumbers] = useState('');
+
+  const handleCustomBroadcast = async () => {
+    if (!customTemplate.trim()) return alert("Please enter the Approved Template Name.");
+    if (!customNumbers.trim()) return alert("Please enter at least one mobile number.");
+    
+    const numbers = customNumbers.split(/[\n,]+/).map(n => n.trim()).filter(n => n.length >= 10);
+    if (numbers.length === 0) return alert("No valid mobile numbers found.");
+
+    if (!window.confirm(`Are you sure you want to send messages to ${numbers.length} numbers?`)) return;
+    
+    setIsBroadcasting(true);
+    let successCount = 0;
+    
+    for (const mobile of numbers) {
+      try {
+        await fetch('/api/send-bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            mobile, 
+            templateName: customTemplate,
+            promoImage: "https://lh3.googleusercontent.com/3RZ93oAVqtog6291LWQUCsBYhL0u5ULjCap1Pb3HAgPvhVMRoWq1gwUaVvheq0hAQt-7UUQdsMxKJPoPWg=s360-w360-h360"
+          })
+        });
+        successCount++;
+      } catch (e) { console.error(e); }
+    }
+    
+    setIsBroadcasting(false);
+    alert(`Broadcast complete! Sent to ${successCount} numbers.`);
+    setShowCustomBroadcast(false);
+  };
 
   const fetchRentals = async () => {
     setIsLoadingRentals(true);
@@ -50,6 +86,11 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     const totalAdults = todayVisits.reduce((s, b) => s + (Number(b.adults) || 0), 0);
     const totalKids = todayVisits.reduce((s, b) => s + (Number(b.kids) || 0), 0);
     const revenue = todayVisits.reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
+    
+    // Detailed collection split
+    const cashColl = todayVisits.filter(b => b.paymentMode === 'cash').reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
+    const upiColl = todayVisits.filter(b => (b.paymentMode === 'upi' || b.paymentMode === 'online')).reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
+
     const checkedIn = todayVisits.filter(b => b.status === 'checked-in').reduce((s, b) => s + (Number(b.adults) || 0) + (Number(b.kids) || 0), 0);
 
     const activeRentals = safeRentals.filter(r => r.status === 'issued');
@@ -59,6 +100,8 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
     return { 
       revenue: revenue || 0, 
+      cashColl: cashColl || 0,
+      upiColl: upiColl || 0,
       totalBookings: todayVisits.length, 
       totalGuests: totalAdults + totalKids, 
       checkedIn: checkedIn || 0,
@@ -74,6 +117,8 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     (b.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
     (b.mobile && b.mobile.includes(searchTerm))
   ).slice(0, 50);
+
+  const statsDate = new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium' });
 
   const handleSaveSettings = async () => {
     setIsSaving(true);
@@ -106,11 +151,60 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
             <p className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.5em] mb-3">Today's Revenue (IST)</p>
             <h2 className="text-5xl md:text-6xl font-black tracking-tighter">₹{stats.revenue.toLocaleString()}</h2>
           </div>
-          <div className="grid grid-cols-2 gap-4 w-full md:w-auto">
-             <div className="bg-white/5 p-6 rounded-3xl text-center"><p className="text-[9px] font-black opacity-40 uppercase">Total Guests</p><p className="text-2xl font-black">{stats.totalGuests}</p></div>
-             <div className="bg-emerald-500/10 p-6 rounded-3xl text-center"><p className="text-[9px] font-black text-emerald-400 uppercase">Inside Park</p><p className="text-2xl font-black text-emerald-400">{stats.checkedIn}</p></div>
+          <div className="flex flex-col items-center md:items-end gap-4 w-full md:w-auto">
+            <div className="grid grid-cols-2 gap-4 w-full">
+               <div className="bg-white/5 p-6 rounded-3xl text-center"><p className="text-[9px] font-black opacity-40 uppercase">Total Guests</p><p className="text-2xl font-black">{stats.totalGuests}</p></div>
+               <div className="bg-emerald-500/10 p-6 rounded-3xl text-center"><p className="text-[9px] font-black text-emerald-400 uppercase">Inside Park</p><p className="text-2xl font-black text-emerald-400">{stats.checkedIn}</p></div>
+            </div>
+            
+            <button 
+              onClick={() => setShowCustomBroadcast(!showCustomBroadcast)}
+              className="w-full md:w-auto bg-emerald-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition shadow-lg"
+            >
+              <i className="fas fa-bullhorn mr-2"></i>
+              WhatsApp Promotion
+            </button>
           </div>
         </div>
+
+        {showCustomBroadcast && (
+          <div className="mt-10 p-8 bg-white/5 rounded-[2rem] border border-white/10 space-y-6 animate-slide-up">
+            <div className="flex justify-between items-center">
+              <h4 className="text-sm font-black uppercase tracking-widest text-emerald-400">Custom WhatsApp Broadcast</h4>
+              <button onClick={() => setShowCustomBroadcast(false)} className="text-white/40 hover:text-white"><i className="fas fa-times"></i></button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black uppercase text-white/50 px-2">Approved Template Name</label>
+                <input 
+                  type="text" 
+                  className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-[10px] text-white w-full focus:outline-none focus:border-emerald-500"
+                  value={customTemplate}
+                  onChange={(e) => setCustomTemplate(e.target.value)}
+                  placeholder="e.g. offer_waterpark"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[9px] font-black uppercase text-white/50 px-2">Mobile Numbers (Comma or Newline separated)</label>
+                <textarea 
+                  className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-[10px] text-white w-full h-24 focus:outline-none focus:border-emerald-500"
+                  value={customNumbers}
+                  onChange={(e) => setCustomNumbers(e.target.value)}
+                  placeholder="919876543210, 918877665544"
+                />
+              </div>
+            </div>
+
+            <button 
+              onClick={handleCustomBroadcast}
+              disabled={isBroadcasting}
+              className="w-full bg-emerald-500 text-slate-900 py-4 rounded-xl font-black uppercase text-[10px] shadow-lg hover:bg-emerald-400 transition disabled:opacity-50"
+            >
+              {isBroadcasting ? <><i className="fas fa-spinner fa-spin mr-2"></i> Sending...</> : 'Send Promotional Messages'}
+            </button>
+          </div>
+        )}
         <div className="flex flex-wrap justify-center bg-white/5 p-1.5 rounded-2xl mt-12 gap-1 border border-white/10">
             {['bookings', 'lockers', 'pricing', 'slots'].map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${activeTab === tab ? 'bg-white text-slate-900 shadow-xl' : 'text-white/50 hover:text-white'}`}>{tab}</button>
@@ -123,19 +217,59 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
           <div className="space-y-8">
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
               <h3 className="text-2xl font-black uppercase tracking-tight text-slate-900">Recent Bookings</h3>
-              <input type="text" placeholder="Search..." className="input-premium max-w-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+              <input type="text" placeholder="Search by ID, Name or Mobile..." className="input-premium max-w-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
             </div>
+
+            {/* Daily Collection Summary Highlight */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-amber-50 border border-amber-100 p-6 rounded-3xl">
+                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Cash Collection ({statsDate})</p>
+                <p className="text-3xl font-black text-amber-900">₹{stats.cashColl.toLocaleString()}</p>
+              </div>
+              <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl">
+                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">UPI Collection ({statsDate})</p>
+                <p className="text-3xl font-black text-blue-900">₹{stats.upiColl.toLocaleString()}</p>
+              </div>
+              <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-3xl">
+                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Total Collection ({statsDate})</p>
+                <p className="text-3xl font-black text-emerald-900">₹{stats.revenue.toLocaleString()}</p>
+              </div>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-left">
-                <thead><tr className="text-[10px] font-black uppercase text-slate-400 border-b border-slate-100"><th className="pb-4 px-2">ID</th><th className="pb-4 px-2">Guest</th><th className="pb-4 px-2">Date/Slot</th><th className="pb-4 px-2">Pax</th><th className="pb-4 px-2">Status</th></tr></thead>
+                <thead>
+                  <tr className="text-[10px] font-black uppercase text-slate-400 border-b border-slate-100">
+                    <th className="pb-4 px-2">ID</th>
+                    <th className="pb-4 px-2">Guest</th>
+                    <th className="pb-4 px-2">Date/Slot</th>
+                    <th className="pb-4 px-2">Pax</th>
+                    <th className="pb-4 px-2">Payment</th>
+                    <th className="pb-4 px-2">Amount</th>
+                    <th className="pb-4 px-2">Status</th>
+                  </tr>
+                </thead>
                 <tbody className="divide-y divide-slate-50">
                   {filteredBookings.map(b => (
                     <tr key={b.id} className="text-xs font-bold text-slate-700">
                       <td className="py-4 px-2 text-blue-600 uppercase">{b.id}</td>
-                      <td className="py-4 px-2"><p className="font-black text-slate-900 uppercase">{b.name}</p><p className="text-[10px] opacity-50">{b.mobile}</p></td>
+                      <td className="py-4 px-2">
+                        <p className="font-black text-slate-900 uppercase">{b.name}</p>
+                        <p className="text-[10px] opacity-50">{b.mobile}</p>
+                      </td>
                       <td className="py-4 px-2 uppercase">{b.date}<br/>{(b.time || "").split(':')[0]}</td>
                       <td className="py-4 px-2">{Number(b.adults) + Number(b.kids)}</td>
-                      <td className="py-4 px-2"><span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${b.status === 'checked-in' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>{b.status}</span></td>
+                      <td className="py-4 px-2">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${b.paymentMode === 'cash' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
+                          {b.paymentMode || 'cash'}
+                        </span>
+                      </td>
+                      <td className="py-4 px-2 font-black text-slate-900">₹{b.totalAmount}</td>
+                      <td className="py-4 px-2">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${b.status === 'checked-in' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
+                          {b.status}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
