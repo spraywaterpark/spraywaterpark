@@ -14,8 +14,8 @@ export const PRICING = {
 };
 
 export const OFFERS = {
-  MORNING: "FIX SNACKS (12:00 PM - 3:00 PM ONLY)",
-  EVENING: "FREE Buffet Dinner (7:00 PM - 9:00 PM)"
+  MORNING: "FREE MINI MEAL (12:30 PM - 2:00 PM ONLY)",
+  EVENING: "FREE Buffet Dinner (7:00 PM - 10:00 PM)"
 };
 
 export const DEFAULT_ADMIN_SETTINGS = {
@@ -36,7 +36,7 @@ export const DEFAULT_ADMIN_SETTINGS = {
 };
 
 export const TIME_SLOTS = [
-  "Morning Slot: 10:00 AM - 03:00 PM",
+  "Morning Slot: 09:00 AM - 02:00 PM",
   "Evening Slot: 04:00 PM - 10:00 PM"
 ];
 
