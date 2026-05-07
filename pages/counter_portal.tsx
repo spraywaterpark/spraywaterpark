@@ -215,8 +215,8 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
                       </div>
                       <div className="text-right">
                           <p className="text-white font-black text-sm">₹{b.totalAmount}</p>
-                          <p className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${b.paymentMode === 'cash' ? 'bg-amber-500/20 text-amber-500' : 'bg-blue-500/20 text-blue-500'}`}>
-                              {b.paymentMode}
+                          <p className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${(!b.paymentMode || b.paymentMode === 'cash') ? 'bg-amber-500/20 text-amber-500' : 'bg-blue-500/20 text-blue-500'}`}>
+                              {b.paymentMode || 'cash'}
                           </p>
                       </div>
                   </div>
