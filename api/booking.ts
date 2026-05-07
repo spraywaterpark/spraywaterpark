@@ -45,6 +45,24 @@ export default async function handler(req: any, res: any) {
   const sheets = google.sheets({ version: "v4", auth });
   const type = req.query.type;
 
+  // Meta Webhook Verification
+  if (type === 'webhook' && req.method === 'GET') {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+
+    if (mode === 'subscribe' && token === 'spray_water_park_2024') {
+      res.setHeader('Content-Type', 'text/plain');
+      return res.status(200).send(challenge);
+    }
+    return res.status(403).send('Forbidden');
+  }
+
+  // Simple Test Route
+  if (type === 'test') {
+    return res.status(200).send('API is working fine');
+  }
+
   try {
     // 1. SETTINGS LOGIC
     if (type === 'settings') {
@@ -175,7 +193,7 @@ export default async function handler(req: any, res: any) {
       else if (row[7] > todayStr) validation = "FUTURE_DATE";
       else {
         const isMorning = row[8].toLowerCase().includes("morning");
-        const currentShift = currentHour < 15 ? "morning" : "evening";
+        const currentShift = currentHour < 14 ? "morning" : "evening";
         if (isMorning && currentShift === "evening") validation = "EXPIRED_SLOT";
         else if (!isMorning && currentShift === "morning") validation = "FUTURE_SLOT";
       }
@@ -290,14 +308,14 @@ export default async function handler(req: any, res: any) {
     if (req.method === "POST") {
       const b = req.body;
       await sheets.spreadsheets.values.append({
-        spreadsheetId: process.env.SHEET_ID, range: "booking!A:L",
-        valueInputOption: "RAW", requestBody: { values: [[b.id, b.name, b.mobile, b.adults, b.kids, Number(b.adults) + Number(b.kids), b.amount, b.date, b.time, "PAID", "YET TO ARRIVE", ""]] }
+        spreadsheetId: process.env.SHEET_ID, range: "booking!A:M",
+        valueInputOption: "RAW", requestBody: { values: [[b.id, b.name, b.mobile, b.adults, b.kids, Number(b.adults) + Number(b.kids), b.amount || b.totalAmount, b.date, b.time, "PAID", "YET TO ARRIVE", "", b.paymentMode || "cash"]] }
       });
       return res.status(200).json({ success: true });
     }
 
     if (req.method === "GET") {
-      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:L1000" });
+      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:M1000" });
       const rows = (resp.data.values || []).filter(row => row[0]); // Ensure ID exists
       return res.status(200).json(rows.map(row => ({ 
         id: row[0] || "", 
@@ -308,6 +326,7 @@ export default async function handler(req: any, res: any) {
         totalAmount: Number(row[6]) || 0, 
         date: row[7] || "", 
         time: row[8] || "", 
+        paymentMode: row[12] || "cash",
         status: row[10] === "CHECKED-IN" ? "checked-in" : "confirmed" 
       })).reverse());
     }
