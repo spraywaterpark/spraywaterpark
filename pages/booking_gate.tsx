@@ -71,33 +71,33 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
     }
   };
 
-  const isMorning = slot.includes('Morning');
-  const adultRate = (isMorning ? (settings?.morningAdultRate || DEFAULT_ADMIN_SETTINGS.morningAdultRate) : (settings?.eveningAdultRate || DEFAULT_ADMIN_SETTINGS.eveningAdultRate)) || 500;
-  const kidRate = (isMorning ? (settings?.morningKidRate || DEFAULT_ADMIN_SETTINGS.morningKidRate) : (settings?.eveningKidRate || DEFAULT_ADMIN_SETTINGS.eveningKidRate)) || 350;
-  const currentOffer = isMorning ? OFFERS.MORNING : OFFERS.EVENING;
+  const isMorning = slot.toLowerCase().includes('morning');
+  const isSunday = new Date(date).getDay() === 0;
+  const sundayExtra = isSunday ? 50 : 0;
 
   const pricingData = useMemo(() => {
+    let adultMRP = isMorning ? 500 : 800;
+    let kidMRP = isMorning ? 350 : 500;
+    let adultFinal = isMorning ? 400 : 600;
+    let kidFinal = isMorning ? 300 : 400;
+
+    // Apply Sunday Surcharge
+    adultMRP += sundayExtra;
+    kidMRP += sundayExtra;
+    adultFinal += sundayExtra;
+    kidFinal += sundayExtra;
+
     const safeAdults = Number(adults) || 0;
     const safeKids = Number(kids) || 0;
-    const subtotal = (safeAdults * adultRate) + (safeKids * kidRate);
-    
-    // Calculate total guests already booked for this specific date/slot to apply early bird
-    const slotBookings = bookings.filter(b => b.date === date && b.time === slot && (b.status === 'confirmed' || b.status === 'checked-in'));
-    const totalGuestsSoFar = slotBookings.reduce((sum, b) => sum + (Number(b.adults) || 0) + (Number(b.kids) || 0), 0);
 
-    let discountPercent = 0;
-    // Early Bird: First 100 guests get max discount
-    if (totalGuestsSoFar < 100) {
-        discountPercent = settings.earlyBirdDiscount || 20;
-    } 
-    // Next 100 get medium discount
-    else if (totalGuestsSoFar < 200) {
-        discountPercent = settings.extraDiscountPercent || 10;
-    }
+    const subtotal = (safeAdults * adultMRP) + (safeKids * kidMRP);
+    const total = (safeAdults * adultFinal) + (safeKids * kidFinal);
+    const discount = subtotal - total;
 
-    const discount = Math.round(subtotal * (discountPercent / 100));
-    return { subtotal, discount, total: subtotal - discount, discountPercent };
-  }, [date, slot, adults, kids, bookings, adultRate, kidRate, settings]);
+    return { subtotal, discount, total, isSunday, adultMRP, kidMRP, adultFinal, kidFinal };
+  }, [date, slot, adults, kids, isMorning, sundayExtra]);
+
+  const currentOffer = isMorning ? OFFERS.MORNING : OFFERS.EVENING;
 
   const handleCheckout = () => {
     if (isSlotBlocked(date, slot)) return alert("Slot unavailable.");
@@ -163,7 +163,10 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                 <div className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-50 flex justify-between items-center shadow-sm hover:shadow-md transition-shadow">
                     <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Adult Entry</p>
-                        <p className="text-2xl font-black text-slate-900">₹{adultRate}</p>
+                        <div className="flex items-center gap-2">
+                            <p className="text-2xl font-black text-slate-900">₹{pricingData.adultFinal}</p>
+                            <p className="text-sm font-bold text-slate-300 line-through">₹{pricingData.adultMRP}</p>
+                        </div>
                     </div>
                     <div className="flex items-center gap-6 bg-slate-100 p-2 rounded-2xl">
                         <button onClick={() => setAdults(Math.max(1, adults-1))} className="w-10 h-10 rounded-xl bg-white font-black shadow-sm active:scale-90 transition-transform">-</button>
@@ -174,7 +177,10 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                 <div className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-50 flex justify-between items-center shadow-sm hover:shadow-md transition-shadow">
                     <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Child Entry</p>
-                        <p className="text-2xl font-black text-slate-900">₹{kidRate}</p>
+                        <div className="flex items-center gap-2">
+                            <p className="text-2xl font-black text-slate-900">₹{pricingData.kidFinal}</p>
+                            <p className="text-sm font-bold text-slate-300 line-through">₹{pricingData.kidMRP}</p>
+                        </div>
                     </div>
                     <div className="flex items-center gap-6 bg-slate-100 p-2 rounded-2xl">
                         <button onClick={() => setKids(Math.max(0, kids-1))} className="w-10 h-10 rounded-xl bg-white font-black shadow-sm active:scale-90 transition-transform">-</button>
@@ -206,27 +212,37 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                 {/* Summary Details */}
                 <div className="space-y-6">
                     <div className="flex justify-between items-center text-sm font-black uppercase text-white/30 tracking-widest px-2">
-                        <span>Base Subtotal</span>
+                        <span>Original Price (MRP)</span>
                         <span>₹{pricingData.subtotal}</span>
                     </div>
                     
                     {pricingData.discount > 0 && (
                         <div className="flex justify-between items-end bg-emerald-500/10 p-6 rounded-3xl border border-emerald-500/20">
                             <div>
-                                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Early Bird Savings ({pricingData.discountPercent}%)</p>
-                                <p className="text-sm font-bold text-white/60">Limited Guest Special</p>
+                                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Instant Savings</p>
+                                <p className="text-sm font-bold text-white/60">Limited Offer Discount</p>
                             </div>
                             <div className="text-right">
                                 <span className="text-3xl font-black text-emerald-400 tracking-tighter">- ₹{pricingData.discount}</span>
                             </div>
                         </div>
                     )}
+
+                    {pricingData.isSunday && (
+                        <div className="flex justify-between items-center bg-amber-500/5 p-4 rounded-2xl border border-amber-500/10">
+                            <p className="text-[10px] font-black text-amber-500/60 uppercase tracking-widest">Sunday Holiday Surcharge</p>
+                            <span className="text-xs font-black text-amber-500/60">+ ₹50 per person</span>
+                        </div>
+                    )}
                 </div>
 
-                <div className="text-center space-y-3 pt-4 border-t border-white/5">
-                    <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.4em]">Online Booking Disabled</p>
-                    <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-3xl">
-                        <p className="text-amber-500 text-sm font-black uppercase tracking-widest">Please book your tickets directly at the Resort Counter</p>
+                <div className="text-center space-y-3 pt-6 border-t border-white/5">
+                    <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.4em]">Final Ticket Amount</p>
+                    <div className="text-6xl font-black text-white tracking-tighter">
+                        ₹{pricingData.total}
+                    </div>
+                    <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-3xl mt-4">
+                        <p className="text-amber-500 text-sm font-black uppercase tracking-widest">Online Booking Suspended. Visit Counter.</p>
                     </div>
                 </div>
                 
