@@ -13,6 +13,7 @@ import { DEFAULT_ADMIN_SETTINGS, MASTER_SYNC_ID } from './constants';
 import { cloudSync } from './services/cloud_sync';
 import AdminLockers from './pages/admin_lockers';
 import GuestDashboard from './pages/guest_dashboard';
+import CounterPortal from './pages/counter_portal';
 
 
 const AppContent: React.FC = () => {
@@ -146,6 +147,7 @@ const AppContent: React.FC = () => {
           <Routes>
             <Route path="/" element={
               auth.role === 'admin' ? <Navigate to="/admin" /> :
+              auth.role === 'counter' ? <Navigate to="/counter" /> :
               (auth.role === 'staff' || auth.role === 'staff1' || auth.role === 'staff2') ? <Navigate to="/staff" /> :
               auth.role === 'guest' ? (
                 bookings.some(b => 
@@ -160,6 +162,7 @@ const AppContent: React.FC = () => {
             <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} bookings={bookings} /> : <Navigate to="/" />} />
             <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} user={auth.user} settings={settings} onUpdateBooking={updateBooking} /> : <Navigate to="/" />} />
             <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={setSettings} syncId={syncId} onSyncSetup={setSyncId} onLogout={logout} /> : <Navigate to="/" />} />
+            <Route path="/counter" element={auth.role === 'counter' ? <CounterPortal settings={settings} bookings={bookings} onAddBooking={addBooking} /> : <Navigate to="/" />} />
             <Route path="/admin-lockers" element={auth.role === 'admin' ? <AdminLockers /> : <Navigate to="/" />} />
             <Route path="/staff" element={(auth.role === 'staff' || auth.role === 'staff1' || auth.role === 'staff2') ? <StaffPortal role={auth.role} /> : <Navigate to="/" />} />
             <Route path="*" element={<Navigate to="/" />} />
