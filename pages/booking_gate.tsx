@@ -180,18 +180,16 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
             </div>
 
             {/* FOOD OPTION BANNER - HIGHLIGHTED */}
-            <div className="bg-emerald-500 border-2 border-emerald-300 p-8 rounded-[2.5rem] flex items-center gap-8 shadow-2xl relative overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-emerald-600 opacity-100 transition-opacity"></div>
-                <div className="relative z-10 w-14 h-14 bg-white text-emerald-500 rounded-full flex items-center justify-center text-2xl shadow-xl">
+            <div className="bg-white border-4 border-emerald-500 p-8 rounded-[2.5rem] flex items-center gap-8 shadow-2xl relative overflow-hidden">
+                <div className="relative z-10 w-14 h-14 bg-emerald-500 text-white rounded-full flex items-center justify-center text-2xl shadow-lg">
                     <i className="fas fa-gift"></i>
                 </div>
                 <div className="relative z-10">
-                    <p className="text-[11px] font-black text-white uppercase tracking-[0.3em] mb-1">Special Surprise Inclusion</p>
-                    <p className="text-xl md:text-2xl font-black text-white uppercase tracking-tighter leading-none">
-                        <span className="text-yellow-300">FREE</span> {currentOffer}
+                    <p className="text-[12px] font-black text-emerald-600 uppercase tracking-[0.3em] mb-1">Special Surprise Inclusion</p>
+                    <p className="text-xl md:text-3xl font-black text-gray-900 uppercase tracking-tighter leading-none">
+                        <span className="text-emerald-500">FREE</span> {currentOffer}
                     </p>
                 </div>
-                <div className="absolute right-0 top-0 h-full w-24 bg-white/10 skew-x-[30deg] translate-x-12"></div>
             </div>
         </div>
 
@@ -221,19 +219,17 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                 </div>
 
                 <div className="text-center space-y-3 pt-4 border-t border-white/5">
-                    <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.4em]">Final Payable Amount</p>
-                    <div className="text-7xl font-black text-white tracking-tighter drop-shadow-2xl">
-                        <span className="text-4xl text-white/50 align-top mr-1">₹</span>
-                        {pricingData.total}
+                    <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.4em]">Online Booking Disabled</p>
+                    <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-3xl">
+                        <p className="text-amber-500 text-sm font-black uppercase tracking-widest">Please book your tickets directly at the Resort Counter</p>
                     </div>
                 </div>
                 
                 <button 
-                  onClick={handleCheckout} 
-                  disabled={isSlotBlocked(date, slot)} 
-                  className="w-full bg-white h-24 rounded-[2.5rem] text-slate-950 font-black uppercase tracking-[0.2em] text-lg shadow-[0_20px_40px_-10px_rgba(255,255,255,0.2)] active:scale-95 transition-all disabled:opacity-20 hover:bg-white/95 group"
+                  disabled={true} 
+                  className="w-full bg-slate-800 h-24 rounded-[2.5rem] text-slate-500 font-black uppercase tracking-[0.2em] text-lg cursor-not-allowed"
                 >
-                    Complete Booking <i className="fas fa-arrow-right ml-3 group-hover:translate-x-2 transition-transform"></i>
+                    Online Booking Suspended
                 </button>
 
                 <div className="flex items-center justify-center gap-3 text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">
