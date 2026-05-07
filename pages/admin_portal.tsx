@@ -88,8 +88,8 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     const revenue = todayVisits.reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
     
     // Detailed collection split
-    const cashColl = todayVisits.filter(b => b.paymentMode === 'cash').reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
-    const upiColl = todayVisits.filter(b => (b.paymentMode === 'upi' || b.paymentMode === 'online')).reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
+    const cashColl = todayVisits.filter(b => !b.paymentMode || b.paymentMode === 'cash').reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
+    const upiColl = todayVisits.filter(b => b.paymentMode === 'upi' || b.paymentMode === 'online').reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
 
     const checkedIn = todayVisits.filter(b => b.status === 'checked-in').reduce((s, b) => s + (Number(b.adults) || 0) + (Number(b.kids) || 0), 0);
 
