@@ -1,5 +1,5 @@
 
-export type UserRole = 'guest' | 'admin' | 'staff' | 'staff1' | 'staff2' | null;
+export type UserRole = 'guest' | 'admin' | 'staff' | 'staff1' | 'staff2' | 'counter' | null;
 
 export interface Booking {
   id: string;
@@ -12,7 +12,7 @@ export interface Booking {
   discountCode: string;
   totalAmount: number;
   status: 'pending' | 'confirmed' | 'cancelled' | 'checked-in';
-  paymentMode: 'online' | 'cash';
+  paymentMode: 'online' | 'cash' | 'upi';
   createdAt: string;
   checkinTime?: string;
 }
