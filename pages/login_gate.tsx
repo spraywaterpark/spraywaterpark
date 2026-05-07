@@ -47,6 +47,12 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
     const user = data.loginId.trim();
     const pass = data.password.trim();
 
+    if (user === 'counter1' && pass === 'swp123') {
+      onAdminLogin(user, 'counter');
+      navigate('/counter');
+      return;
+    }
+
     if (pass === '123') {
       if (user === 'admin') {
         onAdminLogin(user, 'admin');
@@ -105,7 +111,7 @@ const LoginGate: React.FC<LoginPageProps> = ({ onGuestLogin, onAdminLogin }) => 
             ) : (
               <>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Role Based ID (admin/staff1/staff2)</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Role Based ID (admin/staff1/staff2/counter1)</label>
                   <input placeholder="Login ID" className="input-premium" value={data.loginId} onChange={e => setData({ ...data, loginId: e.target.value })} />
                 </div>
                 <input type="password" placeholder="Password" className="input-premium" value={data.password} onChange={e => setData({ ...data, password: e.target.value })} />
