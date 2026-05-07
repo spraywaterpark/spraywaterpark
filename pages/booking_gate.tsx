@@ -165,7 +165,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Adult Entry</p>
                         <div className="flex items-center gap-2">
                             <p className="text-2xl font-black text-slate-900">₹{pricingData.adultFinal}</p>
-                            <p className="text-sm font-bold text-slate-300 line-through">₹{pricingData.adultMRP}</p>
+                            <p className="text-sm font-bold text-slate-300 line-through">MRP ₹{pricingData.adultMRP}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-6 bg-slate-100 p-2 rounded-2xl">
@@ -179,7 +179,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Child Entry</p>
                         <div className="flex items-center gap-2">
                             <p className="text-2xl font-black text-slate-900">₹{pricingData.kidFinal}</p>
-                            <p className="text-sm font-bold text-slate-300 line-through">₹{pricingData.kidMRP}</p>
+                            <p className="text-sm font-bold text-slate-300 line-through">MRP ₹{pricingData.kidMRP}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-6 bg-slate-100 p-2 rounded-2xl">
@@ -242,7 +242,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                         ₹{pricingData.total}
                     </div>
                     <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-3xl mt-4">
-                        <p className="text-amber-500 text-sm font-black uppercase tracking-widest">Online Booking Suspended. Visit Counter.</p>
+                        <p className="text-amber-500 text-sm font-black uppercase tracking-widest leading-relaxed">Online booking is temporarily unavailable.<br/>Tickets available at resort counter.</p>
                     </div>
                 </div>
                 
