@@ -33,9 +33,14 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
 
   const isSlotBlocked = (checkDate: string, checkSlot: string) => {
     // 1. Same-day Cut-off Rules
+    const now = new Date();
+    const currHour = now.getHours();
+    const currMin = now.getMinutes();
+    const currTimeVal = currHour + (currMin / 60);
+
     if (checkDate === todayStr) {
-      if (checkSlot.toLowerCase().includes('morning') && currentHour >= 13) return true;
-      if (checkSlot.toLowerCase().includes('evening') && currentHour >= 19) return true;
+      if (checkSlot.toLowerCase().includes('morning') && currTimeVal >= 13) return true;
+      if (checkSlot.toLowerCase().includes('evening') && currTimeVal >= 19.5) return true;
     }
 
     // 2. Admin Panel Block Rules
