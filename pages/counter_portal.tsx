@@ -25,23 +25,25 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // Auto-calculate rates
+  // Auto-calculate rates based on new requirements
   const isMorning = data.slot.toLowerCase().includes('morning');
-  const adultRate = isMorning ? settings.morningAdultRate : settings.eveningAdultRate;
-  const kidRate = isMorning ? settings.morningKidRate : settings.eveningKidRate;
-  
-  const subtotal = (data.adults * adultRate) + (data.kids * kidRate);
-  
-  // Early Bird Logic (simple version for counter)
-  let discountPercent = 0;
-  const slotBookings = bookings.filter(b => b.date === data.date && b.time === data.slot && (b.status === 'confirmed' || b.status === 'checked-in'));
-  const totalGuestsSoFar = slotBookings.reduce((sum, b) => sum + b.adults + b.kids, 0);
+  const isSunday = new Date(data.date).getDay() === 0;
+  const sundayExtra = isSunday ? 50 : 0;
 
-  if (totalGuestsSoFar < 100) discountPercent = settings.earlyBirdDiscount;
-  else if (totalGuestsSoFar < 200) discountPercent = settings.extraDiscountPercent;
+  let adultMRP = isMorning ? 500 : 800;
+  let kidMRP = isMorning ? 350 : 500;
+  let adultFinal = isMorning ? 400 : 600;
+  let kidFinal = isMorning ? 300 : 400;
 
-  const discount = Math.round(subtotal * (discountPercent / 100));
-  const totalAmount = subtotal - discount;
+  // Apply Sunday Surcharge
+  adultMRP += sundayExtra;
+  kidMRP += sundayExtra;
+  adultFinal += sundayExtra;
+  kidFinal += sundayExtra;
+
+  const totalMRP = (data.adults * adultMRP) + (data.kids * kidMRP);
+  const totalAmount = (data.adults * adultFinal) + (data.kids * kidFinal);
+  const totalDiscount = totalMRP - totalAmount;
 
   const generateTicketId = (dateStr: string, timeStr: string) => {
     const d = new Date(dateStr);
@@ -95,7 +97,7 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
       time: data.slot,
       adults: data.adults,
       kids: data.kids,
-      discountCode: discountPercent > 0 ? "COUNTER_EB" : "",
+      discountCode: totalDiscount > 0 ? "COUNTER_OFFER" : "",
       totalAmount: totalAmount,
       status: 'confirmed',
       paymentMode: data.paymentMode,
@@ -213,10 +215,22 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
                 </div>
             </div>
 
-            <div className="bg-slate-900 rounded-[2rem] p-8 text-center space-y-2">
-                <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em]">Final Collection Amount</p>
-                <div className="text-5xl font-black text-white tracking-tighter">₹{totalAmount}</div>
-                {discount > 0 && <p className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">Saved ₹{discount} (EB Discount Applied)</p>}
+            <div className="bg-slate-900 rounded-[2rem] p-8 text-center space-y-4">
+                <div className="grid grid-cols-2 gap-4 pb-4 border-b border-white/5">
+                    <div className="text-left">
+                        <p className="text-[9px] font-black text-white/30 uppercase tracking-widest">Total MRP</p>
+                        <p className="text-xl font-bold text-white/60 line-through">₹{totalMRP}</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-[9px] font-black text-emerald-500/50 uppercase tracking-widest text-right">Instant Savings</p>
+                        <p className="text-xl font-black text-emerald-400">-₹{totalDiscount}</p>
+                    </div>
+                </div>
+                <div>
+                    <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em]">Payable Amount</p>
+                    <div className="text-5xl font-black text-white tracking-tighter">₹{totalAmount}</div>
+                    {isSunday && <p className="text-[8px] font-bold text-amber-400 uppercase tracking-widest mt-2">(₹50 Holiday Surcharge Included)</p>}
+                </div>
             </div>
 
             <button 
