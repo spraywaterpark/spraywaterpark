@@ -55,9 +55,34 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
     return `SAR/${datePart}${shiftCode}-${seq}`;
   };
 
+  const now = new Date();
+  const today = now.toLocaleDateString('en-CA');
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+  const currentTimeVal = currentHour + (currentMinute / 60);
+
+  const isOldDate = data.date < today;
+  let isSlotExpired = false;
+  let expiredMessage = "";
+
+  if (data.date === today) {
+    if (data.slot.toLowerCase().includes('morning') && currentTimeVal >= 13) {
+      isSlotExpired = true;
+      expiredMessage = "Morning Slot booking closed at 1:00 PM";
+    } else if (data.slot.toLowerCase().includes('evening') && currentTimeVal >= 19.5) {
+      isSlotExpired = true;
+      expiredMessage = "Evening Slot booking closed at 7:30 PM";
+    }
+  }
+
+  const isInvalid = isOldDate || isSlotExpired;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!data.name || data.mobile.length !== 10) return alert("Valid Name & Mobile required");
+    
+    if (isOldDate) return alert("Old dates are not allowed for booking.");
+    if (isSlotExpired) return alert(expiredMessage);
     
     setLoading(true);
     const bookingId = generateTicketId(data.date, data.slot);
@@ -196,11 +221,12 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
 
             <button 
                 type="submit" 
-                disabled={loading || success}
-                className={`w-full h-20 rounded-[1.8rem] font-black uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 ${success ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                disabled={loading || success || isInvalid}
+                className={`w-full h-20 rounded-[1.8rem] font-black uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 ${isInvalid ? 'bg-red-500/20 text-red-500 cursor-not-allowed' : success ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
             >
-                {loading ? <i className="fas fa-spinner fa-spin"></i> : success ? <><i className="fas fa-check-circle"></i> Booking Done</> : 'Confirm & Generate Ticket'}
+                {loading ? <i className="fas fa-spinner fa-spin"></i> : success ? <><i className="fas fa-check-circle"></i> Booking Done</> : isOldDate ? 'Old Date Not Allowed' : isSlotExpired ? 'Slot booking closed' : 'Confirm & Generate Ticket'}
             </button>
+            {isInvalid && <p className="text-center text-[10px] font-black text-red-500 uppercase tracking-widest">{isOldDate ? "Please select current or future date" : expiredMessage}</p>}
         </form>
       </div>
 
