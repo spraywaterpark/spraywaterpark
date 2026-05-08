@@ -9,6 +9,7 @@ export interface Booking {
   time: string;
   adults: number;
   kids: number;
+  students: number;
   discountCode: string;
   totalAmount: number;
   status: 'pending' | 'confirmed' | 'cancelled' | 'checked-in';
