@@ -83,13 +83,17 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     
     const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
     const todayVisits = safeBookings.filter(b => b.date === todayStr);
+    const todayCollections = safeBookings.filter(b => b.createdAt && b.createdAt.startsWith(todayStr));
+
     const totalAdults = todayVisits.reduce((s, b) => s + (Number(b.adults) || 0), 0);
     const totalKids = todayVisits.reduce((s, b) => s + (Number(b.kids) || 0), 0);
-    const revenue = todayVisits.reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
     
-    // Detailed collection split
-    const cashColl = todayVisits.filter(b => !b.paymentMode || b.paymentMode === 'cash').reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
-    const upiColl = todayVisits.filter(b => b.paymentMode === 'upi' || b.paymentMode === 'online').reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
+    // Revenue is now based on today's collection (creation date)
+    const revenue = todayCollections.reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
+    
+    // Detailed collection split based on today's collections
+    const cashColl = todayCollections.filter(b => !b.paymentMode || b.paymentMode === 'cash').reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
+    const upiColl = todayCollections.filter(b => b.paymentMode === 'upi' || b.paymentMode === 'online').reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
 
     const checkedIn = todayVisits.filter(b => b.status === 'checked-in').reduce((s, b) => s + (Number(b.adults) || 0) + (Number(b.kids) || 0), 0);
 
