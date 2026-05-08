@@ -220,15 +220,28 @@ export default async function handler(req: any, res: any) {
       const idx = rows.findIndex(r => r[0] === b.id);
       if (idx === -1) return res.status(404).json({ success: false });
       
-      // Update columns: D (Adults), E (Kids), F (Total Guests), G (Amount)
-      // Columns are 0-indexed: A=0, B=1, C=2, D=3, E=4, F=5, G=6
+      // Update columns: B (Name) to I (Time) and M (Payment Mode)
+      // B=1, C=2, D=3, E=4, F=5, G=6, H=7, I=8, ..., M=12
+      // We will perform two updates to be safe or one large range
+      
+      // Update B to I
       await sheets.spreadsheets.values.update({
-        spreadsheetId: process.env.SHEET_ID, range: `booking!D${idx + 2}:G${idx + 2}`,
+        spreadsheetId: process.env.SHEET_ID, range: `booking!B${idx + 2}:I${idx + 2}`,
         valueInputOption: "RAW", 
         requestBody: { 
-          values: [[b.adults, b.kids, Number(b.adults) + Number(b.kids), b.totalAmount]] 
+          values: [[b.name, b.mobile, b.adults, b.kids, Number(b.adults) + Number(b.kids), b.totalAmount, b.date, b.time]] 
         }
       });
+      
+      // Update M (Payment Mode)
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: process.env.SHEET_ID, range: `booking!M${idx + 2}`,
+        valueInputOption: "RAW", 
+        requestBody: { 
+          values: [[b.paymentMode]] 
+        }
+      });
+
       return res.status(200).json({ success: true });
     }
 
@@ -307,26 +320,28 @@ export default async function handler(req: any, res: any) {
 
     if (req.method === "POST") {
       const b = req.body;
+      const createdDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
       await sheets.spreadsheets.values.append({
-        spreadsheetId: process.env.SHEET_ID, range: "booking!A:M",
-        valueInputOption: "RAW", requestBody: { values: [[b.id, b.name, b.mobile, b.adults, b.kids, Number(b.adults) + Number(b.kids), b.amount || b.totalAmount, b.date, b.time, "PAID", "YET TO ARRIVE", "", b.paymentMode || "cash"]] }
+        spreadsheetId: process.env.SHEET_ID, range: "booking!A:N",
+        valueInputOption: "RAW", requestBody: { values: [[b.id, b.name, b.mobile, b.adults, b.kids, Number(b.adults) + Number(b.kids), b.amount || b.totalAmount, b.date, b.time, "PAID", "YET TO ARRIVE", "", b.paymentMode || "cash", createdDate]] }
       });
       return res.status(200).json({ success: true });
     }
 
     if (req.method === "GET") {
-      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:M1000" });
+      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:N1000" });
       const rows = (resp.data.values || []).filter(row => row[0]); // Ensure ID exists
       return res.status(200).json(rows.map(row => ({ 
         id: row[0] || "", 
         name: row[1] || "", 
         mobile: row[2] || "", 
-        adults: Number(row[3]) || 0, 
+        adults: Number(row[3]) || 1, 
         kids: Number(row[4]) || 0, 
         totalAmount: Number(row[6]) || 0, 
         date: row[7] || "", 
         time: row[8] || "", 
-        paymentMode: row[12] || "cash",
+        paymentMode: (row[12] || "cash").toLowerCase(),
+        createdAt: row[13] || row[7], // Fallback to visit date for old records
         status: row[10] === "CHECKED-IN" ? "checked-in" : "confirmed" 
       })).reverse());
     }
