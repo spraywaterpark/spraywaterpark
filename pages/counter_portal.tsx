@@ -109,6 +109,8 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const totalGuests = data.adults + data.kids + data.students;
+    if (totalGuests === 0) return alert("Please select at least one guest (Adult, Kid, or Student)");
     if (!data.name || data.mobile.length !== 10) return alert("Valid Name & Mobile required");
     
     if (editingBooking && !isEditable(editingBooking)) {
@@ -250,7 +252,7 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
                 <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Adults</label>
                     <div className="flex items-center bg-slate-50 rounded-2xl p-2">
-                        <button type="button" onClick={() => setData({...data, adults: Math.max(1, data.adults-1)})} className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl font-black shadow-sm">-</button>
+                        <button type="button" onClick={() => setData({...data, adults: Math.max(0, data.adults-1)})} className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl font-black shadow-sm">-</button>
                         <span className="flex-1 text-center font-black">{data.adults}</span>
                         <button type="button" onClick={() => setData({...data, adults: data.adults+1})} className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl font-black shadow-sm">+</button>
                     </div>
