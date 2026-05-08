@@ -18,6 +18,7 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
     mobile: '',
     adults: 1,
     kids: 0,
+    students: 0,
     date: new Date().toLocaleDateString('en-CA'),
     slot: TIME_SLOTS[0],
     paymentMode: 'cash' as 'cash' | 'upi'
@@ -34,6 +35,7 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
         mobile: editingBooking.mobile,
         adults: editingBooking.adults,
         kids: editingBooking.kids,
+        students: editingBooking.students || 0,
         date: editingBooking.date,
         slot: editingBooking.time,
         paymentMode: (editingBooking.paymentMode as 'cash' | 'upi') || 'cash'
@@ -51,15 +53,17 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
   let kidMRP = isMorning ? 350 : 500;
   let adultFinal = isMorning ? 400 : 600;
   let kidFinal = isMorning ? 300 : 400;
+  let studentFinal = 200; // Fixed 200 for both shifts
 
   // Apply Sunday Surcharge
   adultMRP += sundayExtra;
   kidMRP += sundayExtra;
   adultFinal += sundayExtra;
   kidFinal += sundayExtra;
+  // Sunday surcharge NOT applied to students as the user said "charge fix rahega.. 200"
 
-  const totalMRP = (data.adults * adultMRP) + (data.kids * kidMRP);
-  const totalAmount = (data.adults * adultFinal) + (data.kids * kidFinal);
+  const totalMRP = (data.adults * adultMRP) + (data.kids * kidMRP) + (data.students * studentFinal);
+  const totalAmount = (data.adults * adultFinal) + (data.kids * kidFinal) + (data.students * studentFinal);
   const totalDiscount = totalMRP - totalAmount;
 
   const generateTicketId = (dateStr: string, timeStr: string) => {
@@ -127,6 +131,7 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
       time: data.slot,
       adults: data.adults,
       kids: data.kids,
+      students: data.students,
       totalAmount: totalAmount,
       paymentMode: data.paymentMode,
     } : {
@@ -137,6 +142,7 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
       time: data.slot,
       adults: data.adults,
       kids: data.kids,
+      students: data.students,
       discountCode: totalDiscount > 0 ? "COUNTER_OFFER" : "",
       totalAmount: totalAmount,
       status: 'confirmed',
@@ -157,7 +163,7 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
       if (editingBooking) {
         onUpdateBooking(bookingToSave);
         setEditingBooking(null);
-        setData({ ...data, name: '', mobile: '', adults: 1, kids: 0 });
+        setData({ ...data, name: '', mobile: '', adults: 1, kids: 0, students: 0 });
         alert("Booking Updated Successfully!");
       } else {
         await onAddBooking(bookingToSave);
@@ -166,7 +172,7 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
         setSuccess(true);
         setTimeout(() => {
           setSuccess(false);
-          setData({ ...data, name: '', mobile: '', adults: 1, kids: 0 });
+          setData({ ...data, name: '', mobile: '', adults: 1, kids: 0, students: 0 });
         }, 3000);
       }
     } catch (err) {
@@ -240,21 +246,29 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-8">
+            <div className="grid grid-cols-3 gap-4 md:gap-8">
                 <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Adults</label>
                     <div className="flex items-center bg-slate-50 rounded-2xl p-2">
-                        <button type="button" onClick={() => setData({...data, adults: Math.max(1, data.adults-1)})} className="w-12 h-12 bg-white rounded-xl font-black shadow-sm">-</button>
+                        <button type="button" onClick={() => setData({...data, adults: Math.max(1, data.adults-1)})} className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl font-black shadow-sm">-</button>
                         <span className="flex-1 text-center font-black">{data.adults}</span>
-                        <button type="button" onClick={() => setData({...data, adults: data.adults+1})} className="w-12 h-12 bg-white rounded-xl font-black shadow-sm">+</button>
+                        <button type="button" onClick={() => setData({...data, adults: data.adults+1})} className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl font-black shadow-sm">+</button>
                     </div>
                 </div>
                 <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Kids</label>
                     <div className="flex items-center bg-slate-50 rounded-2xl p-2">
-                        <button type="button" onClick={() => setData({...data, kids: Math.max(0, data.kids-1)})} className="w-12 h-12 bg-white rounded-xl font-black shadow-sm">-</button>
+                        <button type="button" onClick={() => setData({...data, kids: Math.max(0, data.kids-1)})} className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl font-black shadow-sm">-</button>
                         <span className="flex-1 text-center font-black">{data.kids}</span>
-                        <button type="button" onClick={() => setData({...data, kids: data.kids+1})} className="w-12 h-12 bg-white rounded-xl font-black shadow-sm">+</button>
+                        <button type="button" onClick={() => setData({...data, kids: data.kids+1})} className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl font-black shadow-sm">+</button>
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Students</label>
+                    <div className="flex items-center bg-slate-50 rounded-2xl p-2">
+                        <button type="button" onClick={() => setData({...data, students: Math.max(0, data.students-1)})} className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl font-black shadow-sm">-</button>
+                        <span className="flex-1 text-center font-black">{data.students}</span>
+                        <button type="button" onClick={() => setData({...data, students: data.students+1})} className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl font-black shadow-sm">+</button>
                     </div>
                 </div>
             </div>
