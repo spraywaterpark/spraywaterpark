@@ -96,10 +96,24 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
 
   const isInvalid = isOldDate || isSlotExpired;
 
+  const isEditable = (booking: Booking) => {
+    if (!booking.createdAt) return false;
+    const created = new Date(booking.createdAt).getTime();
+    const now = new Date().getTime();
+    return (now - created) <= 10 * 60 * 1000; // 10 minutes
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!data.name || data.mobile.length !== 10) return alert("Valid Name & Mobile required");
     
+    if (editingBooking && !isEditable(editingBooking)) {
+      alert("Edit time expired (10 mins limit). Cannot modify this ticket.");
+      setEditingBooking(null);
+      setData({ ...data, name: '', mobile: '', adults: 1, kids: 0 });
+      return;
+    }
+
     if (isOldDate && !editingBooking) return alert("Old dates are not allowed for booking.");
     if (isSlotExpired && !editingBooking) return alert(expiredMessage);
     
@@ -310,13 +324,15 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
                                   {b.paymentMode || 'cash'}
                               </p>
                           </div>
-                          <button 
-                            onClick={() => setEditingBooking(b)}
-                            className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all"
-                            title="Edit Booking"
-                          >
-                            <i className="fas fa-edit text-xs"></i>
-                          </button>
+                          {isEditable(b) && (
+                            <button 
+                              onClick={() => setEditingBooking(b)}
+                              className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all"
+                              title="Edit Booking"
+                            >
+                              <i className="fas fa-edit text-xs"></i>
+                            </button>
+                          )}
                       </div>
                   </div>
               ))}
