@@ -162,7 +162,7 @@ const AppContent: React.FC = () => {
             <Route path="/payment" element={auth.role === 'guest' ? <SecurePayment addBooking={addBooking} bookings={bookings} /> : <Navigate to="/" />} />
             <Route path="/my-bookings" element={auth.role === 'guest' ? <TicketHistory bookings={bookings} user={auth.user} settings={settings} onUpdateBooking={updateBooking} /> : <Navigate to="/" />} />
             <Route path="/admin" element={auth.role === 'admin' ? <AdminPortal bookings={bookings} settings={settings} onUpdateSettings={setSettings} syncId={syncId} onSyncSetup={setSyncId} onLogout={logout} /> : <Navigate to="/" />} />
-            <Route path="/counter" element={auth.role === 'counter' ? <CounterPortal settings={settings} bookings={bookings} onAddBooking={addBooking} /> : <Navigate to="/" />} />
+            <Route path="/counter" element={auth.role === 'counter' ? <CounterPortal settings={settings} bookings={bookings} onAddBooking={addBooking} onUpdateBooking={updateBooking} /> : <Navigate to="/" />} />
             <Route path="/admin-lockers" element={auth.role === 'admin' ? <AdminLockers /> : <Navigate to="/" />} />
             <Route path="/staff" element={(auth.role === 'staff' || auth.role === 'staff1' || auth.role === 'staff2') ? <StaffPortal role={auth.role} /> : <Navigate to="/" />} />
             <Route path="*" element={<Navigate to="/" />} />
