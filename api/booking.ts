@@ -169,7 +169,7 @@ export default async function handler(req: any, res: any) {
         payload.template.name = "ticket";
         payload.template.components = [
           { type: "header", parameters: [{ type: "image", image: { link: `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking?.id}` } }] },
-          { type: "body", parameters: [{type:"text",text:booking.id}, {type:"text",text:booking.adults}, {type:"text",text:booking.kids}, {type:"text",text:booking.date}, {type:"text",text:booking.time}] }
+          { type: "body", parameters: [{type:"text",text:booking.id}, {type:"text",text:booking.adults}, {type:"text",text:booking.kids}, {type:"text",text:booking.date}, {type:"text",text:booking.time}, {type:"text",text:String(booking.students || 0)}] }
         ];
       }
       const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
@@ -182,32 +182,33 @@ export default async function handler(req: any, res: any) {
     // 4. TICKETS & CHECKIN
     if (type === 'ticket_details') {
       const searchId = String(req.query.id).toUpperCase();
-      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:L1000" });
+      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:O1000" });
       const rows = resp.data.values || [];
       const row = rows.find(r => r[0] === searchId);
       if (!row) return res.status(404).json({ success: false });
       const { todayStr, currentHour } = getISTDateObject();
       let validation = "VALID";
-      if (row[10] === "CHECKED-IN") validation = "ALREADY_USED";
-      else if (row[7] < todayStr) validation = "EXPIRED";
-      else if (row[7] > todayStr) validation = "FUTURE_DATE";
+      if (row[11] === "CHECKED-IN") validation = "ALREADY_USED";
+      else if (row[8] < todayStr) validation = "EXPIRED";
+      else if (row[8] > todayStr) validation = "FUTURE_DATE";
       else {
-        const isMorning = row[8].toLowerCase().includes("morning");
+        const isMorning = row[9].toLowerCase().includes("morning");
         const currentShift = currentHour < 14 ? "morning" : "evening";
         if (isMorning && currentShift === "evening") validation = "EXPIRED_SLOT";
         else if (!isMorning && currentShift === "morning") validation = "FUTURE_SLOT";
       }
-      return res.status(200).json({ success: true, validation, booking: { id: row[0], name: row[1], mobile: row[2], adults: row[3], kids: row[4], date: row[7], time: row[8], status: row[10] } });
+      return res.status(200).json({ success: true, validation, booking: { id: row[0], name: row[1], mobile: row[2], adults: row[3], kids: row[4], students: row[5], date: row[8], time: row[9], status: row[11] } });
     }
 
     if (type === 'checkin') {
       const { ticketId } = req.body;
-      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:L1000" });
+      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:A1000" });
       const rows = resp.data.values || [];
       const idx = rows.findIndex(r => r[0] === ticketId);
       if (idx === -1) return res.status(404).json({ success: false });
+      // L=11 (Status), M=12 (Checkin Time)
       await sheets.spreadsheets.values.update({
-        spreadsheetId: process.env.SHEET_ID, range: `booking!K${idx + 2}:L${idx + 2}`,
+        spreadsheetId: process.env.SHEET_ID, range: `booking!L${idx + 2}:M${idx + 2}`,
         valueInputOption: "RAW", requestBody: { values: [["CHECKED-IN", getISTFullTimestamp()]] }
       });
       return res.status(200).json({ success: true });
@@ -220,22 +221,19 @@ export default async function handler(req: any, res: any) {
       const idx = rows.findIndex(r => r[0] === b.id);
       if (idx === -1) return res.status(404).json({ success: false });
       
-      // Update columns: B (Name) to I (Time) and M (Payment Mode)
-      // B=1, C=2, D=3, E=4, F=5, G=6, H=7, I=8, ..., M=12
-      // We will perform two updates to be safe or one large range
-      
-      // Update B to I
+      // Update columns: B (Name) to J (Time)
+      // B=1, ..., I=8, J=9
       await sheets.spreadsheets.values.update({
-        spreadsheetId: process.env.SHEET_ID, range: `booking!B${idx + 2}:I${idx + 2}`,
+        spreadsheetId: process.env.SHEET_ID, range: `booking!B${idx + 2}:J${idx + 2}`,
         valueInputOption: "RAW", 
         requestBody: { 
-          values: [[b.name, b.mobile, b.adults, b.kids, Number(b.adults) + Number(b.kids), b.totalAmount, b.date, b.time]] 
+          values: [[b.name, b.mobile, b.adults, b.kids, b.students || 0, Number(b.adults) + Number(b.kids) + Number(b.students || 0), b.totalAmount, b.date, b.time]] 
         }
       });
       
-      // Update M (Payment Mode)
+      // Update N (Payment Mode) (Old M was 12, now N is 13)
       await sheets.spreadsheets.values.update({
-        spreadsheetId: process.env.SHEET_ID, range: `booking!M${idx + 2}`,
+        spreadsheetId: process.env.SHEET_ID, range: `booking!N${idx + 2}`,
         valueInputOption: "RAW", 
         requestBody: { 
           values: [[b.paymentMode]] 
@@ -322,14 +320,18 @@ export default async function handler(req: any, res: any) {
       const b = req.body;
       const createdAt = new Date().toISOString();
       await sheets.spreadsheets.values.append({
-        spreadsheetId: process.env.SHEET_ID, range: "booking!A:N",
-        valueInputOption: "RAW", requestBody: { values: [[b.id, b.name, b.mobile, b.adults, b.kids, Number(b.adults) + Number(b.kids), b.amount || b.totalAmount, b.date, b.time, "PAID", "YET TO ARRIVE", "", b.paymentMode || "cash", createdAt]] }
+        spreadsheetId: process.env.SHEET_ID, range: "booking!A:O",
+        valueInputOption: "RAW", requestBody: { values: [[
+          b.id, b.name, b.mobile, b.adults, b.kids, b.students || 0, 
+          Number(b.adults) + Number(b.kids) + Number(b.students || 0), 
+          b.amount || b.totalAmount, b.date, b.time, "PAID", "YET TO ARRIVE", "", b.paymentMode || "cash", createdAt
+        ]] }
       });
       return res.status(200).json({ success: true });
     }
 
     if (req.method === "GET") {
-      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:N1000" });
+      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:O1000" });
       const rows = (resp.data.values || []).filter(row => row[0]); // Ensure ID exists
       return res.status(200).json(rows.map(row => ({ 
         id: row[0] || "", 
@@ -337,12 +339,13 @@ export default async function handler(req: any, res: any) {
         mobile: row[2] || "", 
         adults: Number(row[3]) || 1, 
         kids: Number(row[4]) || 0, 
-        totalAmount: Number(row[6]) || 0, 
-        date: row[7] || "", 
-        time: row[8] || "", 
-        paymentMode: (row[12] || "cash").toLowerCase(),
-        createdAt: row[13] || row[7], // Fallback to visit date for old records
-        status: row[10] === "CHECKED-IN" ? "checked-in" : "confirmed" 
+        students: Number(row[5]) || 0,
+        totalAmount: Number(row[7]) || 0, 
+        date: row[8] || "", 
+        time: row[9] || "", 
+        paymentMode: (row[13] || "cash").toLowerCase(),
+        createdAt: row[14] || row[8], // Fallback to visit date for old records
+        status: row[11] === "CHECKED-IN" ? "checked-in" : "confirmed" 
       })).reverse());
     }
   } catch (e: any) {
