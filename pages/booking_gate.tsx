@@ -104,6 +104,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
   const currentOffer = isMorning ? OFFERS.MORNING : OFFERS.EVENING;
 
   const handleCheckout = () => {
+    if (adults + kids + students === 0) return alert("Please select at least one guest.");
     if (isSlotBlocked(date, slot)) return alert("Slot unavailable.");
     setShowTerms(true);
   };
@@ -174,7 +175,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                         </div>
                     </div>
                     <div className="flex items-center gap-6 bg-slate-100 p-2 rounded-2xl">
-                        <button onClick={() => setAdults(Math.max(1, adults-1))} className="w-10 h-10 rounded-xl bg-white font-black shadow-sm active:scale-90 transition-transform">-</button>
+                        <button onClick={() => setAdults(Math.max(0, adults-1))} className="w-10 h-10 rounded-xl bg-white font-black shadow-sm active:scale-90 transition-transform">-</button>
                         <span className="text-xl font-black min-w-[1.5rem] text-center">{adults}</span>
                         <button onClick={() => setAdults(adults+1)} className="w-10 h-10 rounded-xl bg-white font-black shadow-sm active:scale-90 transition-transform">+</button>
                     </div>
