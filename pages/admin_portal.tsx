@@ -87,6 +87,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
 
     const totalAdults = todayVisits.reduce((s, b) => s + (Number(b.adults) || 0), 0);
     const totalKids = todayVisits.reduce((s, b) => s + (Number(b.kids) || 0), 0);
+    const totalStudents = todayVisits.reduce((s, b) => s + (Number(b.students) || 0), 0);
     
     // Revenue is now based on today's collection (creation date)
     const revenue = todayCollections.reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
@@ -95,7 +96,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
     const cashColl = todayCollections.filter(b => !b.paymentMode || b.paymentMode === 'cash').reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
     const upiColl = todayCollections.filter(b => b.paymentMode === 'upi' || b.paymentMode === 'online').reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
 
-    const checkedIn = todayVisits.filter(b => b.status === 'checked-in').reduce((s, b) => s + (Number(b.adults) || 0) + (Number(b.kids) || 0), 0);
+    const checkedIn = todayVisits.filter(b => b.status === 'checked-in').reduce((s, b) => s + (Number(b.adults) || 0) + (Number(b.kids) || 0) + (Number(b.students) || 0), 0);
 
     const activeRentals = safeRentals.filter(r => r.status === 'issued');
     const securityHeld = activeRentals.reduce((s, r) => s + (Number(r.refundableAmount) || 0), 0);
@@ -107,7 +108,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
       cashColl: cashColl || 0,
       upiColl: upiColl || 0,
       totalBookings: todayVisits.length, 
-      totalGuests: totalAdults + totalKids, 
+      totalGuests: totalAdults + totalKids + totalStudents, 
       checkedIn: checkedIn || 0,
       activeRentals: activeRentals.length,
       securityHeld: securityHeld || 0,
@@ -262,7 +263,7 @@ const AdminPortal: React.FC<AdminPanelProps> = ({ bookings, settings, onUpdateSe
                         <p className="text-[10px] opacity-50">{b.mobile}</p>
                       </td>
                       <td className="py-4 px-2 uppercase">{b.date}<br/>{(b.time || "").split(':')[0]}</td>
-                      <td className="py-4 px-2">{Number(b.adults) + Number(b.kids)}</td>
+                      <td className="py-4 px-2">{Number(b.adults) + Number(b.kids) + Number(b.students || 0)}</td>
                       <td className="py-4 px-2">
                         <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${b.paymentMode === 'cash' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
                           {b.paymentMode || 'cash'}
