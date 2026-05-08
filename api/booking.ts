@@ -320,10 +320,10 @@ export default async function handler(req: any, res: any) {
 
     if (req.method === "POST") {
       const b = req.body;
-      const createdDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      const createdAt = new Date().toISOString();
       await sheets.spreadsheets.values.append({
         spreadsheetId: process.env.SHEET_ID, range: "booking!A:N",
-        valueInputOption: "RAW", requestBody: { values: [[b.id, b.name, b.mobile, b.adults, b.kids, Number(b.adults) + Number(b.kids), b.amount || b.totalAmount, b.date, b.time, "PAID", "YET TO ARRIVE", "", b.paymentMode || "cash", createdDate]] }
+        valueInputOption: "RAW", requestBody: { values: [[b.id, b.name, b.mobile, b.adults, b.kids, Number(b.adults) + Number(b.kids), b.amount || b.totalAmount, b.date, b.time, "PAID", "YET TO ARRIVE", "", b.paymentMode || "cash", createdAt]] }
       });
       return res.status(200).json({ success: true });
     }
