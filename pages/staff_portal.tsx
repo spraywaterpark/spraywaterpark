@@ -380,6 +380,10 @@ const StaffPortal: React.FC<{ role?: UserRole }> = ({ role }) => {
                         <p className="text-[10px] font-black uppercase text-pink-600 mb-1">Kids</p>
                         <p className="font-black text-3xl text-pink-700">{scannedResult.booking.kids}</p>
                       </div>
+                      <div className="bg-emerald-50 p-5 rounded-2xl border border-emerald-100 text-center">
+                        <p className="text-[10px] font-black uppercase text-emerald-600 mb-1">Students</p>
+                        <p className="font-black text-3xl text-emerald-700">{scannedResult.booking.students || 0}</p>
+                      </div>
                    </div>
                    <button onClick={confirmEntry} disabled={isSyncing || scannedResult.validation !== 'VALID'} 
                     className={`w-full py-6 rounded-2xl font-black uppercase tracking-widest shadow-xl transition-all ${scannedResult.validation === 'VALID' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
