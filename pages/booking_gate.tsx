@@ -23,6 +23,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
   const [slot, setSlot] = useState(TIME_SLOTS[0]);
   const [adults, setAdults] = useState(1);
   const [kids, setKids] = useState(0);
+  const [students, setStudents] = useState(0);
   const [paymentMode, setPaymentMode] = useState<'online' | 'cash'>('online');
   const [showTerms, setShowTerms] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -80,22 +81,25 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
     let kidMRP = isMorning ? 350 : 500;
     let adultFinal = isMorning ? 400 : 600;
     let kidFinal = isMorning ? 300 : 400;
+    let studentFinal = 200; // Fixed price for both shifts
 
     // Apply Sunday Surcharge
     adultMRP += sundayExtra;
     kidMRP += sundayExtra;
     adultFinal += sundayExtra;
     kidFinal += sundayExtra;
+    // Sunday surcharge NOT applied to students as the user said "charge fix rahega.. 200"
 
     const safeAdults = Number(adults) || 0;
     const safeKids = Number(kids) || 0;
+    const safeStudents = Number(students) || 0;
 
-    const subtotal = (safeAdults * adultMRP) + (safeKids * kidMRP);
-    const total = (safeAdults * adultFinal) + (safeKids * kidFinal);
+    const subtotal = (safeAdults * adultMRP) + (safeKids * kidMRP) + (safeStudents * studentFinal);
+    const total = (safeAdults * adultFinal) + (safeKids * kidFinal) + (safeStudents * studentFinal);
     const discount = subtotal - total;
 
-    return { subtotal, discount, total, isSunday, adultMRP, kidMRP, adultFinal, kidFinal };
-  }, [date, slot, adults, kids, isMorning, sundayExtra]);
+    return { subtotal, discount, total, isSunday, adultMRP, kidMRP, adultFinal, kidFinal, studentFinal };
+  }, [date, slot, adults, kids, students, isMorning, sundayExtra]);
 
   const currentOffer = isMorning ? OFFERS.MORNING : OFFERS.EVENING;
 
@@ -110,6 +114,7 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
       time: slot, 
       adults, 
       kids, 
+      students,
       totalAmount: pricingData.total, 
       paymentMode, 
       status: 'pending' 
@@ -186,6 +191,20 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
                         <button onClick={() => setKids(Math.max(0, kids-1))} className="w-10 h-10 rounded-xl bg-white font-black shadow-sm active:scale-90 transition-transform">-</button>
                         <span className="text-xl font-black min-w-[1.5rem] text-center">{kids}</span>
                         <button onClick={() => setKids(kids+1)} className="w-10 h-10 rounded-xl bg-white font-black shadow-sm active:scale-90 transition-transform">+</button>
+                    </div>
+                </div>
+                <div className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-50 flex justify-between items-center shadow-sm hover:shadow-md transition-shadow">
+                    <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Student Entry</p>
+                        <div className="flex items-center gap-2">
+                            <p className="text-2xl font-black text-slate-900">₹{pricingData.studentFinal}</p>
+                            <p className="text-sm font-bold text-slate-300 uppercase tracking-tighter">Fixed Rate</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-6 bg-slate-100 p-2 rounded-2xl">
+                        <button onClick={() => setStudents(Math.max(0, students-1))} className="w-10 h-10 rounded-xl bg-white font-black shadow-sm active:scale-90 transition-transform">-</button>
+                        <span className="text-xl font-black min-w-[1.5rem] text-center">{students}</span>
+                        <button onClick={() => setStudents(students+1)} className="w-10 h-10 rounded-xl bg-white font-black shadow-sm active:scale-90 transition-transform">+</button>
                     </div>
                 </div>
             </div>
