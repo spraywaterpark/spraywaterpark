@@ -9,9 +9,10 @@ interface CounterPortalProps {
   settings: AdminSettings;
   bookings: Booking[];
   onAddBooking: (b: Booking) => void;
+  onUpdateBooking: (b: Booking) => void;
 }
 
-const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAddBooking }) => {
+const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAddBooking, onUpdateBooking }) => {
   const [data, setData] = useState({
     name: '',
     mobile: '',
@@ -22,8 +23,24 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
     paymentMode: 'cash' as 'cash' | 'upi'
   });
 
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    if (editingBooking) {
+      setData({
+        name: editingBooking.name,
+        mobile: editingBooking.mobile,
+        adults: editingBooking.adults,
+        kids: editingBooking.kids,
+        date: editingBooking.date,
+        slot: editingBooking.time,
+        paymentMode: (editingBooking.paymentMode as 'cash' | 'upi') || 'cash'
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [editingBooking]);
 
   // Auto-calculate rates based on new requirements
   const isMorning = data.slot.toLowerCase().includes('morning');
@@ -83,14 +100,23 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
     e.preventDefault();
     if (!data.name || data.mobile.length !== 10) return alert("Valid Name & Mobile required");
     
-    if (isOldDate) return alert("Old dates are not allowed for booking.");
-    if (isSlotExpired) return alert(expiredMessage);
+    if (isOldDate && !editingBooking) return alert("Old dates are not allowed for booking.");
+    if (isSlotExpired && !editingBooking) return alert(expiredMessage);
     
     setLoading(true);
-    const bookingId = generateTicketId(data.date, data.slot);
     
-    const newBooking: Booking = {
-      id: bookingId,
+    const bookingToSave: Booking = editingBooking ? {
+      ...editingBooking,
+      name: data.name,
+      mobile: data.mobile,
+      date: data.date,
+      time: data.slot,
+      adults: data.adults,
+      kids: data.kids,
+      totalAmount: totalAmount,
+      paymentMode: data.paymentMode,
+    } : {
+      id: generateTicketId(data.date, data.slot),
       name: data.name,
       mobile: data.mobile,
       date: data.date,
@@ -105,19 +131,32 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
     };
 
     try {
-      const saved = await cloudSync.saveBooking(newBooking);
+      let saved = false;
+      if (editingBooking) {
+        saved = await cloudSync.updateBooking(bookingToSave);
+      } else {
+        saved = await cloudSync.saveBooking(bookingToSave);
+      }
+
       if (!saved) throw new Error("Cloud Sync Failed");
       
-      await onAddBooking(newBooking);
-      // Send WhatsApp
-      await notificationService.sendWhatsAppTicket(newBooking);
-      setSuccess(true);
-      setTimeout(() => {
-        setSuccess(false);
+      if (editingBooking) {
+        onUpdateBooking(bookingToSave);
+        setEditingBooking(null);
         setData({ ...data, name: '', mobile: '', adults: 1, kids: 0 });
-      }, 3000);
+        alert("Booking Updated Successfully!");
+      } else {
+        await onAddBooking(bookingToSave);
+        // Send WhatsApp
+        await notificationService.sendWhatsAppTicket(bookingToSave);
+        setSuccess(true);
+        setTimeout(() => {
+          setSuccess(false);
+          setData({ ...data, name: '', mobile: '', adults: 1, kids: 0 });
+        }, 3000);
+      }
     } catch (err) {
-      alert("Booking failed. Check connection.");
+      alert("Action failed. Check connection.");
     } finally {
       setLoading(false);
     }
@@ -126,9 +165,20 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
   return (
     <div className="w-full max-w-4xl mx-auto p-4 md:p-8 animate-slide-up">
       <div className="bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100 mb-8">
-        <div className="bg-slate-900 p-8 text-center">
-            <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Counter Booking Portal</h2>
-            <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest mt-2">Offline Ticket Generation</p>
+        <div className="bg-slate-900 p-8 text-center relative">
+            <h2 className="text-3xl font-black text-white uppercase tracking-tighter">{editingBooking ? 'Edit Booking' : 'Counter Booking Portal'}</h2>
+            <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest mt-2">{editingBooking ? `Modifying Ticket #${editingBooking.id}` : 'Offline Ticket Generation'}</p>
+            {editingBooking && (
+                <button 
+                    onClick={() => {
+                        setEditingBooking(null);
+                        setData({ ...data, name: '', mobile: '', adults: 1, kids: 0 });
+                    }}
+                    className="absolute right-8 top-1/2 -translate-y-1/2 bg-red-500 hover:bg-red-600 text-white text-[10px] font-black uppercase px-4 py-2 rounded-xl transition-all"
+                >
+                    Cancel Edit
+                </button>
+            )}
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-8">
@@ -235,10 +285,10 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
 
             <button 
                 type="submit" 
-                disabled={loading || success || isInvalid}
-                className={`w-full h-20 rounded-[1.8rem] font-black uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 ${isInvalid ? 'bg-red-500/20 text-red-500 cursor-not-allowed' : success ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                disabled={loading || success || (isInvalid && !editingBooking)}
+                className={`w-full h-20 rounded-[1.8rem] font-black uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 ${(isInvalid && !editingBooking) ? 'bg-red-500/20 text-red-500 cursor-not-allowed' : success ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
             >
-                {loading ? <i className="fas fa-spinner fa-spin"></i> : success ? <><i className="fas fa-check-circle"></i> Booking Done</> : isOldDate ? 'Old Date Not Allowed' : isSlotExpired ? 'Slot booking closed' : 'Confirm & Generate Ticket'}
+                {loading ? <i className="fas fa-spinner fa-spin"></i> : success ? <><i className="fas fa-check-circle"></i> {editingBooking ? 'Updated' : 'Booking Done'}</> : editingBooking ? 'Update Booking' : isOldDate ? 'Old Date Not Allowed' : isSlotExpired ? 'Slot booking closed' : 'Confirm & Generate Ticket'}
             </button>
             {isInvalid && <p className="text-center text-[10px] font-black text-red-500 uppercase tracking-widest">{isOldDate ? "Please select current or future date" : expiredMessage}</p>}
         </form>
@@ -253,11 +303,20 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
                           <p className="text-white font-bold text-sm">{b.name} <span className="text-[10px] text-white/40 ml-2">#{b.id}</span></p>
                           <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">{b.date} • {b.time.split(':')[0]}</p>
                       </div>
-                      <div className="text-right">
-                          <p className="text-white font-black text-sm">₹{b.totalAmount}</p>
-                          <p className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${(!b.paymentMode || b.paymentMode === 'cash') ? 'bg-amber-500/20 text-amber-500' : 'bg-blue-500/20 text-blue-500'}`}>
-                              {b.paymentMode || 'cash'}
-                          </p>
+                      <div className="flex items-center gap-4">
+                          <div className="text-right">
+                              <p className="text-white font-black text-sm">₹{b.totalAmount}</p>
+                              <p className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${(!b.paymentMode || b.paymentMode === 'cash') ? 'bg-amber-500/20 text-amber-500' : 'bg-blue-500/20 text-blue-500'}`}>
+                                  {b.paymentMode || 'cash'}
+                              </p>
+                          </div>
+                          <button 
+                            onClick={() => setEditingBooking(b)}
+                            className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all"
+                            title="Edit Booking"
+                          >
+                            <i className="fas fa-edit text-xs"></i>
+                          </button>
                       </div>
                   </div>
               ))}
