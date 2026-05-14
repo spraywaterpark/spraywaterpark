@@ -140,7 +140,7 @@ export default async function handler(req: any, res: any) {
         } else {
           const r = req.body;
           await sheets.spreadsheets.values.append({
-            spreadsheetId: process.env.SHEET_ID, range: "Lockers!A:P",
+            spreadsheetId: process.env.SHEET_ID, range: "Lockers!A:A",
             valueInputOption: "RAW", requestBody: { values: [[
               r.receiptNo, r.guestName, r.guestMobile, r.date, r.shift,
               r.maleLockers.join(','), r.femaleLockers.join(','),
@@ -182,22 +182,32 @@ export default async function handler(req: any, res: any) {
     // 4. TICKETS & CHECKIN
     if (type === 'ticket_details') {
       const searchId = String(req.query.id).toUpperCase();
-      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:O10000" });
+      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:P10000" });
       const rows = resp.data.values || [];
       const row = rows.find(r => r[0] === searchId);
       if (!row) return res.status(404).json({ success: false });
       const { todayStr, currentHour } = getISTDateObject();
       let validation = "VALID";
-      if (row[11] === "CHECKED-IN") validation = "ALREADY_USED";
-      else if (row[8] < todayStr) validation = "EXPIRED";
-      else if (row[8] > todayStr) validation = "FUTURE_DATE";
+      if (row[14] === "CHECKED-IN") validation = "ALREADY_USED";
+      else if (row[11] < todayStr) validation = "EXPIRED";
+      else if (row[11] > todayStr) validation = "FUTURE_DATE";
       else {
-        const isMorning = row[9].toLowerCase().includes("morning");
+        const isMorning = String(row[12] || "").toLowerCase().includes("morning");
         const currentShift = currentHour < 14 ? "morning" : "evening";
         if (isMorning && currentShift === "evening") validation = "EXPIRED_SLOT";
         else if (!isMorning && currentShift === "morning") validation = "FUTURE_SLOT";
       }
-      return res.status(200).json({ success: true, validation, booking: { id: row[0], name: row[1], mobile: row[2], adults: row[3], kids: row[4], students: row[5], date: row[8], time: row[9], status: row[11] } });
+      return res.status(200).json({ success: true, validation, booking: { 
+        id: row[0], 
+        name: row[2], 
+        mobile: row[3], 
+        adults: row[4], 
+        kids: row[5], 
+        students: row[6], 
+        date: row[11], 
+        time: row[12], 
+        status: row[14] 
+      } });
     }
 
     if (type === 'checkin') {
@@ -206,9 +216,9 @@ export default async function handler(req: any, res: any) {
       const rows = resp.data.values || [];
       const idx = rows.findIndex(r => r[0] === ticketId);
       if (idx === -1) return res.status(404).json({ success: false });
-      // L=11 (Status), M=12 (Checkin Time)
+      // O=14 (Entry Status), P=15 (Entry Time)
       await sheets.spreadsheets.values.update({
-        spreadsheetId: process.env.SHEET_ID, range: `booking!L${idx + 2}:M${idx + 2}`,
+        spreadsheetId: process.env.SHEET_ID, range: `booking!O${idx + 2}:P${idx + 2}`,
         valueInputOption: "RAW", requestBody: { values: [["CHECKED-IN", getISTFullTimestamp()]] }
       });
       return res.status(200).json({ success: true });
@@ -221,25 +231,31 @@ export default async function handler(req: any, res: any) {
       const idx = rows.findIndex(r => r[0] === b.id);
       if (idx === -1) return res.status(404).json({ success: false });
       
-      // Update columns: B (Name) to J (Time)
-      // B=1, ..., I=8, J=9
+      const totalGuests = Number(b.adults) + Number(b.kids) + Number(b.students || 0);
+      const isUPI = String(b.paymentMode || "cash").toLowerCase() === 'upi' || String(b.paymentMode).toLowerCase() === 'online';
+
+      // Update columns: C (Name) to M (Time Slot)
+      // C=2 ... M=12
       await sheets.spreadsheets.values.update({
-        spreadsheetId: process.env.SHEET_ID, range: `booking!B${idx + 2}:J${idx + 2}`,
+        spreadsheetId: process.env.SHEET_ID, range: `booking!C${idx + 2}:M${idx + 2}`,
         valueInputOption: "RAW", 
         requestBody: { 
-          values: [[b.name, b.mobile, b.adults, b.kids, b.students || 0, Number(b.adults) + Number(b.kids) + Number(b.students || 0), b.totalAmount, b.date, b.time]] 
+          values: [[
+            b.name, 
+            b.mobile, 
+            b.adults, 
+            b.kids, 
+            b.students || 0, 
+            totalGuests, 
+            b.totalAmount, 
+            isUPI ? b.totalAmount : 0, 
+            isUPI ? 0 : b.totalAmount, 
+            b.date, 
+            b.time
+          ]] 
         }
       });
       
-      // Update N (Payment Mode) (Old M was 12, now N is 13)
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: process.env.SHEET_ID, range: `booking!N${idx + 2}`,
-        valueInputOption: "RAW", 
-        requestBody: { 
-          values: [[b.paymentMode]] 
-        }
-      });
-
       return res.status(200).json({ success: true });
     }
 
@@ -319,33 +335,50 @@ export default async function handler(req: any, res: any) {
     if (req.method === "POST") {
       const b = req.body;
       const createdAt = new Date().toISOString();
+      const isUPI = String(b.paymentMode || "cash").toLowerCase() === 'upi' || String(b.paymentMode || "cash").toLowerCase() === 'online';
+      const totalAmount = b.amount || b.totalAmount || 0;
+      const totalGuests = Number(b.adults) + Number(b.kids) + Number(b.students || 0);
+
       await sheets.spreadsheets.values.append({
-        spreadsheetId: process.env.SHEET_ID, range: "booking!A:O",
+        spreadsheetId: process.env.SHEET_ID, range: "booking!A:A",
         valueInputOption: "RAW", requestBody: { values: [[
-          b.id, b.name, b.mobile, b.adults, b.kids, b.students || 0, 
-          Number(b.adults) + Number(b.kids) + Number(b.students || 0), 
-          b.amount || b.totalAmount, b.date, b.time, "PAID", "YET TO ARRIVE", "", b.paymentMode || "cash", createdAt
+          b.id,                // A(0): ID
+          createdAt,           // B(1): Booking Time
+          b.name,              // C(2): Name
+          b.mobile,            // D(3): Mobile
+          b.adults,            // E(4): Adult
+          b.kids,              // F(5): Kid
+          b.students || 0,     // G(6): Student
+          totalGuests,         // H(7): Total Guest
+          totalAmount,         // I(8): Total Amount
+          isUPI ? totalAmount : 0, // J(9): UPI
+          isUPI ? 0 : totalAmount, // K(10): Cash
+          b.date,              // L(11): Visit Date
+          b.time,              // M(12): Time Slot
+          "PAID",              // N(13): Status
+          "YET TO ARRIVE",     // O(14): Entry Status
+          ""                   // P(15): Entry Time
         ]] }
       });
       return res.status(200).json({ success: true });
     }
 
     if (req.method === "GET") {
-      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:O10000" });
+      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:P10000" });
       const rows = (resp.data.values || []).filter(row => row[0]); // Ensure ID exists
       return res.status(200).json(rows.map(row => ({ 
         id: row[0] || "", 
-        name: row[1] || "", 
-        mobile: row[2] || "", 
-        adults: Number(row[3]) || 1, 
-        kids: Number(row[4]) || 0, 
-        students: Number(row[5]) || 0,
-        totalAmount: Number(row[7]) || 0, 
-        date: row[8] || "", 
-        time: row[9] || "", 
-        paymentMode: (row[13] || "cash").toLowerCase(),
-        createdAt: row[14] || row[8], // Fallback to visit date for old records
-        status: row[11] === "CHECKED-IN" ? "checked-in" : "confirmed" 
+        name: row[2] || "", 
+        mobile: row[3] || "", 
+        adults: Number(row[4]) || 0, 
+        kids: Number(row[5]) || 0, 
+        students: Number(row[6]) || 0,
+        totalAmount: Number(row[8]) || 0, 
+        date: row[11] || "", 
+        time: row[12] || "", 
+        paymentMode: (Number(row[9]) > 0 ? "upi" : "cash"),
+        createdAt: row[1] || row[11], 
+        status: row[14] === "CHECKED-IN" ? "checked-in" : "confirmed" 
       })).reverse());
     }
   } catch (e: any) {
