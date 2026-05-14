@@ -113,7 +113,7 @@ export default async function handler(req: any, res: any) {
     // 2. RENTALS LOGIC
     if (type === 'rentals') {
       if (req.method === "GET") {
-        const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Lockers!A2:P2000" });
+        const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Lockers!A2:P10000" });
         const rows = (response.data.values || []).filter(r => r[0]); // Filter empty rows
         return res.status(200).json(rows.map(r => ({
           receiptNo: r[0] || "", guestName: r[1] || "", guestMobile: r[2] || "", date: r[3] || "", shift: r[4] || "",
@@ -128,7 +128,7 @@ export default async function handler(req: any, res: any) {
       if (req.method === "POST") {
         if (req.query.action === 'update') {
           const rental = req.body;
-          const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Lockers!A2:A2000" });
+          const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Lockers!A2:A10000" });
           const rows = resp.data.values || [];
           const idx = rows.findIndex(r => r[0] === rental.receiptNo);
           if (idx === -1) return res.status(404).json({ success: false });
@@ -182,7 +182,7 @@ export default async function handler(req: any, res: any) {
     // 4. TICKETS & CHECKIN
     if (type === 'ticket_details') {
       const searchId = String(req.query.id).toUpperCase();
-      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:O1000" });
+      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:O10000" });
       const rows = resp.data.values || [];
       const row = rows.find(r => r[0] === searchId);
       if (!row) return res.status(404).json({ success: false });
@@ -202,7 +202,7 @@ export default async function handler(req: any, res: any) {
 
     if (type === 'checkin') {
       const { ticketId } = req.body;
-      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:A1000" });
+      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:A10000" });
       const rows = resp.data.values || [];
       const idx = rows.findIndex(r => r[0] === ticketId);
       if (idx === -1) return res.status(404).json({ success: false });
@@ -216,7 +216,7 @@ export default async function handler(req: any, res: any) {
 
     if (type === 'update_ticket') {
       const b = req.body;
-      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:A1000" });
+      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:A10000" });
       const rows = resp.data.values || [];
       const idx = rows.findIndex(r => r[0] === b.id);
       if (idx === -1) return res.status(404).json({ success: false });
@@ -245,8 +245,8 @@ export default async function handler(req: any, res: any) {
 
     if (type === 'reset_shift') {
       await sheets.spreadsheets.values.update({
-        spreadsheetId: process.env.SHEET_ID, range: "Lockers!N2:N2000",
-        valueInputOption: "RAW", requestBody: { values: Array(1999).fill(["returned"]) }
+        spreadsheetId: process.env.SHEET_ID, range: "Lockers!N2:N10000",
+        valueInputOption: "RAW", requestBody: { values: Array(9999).fill(["returned"]) }
       });
       return res.status(200).json({ success: true });
     }
@@ -331,7 +331,7 @@ export default async function handler(req: any, res: any) {
     }
 
     if (req.method === "GET") {
-      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:O1000" });
+      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:O10000" });
       const rows = (resp.data.values || []).filter(row => row[0]); // Ensure ID exists
       return res.status(200).json(rows.map(row => ({ 
         id: row[0] || "", 
