@@ -233,6 +233,8 @@ export default async function handler(req: any, res: any) {
       
       const totalGuests = Number(b.adults) + Number(b.kids) + Number(b.students || 0);
       const isUPI = String(b.paymentMode || "cash").toLowerCase() === 'upi' || String(b.paymentMode).toLowerCase() === 'online';
+      const cashAmount = b.cashAmount !== undefined ? Number(b.cashAmount) : (isUPI ? 0 : b.totalAmount);
+      const upiAmount = b.upiAmount !== undefined ? Number(b.upiAmount) : (isUPI ? b.totalAmount : 0);
 
       // Update columns: C (Name) to M (Time Slot)
       // C=2 ... M=12
@@ -248,8 +250,8 @@ export default async function handler(req: any, res: any) {
             b.students || 0, 
             totalGuests, 
             b.totalAmount, 
-            isUPI ? b.totalAmount : 0, 
-            isUPI ? 0 : b.totalAmount, 
+            upiAmount, 
+            cashAmount, 
             b.date, 
             b.time
           ]] 
@@ -338,6 +340,8 @@ export default async function handler(req: any, res: any) {
       const isUPI = String(b.paymentMode || "cash").toLowerCase() === 'upi' || String(b.paymentMode || "cash").toLowerCase() === 'online';
       const totalAmount = b.amount || b.totalAmount || 0;
       const totalGuests = Number(b.adults) + Number(b.kids) + Number(b.students || 0);
+      const cashAmount = b.cashAmount !== undefined ? Number(b.cashAmount) : (isUPI ? 0 : totalAmount);
+      const upiAmount = b.upiAmount !== undefined ? Number(b.upiAmount) : (isUPI ? totalAmount : 0);
 
       await sheets.spreadsheets.values.append({
         spreadsheetId: process.env.SHEET_ID, range: "booking!A:A",
@@ -351,8 +355,8 @@ export default async function handler(req: any, res: any) {
           b.students || 0,     // G(6): Student
           totalGuests,         // H(7): Total Guest
           totalAmount,         // I(8): Total Amount
-          isUPI ? totalAmount : 0, // J(9): UPI
-          isUPI ? 0 : totalAmount, // K(10): Cash
+          upiAmount,           // J(9): UPI
+          cashAmount,          // K(10): Cash
           b.date,              // L(11): Visit Date
           b.time,              // M(12): Time Slot
           "PAID",              // N(13): Status
@@ -377,6 +381,8 @@ export default async function handler(req: any, res: any) {
         date: row[11] || "", 
         time: row[12] || "", 
         paymentMode: (Number(row[9]) > 0 ? "upi" : "cash"),
+        cashAmount: Number(row[10]) || 0,
+        upiAmount: Number(row[9]) || 0,
         createdAt: row[1] || row[11], 
         status: row[14] === "CHECKED-IN" ? "checked-in" : "confirmed" 
       })).reverse());
