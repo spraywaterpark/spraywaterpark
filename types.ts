@@ -14,6 +14,8 @@ export interface Booking {
   totalAmount: number;
   status: 'pending' | 'confirmed' | 'cancelled' | 'checked-in';
   paymentMode: 'online' | 'cash' | 'upi';
+  cashAmount?: number;
+  upiAmount?: number;
   createdAt: string;
   checkinTime?: string;
 }
