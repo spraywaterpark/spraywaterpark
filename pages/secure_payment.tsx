@@ -1,196 +1,393 @@
 
-import { Booking } from '../types';
-import { cloudSync } from '../services/cloud_sync';
-import { notificationService } from '../services/notification_service';
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { google } from "googleapis";
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const Razorpay = require('razorpay');
+import crypto from "crypto";
 
-interface SecurePaymentProps {
-  addBooking: (b: Booking) => void;
-  bookings: Booking[];
-}
-
-const SecurePayment: React.FC<SecurePaymentProps> = ({ addBooking, bookings }) => {
-  const navigate = useNavigate();
-  const [draft, setDraft] = useState<any>(null);
-  const [isPaying, setIsPaying] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'saving' | 'done'>('idle');
-
-  useEffect(() => {
-    const saved = sessionStorage.getItem('swp_draft_booking');
-    const authString = sessionStorage.getItem('swp_auth');
-    const auth = authString ? JSON.parse(authString) : {};
-    
-    if (saved) {
-      setDraft({ ...JSON.parse(saved), ...auth.user });
-    } else {
-      navigate('/');
-    }
-  }, [navigate]);
-
-  const generateTicketId = (dateStr: string, timeStr: string) => {
-    // Format: SAR/DDMMYY[ShiftCode]-NNN
-    const d = new Date(dateStr);
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const yy = String(d.getFullYear()).slice(-2);
-    const datePart = `${dd}${mm}${yy}`;
-    
-    const shiftCode = timeStr.toLowerCase().includes('morning') ? '1' : '2';
-    
-    // Sequential counter for this specific date and shift
-    const countToday = bookings.filter(b => b.date === dateStr && b.time === timeStr).length + 1;
-    const seq = String(countToday).padStart(3, '0');
-    
-    return `SAR/${datePart}${shiftCode}-${seq}`;
+// Helper for IST Time & Date comparison
+const getISTDateObject = () => {
+  const options: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false };
+  const formatter = new Intl.DateTimeFormat('en-CA', options);
+  const parts = formatter.formatToParts(new Date());
+  const d: any = {};
+  parts.forEach(p => d[p.type] = p.value);
+  return {
+    todayStr: `${d.year}-${d.month}-${d.day}`, // YYYY-MM-DD
+    currentHour: parseInt(d.hour)
   };
-
-  const handlePay = async () => {
-    if (isPaying) return;
-    setIsPaying(true);
-    setStatus('saving');
-
-    try {
-      const bookingId = generateTicketId(draft.date, draft.time);
-      
-      // 1. Create Razorpay Order
-      const orderRes = await fetch('/api/booking?type=create_razorpay_order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: draft.totalAmount,
-          receipt: bookingId
-        })
-      });
-
-      const contentType = orderRes.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        const text = await orderRes.text();
-        console.error("Server Error Response:", text);
-        throw new Error("Server returned an invalid response. Please check if Razorpay keys are correctly set in settings.");
-      }
-
-      const orderData = await orderRes.json();
-      if (!orderData.success) throw new Error(orderData.message || "Failed to create payment order");
-
-      // 2. Open Razorpay Checkout
-      const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_placeholder', // Fallback for safety
-        amount: orderData.order.amount,
-        currency: orderData.order.currency,
-        name: "Spray Aqua Resort",
-        description: `Booking for ${draft.name}`,
-        order_id: orderData.order.id,
-        handler: async (response: any) => {
-          // 3. Verify Payment
-          const verifyRes = await fetch('/api/booking?type=verify_razorpay_payment', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature
-            })
-          });
-          const verifyData = await verifyRes.json();
-
-          if (verifyData.success) {
-            // 4. Save Booking on Success
-            const final: Booking = {
-              ...draft,
-              id: bookingId,
-              status: 'confirmed',
-              createdAt: new Date().toISOString()
-            };
-
-            const saved = await cloudSync.saveBooking(final);
-            if (!saved) throw new Error("Cloud Sync Failed. Please contact support.");
-
-            addBooking(final);
-            sessionStorage.removeItem('swp_draft_booking');
-            notificationService.sendWhatsAppTicket(final).catch(e => console.warn("WA Deferred fail:", e));
-            
-            setStatus('done');
-            setTimeout(() => navigate('/my-bookings'), 1500);
-          } else {
-            alert("Payment verification failed. Please contact support.");
-            setIsPaying(false);
-            setStatus('idle');
-          }
-        },
-        prefill: {
-          name: draft.name,
-          contact: draft.mobile
-        },
-        theme: {
-          color: "#0284c7"
-        },
-        modal: {
-          ondismiss: () => {
-            setIsPaying(false);
-            setStatus('idle');
-          }
-        }
-      };
-
-      const rzp = new (window as any).Razorpay(options);
-      rzp.open();
-
-    } catch (err: any) {
-      console.error("Payment Error:", err);
-      alert(err.message || "Something went wrong. Please check your internet.");
-      setIsPaying(false);
-      setStatus('idle');
-    }
-  };
-
-  if (!draft) return null;
-
-  return (
-    <div className="w-full max-w-xl mx-auto py-10 px-4 animate-slide-up">
-      <div className="bg-white p-10 rounded-[3rem] shadow-2xl space-y-10 text-center border border-slate-100">
-        <div className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl mx-auto shadow-inner ${draft.paymentMode === 'online' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
-          <i className={draft.paymentMode === 'online' ? "fas fa-shield-alt" : "fas fa-cash-register"}></i>
-        </div>
-        
-        <div>
-          <h3 className="text-3xl font-black uppercase text-slate-900 tracking-tight">Confirm Booking</h3>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Final Step to Reservation</p>
-        </div>
-        
-        <div className="bg-slate-50 p-8 rounded-[2rem] space-y-5 border border-slate-100 text-left">
-            <div className="flex justify-between items-center">
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Guest Name</span>
-                <span className="text-sm font-black text-slate-900">{draft.name}</span>
-            </div>
-            <div className="flex justify-between items-center">
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Contact</span>
-                <span className="text-sm font-black text-slate-900">{draft.mobile}</span>
-            </div>
-            <div className="pt-5 border-t border-slate-200 flex justify-between items-center">
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Amount</span>
-                <span className="text-4xl font-black text-blue-600 tracking-tighter">₹{draft.totalAmount}</span>
-            </div>
-        </div>
-
-        <button 
-          onClick={handlePay} 
-          disabled={isPaying} 
-          className="w-full btn-resort h-20 shadow-2xl hover:scale-[1.02] disabled:opacity-50 !bg-blue-400 !text-white"
-        >
-           {status === 'saving' ? (
-             <span className="flex items-center gap-3"><i className="fas fa-circle-notch fa-spin"></i> Confirming...</span>
-           ) : status === 'done' ? (
-             <span className="flex items-center gap-3"><i className="fas fa-check"></i> Confirmed!</span>
-           ) : 'Confirm & Generate Ticket'}
-        </button>
-
-        <div className="flex items-center justify-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">
-           <i className="fas fa-lock text-blue-400"></i> Encrypted Secure Transaction
-        </div>
-      </div>
-    </div>
-  );
 };
 
-export default SecurePayment;
+const getISTFullTimestamp = () => {
+  return new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    dateStyle: 'short',
+    timeStyle: 'medium'
+  }).format(new Date());
+};
+
+export default async function handler(req: any, res: any) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+
+  if (!process.env.GOOGLE_CREDENTIALS || !process.env.SHEET_ID) {
+    return res.status(500).json({ success: false, details: "Server Configuration Missing" });
+  }
+
+  let auth;
+  try {
+    auth = new google.auth.GoogleAuth({
+      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, details: "Invalid GOOGLE_CREDENTIALS format" });
+  }
+  const sheets = google.sheets({ version: "v4", auth });
+  const type = req.query.type;
+
+  // Meta Webhook Verification
+  if (type === 'webhook' && req.method === 'GET') {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+
+    if (mode === 'subscribe' && token === 'spray_water_park_2024') {
+      res.setHeader('Content-Type', 'text/plain');
+      return res.status(200).send(challenge);
+    }
+    return res.status(403).send('Forbidden');
+  }
+
+  // Simple Test Route
+  if (type === 'test') {
+    return res.status(200).send('API is working fine');
+  }
+
+  try {
+    // 1. SETTINGS LOGIC
+    if (type === 'settings') {
+      if (req.method === "GET") {
+        const response = await sheets.spreadsheets.values.get({ 
+          spreadsheetId: process.env.SHEET_ID, range: "adminpanel!A2:H100" 
+        });
+        const rows = response.data.values || [];
+        const settings: any = {
+          morningAdultRate: 500, morningKidRate: 350, eveningAdultRate: 800, eveningKidRate: 500,
+          earlyBirdDiscount: 20, extraDiscountPercent: 10, blockedSlots: []
+        };
+        if (rows.length > 0) {
+          const firstRow = rows[0];
+          settings.morningAdultRate = parseInt(firstRow[0]) || 500;
+          settings.morningKidRate = parseInt(firstRow[1]) || 350;
+          settings.eveningAdultRate = parseInt(firstRow[2]) || 800;
+          settings.eveningKidRate = parseInt(firstRow[3]) || 500;
+          settings.earlyBirdDiscount = parseInt(firstRow[4]) || 20;
+          settings.extraDiscountPercent = parseInt(firstRow[5]) || 10;
+          rows.forEach(row => {
+            if (row[6] && row[7]) settings.blockedSlots.push({ date: row[6], shift: row[7] });
+          });
+        }
+        return res.status(200).json(settings);
+      }
+      if (req.method === "POST") {
+        const s = req.body;
+        const primary = [s.morningAdultRate, s.morningKidRate, s.eveningAdultRate, s.eveningKidRate, s.earlyBirdDiscount, s.extraDiscountPercent];
+        const blockedSlots = s.blockedSlots || [];
+        const rowsToUpdate = [];
+        const maxRows = Math.max(1, blockedSlots.length);
+        for (let i = 0; i < maxRows; i++) {
+          const row = i === 0 ? [...primary] : ["", "", "", "", "", ""];
+          if (blockedSlots[i]) { row[6] = blockedSlots[i].date; row[7] = blockedSlots[i].shift; }
+          else { row[6] = ""; row[7] = ""; }
+          rowsToUpdate.push(row);
+        }
+        await sheets.spreadsheets.values.clear({ spreadsheetId: process.env.SHEET_ID, range: "adminpanel!A2:H100" });
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: process.env.SHEET_ID, range: "adminpanel!A2",
+          valueInputOption: "RAW", requestBody: { values: rowsToUpdate }
+        });
+        return res.status(200).json({ success: true });
+      }
+    }
+
+    // 2. RENTALS LOGIC
+    if (type === 'rentals') {
+      if (req.method === "GET") {
+        const response = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Lockers!A2:P10000" });
+        const rows = (response.data.values || []).filter(r => r[0]); // Filter empty rows
+        return res.status(200).json(rows.map(r => ({
+          receiptNo: r[0] || "", guestName: r[1] || "", guestMobile: r[2] || "", date: r[3] || "", shift: r[4] || "",
+          maleLockers: r[5] ? r[5].split(',').map(Number) : [],
+          femaleLockers: r[6] ? r[6].split(',').map(Number) : [],
+          maleCostumes: parseInt(r[7]) || 0, femaleCostumes: parseInt(r[8]) || 0,
+          rentAmount: parseInt(r[9]) || 0, securityDeposit: parseInt(r[10]) || 0,
+          totalCollected: parseInt(r[11]) || 0, refundableAmount: parseInt(r[12]) || 0,
+          status: r[13] || "issued", createdAt: r[14] || "", returnedAt: r[15] || ''
+        })));
+      }
+      if (req.method === "POST") {
+        if (req.query.action === 'update') {
+          const rental = req.body;
+          const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "Lockers!A2:A10000" });
+          const rows = resp.data.values || [];
+          const idx = rows.findIndex(r => r[0] === rental.receiptNo);
+          if (idx === -1) return res.status(404).json({ success: false });
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: process.env.SHEET_ID, range: `Lockers!N${idx + 2}:P${idx + 2}`,
+            valueInputOption: "RAW", requestBody: { values: [[rental.status, "", getISTFullTimestamp()]] }
+          });
+          return res.status(200).json({ success: true });
+        } else {
+          const r = req.body;
+          await sheets.spreadsheets.values.append({
+            spreadsheetId: process.env.SHEET_ID, range: "Lockers!A:A",
+            valueInputOption: "RAW", requestBody: { values: [[
+              r.receiptNo, r.guestName, r.guestMobile, r.date, r.shift,
+              r.maleLockers.join(','), r.femaleLockers.join(','),
+              r.maleCostumes, r.femaleCostumes, r.rentAmount, r.securityDeposit,
+              r.totalCollected, r.refundableAmount, r.status, getISTFullTimestamp(), ""
+            ]] }
+          });
+          return res.status(200).json({ success: true });
+        }
+      }
+    }
+
+    // 3. WHATSAPP LOGIC
+    if (type === 'whatsapp') {
+      const { mobile, booking, isWelcome } = req.body;
+      const phoneId = (process.env.WHATSAPP_PHONE_ID || "").trim();
+      const token = (process.env.WHATSAPP_TOKEN || "").trim();
+      let cleanMobile = String(mobile || "").replace(/\D/g, '').slice(-10);
+      cleanMobile = "91" + cleanMobile;
+
+      let payload: any = { messaging_product: "whatsapp", to: cleanMobile, type: "template", template: { language: { code: "en_US" } } };
+      if (isWelcome) {
+        payload.template.name = "welcome";
+        payload.template.components = [{ type: "body", parameters: [{ type: "text", text: String(booking?.name || "Guest").trim() }] }];
+      } else {
+        payload.template.name = "ticket";
+        payload.template.components = [
+          { type: "header", parameters: [{ type: "image", image: { link: `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${booking?.id}` } }] },
+          { type: "body", parameters: [{type:"text",text:booking.id}, {type:"text",text:booking.adults}, {type:"text",text:booking.kids}, {type:"text",text:booking.date}, {type:"text",text:booking.time}, {type:"text",text:String(booking.students || 0)}] }
+        ];
+      }
+      const waRes = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
+        method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      return res.status(waRes.ok ? 200 : 400).json({ success: waRes.ok });
+    }
+
+    // 4. TICKETS & CHECKIN
+    if (type === 'ticket_details') {
+      const searchId = String(req.query.id).toUpperCase();
+      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:P10000" });
+      const rows = resp.data.values || [];
+      const row = rows.find(r => r[0] === searchId);
+      if (!row) return res.status(404).json({ success: false });
+      const { todayStr, currentHour } = getISTDateObject();
+      let validation = "VALID";
+      if (row[14] === "CHECKED-IN") validation = "ALREADY_USED";
+      else if (row[11] < todayStr) validation = "EXPIRED";
+      else if (row[11] > todayStr) validation = "FUTURE_DATE";
+      else {
+        const isMorning = String(row[12] || "").toLowerCase().includes("morning");
+        const currentShift = currentHour < 14 ? "morning" : "evening";
+        if (isMorning && currentShift === "evening") validation = "EXPIRED_SLOT";
+        else if (!isMorning && currentShift === "morning") validation = "FUTURE_SLOT";
+      }
+      return res.status(200).json({ success: true, validation, booking: { 
+        id: row[0], 
+        name: row[2], 
+        mobile: row[3], 
+        adults: row[4], 
+        kids: row[5], 
+        students: row[6], 
+        date: row[11], 
+        time: row[12], 
+        status: row[14] 
+      } });
+    }
+
+    if (type === 'checkin') {
+      const { ticketId } = req.body;
+      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:A10000" });
+      const rows = resp.data.values || [];
+      const idx = rows.findIndex(r => r[0] === ticketId);
+      if (idx === -1) return res.status(404).json({ success: false });
+      // O=14 (Entry Status), P=15 (Entry Time)
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: process.env.SHEET_ID, range: `booking!O${idx + 2}:P${idx + 2}`,
+        valueInputOption: "RAW", requestBody: { values: [["CHECKED-IN", getISTFullTimestamp()]] }
+      });
+      return res.status(200).json({ success: true });
+    }
+
+    if (type === 'update_ticket') {
+      const b = req.body;
+      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:A10000" });
+      const rows = resp.data.values || [];
+      const idx = rows.findIndex(r => r[0] === b.id);
+      if (idx === -1) return res.status(404).json({ success: false });
+      
+      const totalGuests = Number(b.adults) + Number(b.kids) + Number(b.students || 0);
+      const isUPI = String(b.paymentMode || "cash").toLowerCase() === 'upi' || String(b.paymentMode).toLowerCase() === 'online';
+      const cashAmount = b.cashAmount !== undefined ? Number(b.cashAmount) : (isUPI ? 0 : b.totalAmount);
+      const upiAmount = b.upiAmount !== undefined ? Number(b.upiAmount) : (isUPI ? b.totalAmount : 0);
+
+      // Update columns: C (Name) to M (Time Slot)
+      // C=2 ... M=12
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: process.env.SHEET_ID, range: `booking!C${idx + 2}:M${idx + 2}`,
+        valueInputOption: "RAW", 
+        requestBody: { 
+          values: [[
+            b.name, 
+            b.mobile, 
+            b.adults, 
+            b.kids, 
+            b.students || 0, 
+            totalGuests, 
+            b.totalAmount, 
+            upiAmount, 
+            cashAmount, 
+            b.date, 
+            b.time
+          ]] 
+        }
+      });
+      
+      return res.status(200).json({ success: true });
+    }
+
+    if (type === 'reset_shift') {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: process.env.SHEET_ID, range: "Lockers!N2:N10000",
+        valueInputOption: "RAW", requestBody: { values: Array(9999).fill(["returned"]) }
+      });
+      return res.status(200).json({ success: true });
+    }
+
+    // 5. RAZORPAY LOGIC
+    if (type === 'create_razorpay_order') {
+      const { amount, currency = "INR", receipt } = req.body;
+      
+      const keyId = (process.env.RAZORPAY_KEY_ID || "").trim().replace(/['"]/g, '');
+      const keySecret = (process.env.RAZORPAY_KEY_SECRET || "").trim().replace(/['"]/g, '');
+
+      // Log masked keys for debugging in Vercel Logs
+      console.log(`Attempting Razorpay Order: KeyID=${keyId.substring(0, 8)}..., Secret=${keySecret.substring(0, 4)}...`);
+
+      if (!keyId || !keySecret) {
+        return res.status(500).json({ 
+          success: false, 
+          message: "Razorpay Keys are missing in environment variables. Please check Vercel settings." 
+        });
+      }
+
+      try {
+        const razorpay = new Razorpay({
+          key_id: keyId,
+          key_secret: keySecret,
+        });
+
+        const options = {
+          amount: Math.round(Number(amount) * 100),
+          currency,
+          receipt: String(receipt),
+        };
+
+        const order = await razorpay.orders.create(options);
+        return res.status(200).json({ success: true, order });
+      } catch (err: any) {
+        console.error("Razorpay Order Error:", err);
+        return res.status(500).json({ 
+          success: false, 
+          message: `Razorpay Error: ${err.message || 'Unknown Error'}`,
+          stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        });
+      }
+    }
+
+    if (type === 'verify_razorpay_payment') {
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+      const keySecret = (process.env.RAZORPAY_KEY_SECRET || "").trim();
+
+      if (!keySecret) {
+        return res.status(500).json({ success: false, message: "Razorpay Secret Missing" });
+      }
+
+      try {
+        const generated_signature = crypto
+          .createHmac("sha256", keySecret)
+          .update(razorpay_order_id + "|" + razorpay_payment_id)
+          .digest("hex");
+
+        if (generated_signature === razorpay_signature) {
+          return res.status(200).json({ success: true });
+        } else {
+          return res.status(400).json({ success: false, message: "Invalid signature" });
+        }
+      } catch (err: any) {
+        return res.status(500).json({ success: false, message: "Verification failed" });
+      }
+    }
+
+    if (req.method === "POST") {
+      const b = req.body;
+      const createdAt = b.createdAt || getISTFullTimestamp();
+      const isUPI = String(b.paymentMode || "cash").toLowerCase() === 'upi' || String(b.paymentMode || "cash").toLowerCase() === 'online';
+      const totalAmount = b.amount || b.totalAmount || 0;
+      const totalGuests = Number(b.adults) + Number(b.kids) + Number(b.students || 0);
+      const cashAmount = b.cashAmount !== undefined ? Number(b.cashAmount) : (isUPI ? 0 : totalAmount);
+      const upiAmount = b.upiAmount !== undefined ? Number(b.upiAmount) : (isUPI ? totalAmount : 0);
+
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: process.env.SHEET_ID, range: "booking!A:A",
+        valueInputOption: "RAW", requestBody: { values: [[
+          b.id,                // A(0): ID
+          createdAt,           // B(1): Booking Time
+          b.name,              // C(2): Name
+          b.mobile,            // D(3): Mobile
+          b.adults,            // E(4): Adult
+          b.kids,              // F(5): Kid
+          b.students || 0,     // G(6): Student
+          totalGuests,         // H(7): Total Guest
+          totalAmount,         // I(8): Total Amount
+          upiAmount,           // J(9): UPI
+          cashAmount,          // K(10): Cash
+          b.date,              // L(11): Visit Date
+          b.time,              // M(12): Time Slot
+          "PAID",              // N(13): Status
+          "YET TO ARRIVE",     // O(14): Entry Status
+          ""                   // P(15): Entry Time
+        ]] }
+      });
+      return res.status(200).json({ success: true });
+    }
+
+    if (req.method === "GET") {
+      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: process.env.SHEET_ID, range: "booking!A2:P10000" });
+      const rows = (resp.data.values || []).filter(row => row[0]); // Ensure ID exists
+      return res.status(200).json(rows.map(row => ({ 
+        id: row[0] || "", 
+        name: row[2] || "", 
+        mobile: row[3] || "", 
+        adults: Number(row[4]) || 0, 
+        kids: Number(row[5]) || 0, 
+        students: Number(row[6]) || 0,
+        totalAmount: Number(row[8]) || 0, 
+        date: row[11] || "", 
+        time: row[12] || "", 
+        paymentMode: (Number(row[9]) > 0 ? "upi" : "cash"),
+        cashAmount: Number(row[10]) || 0,
+        upiAmount: Number(row[9]) || 0,
+        createdAt: row[1] || row[11], 
+        status: row[14] === "CHECKED-IN" ? "checked-in" : "confirmed" 
+      })).reverse());
+    }
+  } catch (e: any) {
+    return res.status(500).json({ success: false, details: e.message });
+  }
+}
