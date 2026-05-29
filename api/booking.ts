@@ -336,7 +336,7 @@ export default async function handler(req: any, res: any) {
 
     if (req.method === "POST") {
       const b = req.body;
-      const createdAt = new Date().toISOString();
+      const createdAt = b.createdAt || getISTFullTimestamp();
       const isUPI = String(b.paymentMode || "cash").toLowerCase() === 'upi' || String(b.paymentMode || "cash").toLowerCase() === 'online';
       const totalAmount = b.amount || b.totalAmount || 0;
       const totalGuests = Number(b.adults) + Number(b.kids) + Number(b.students || 0);
