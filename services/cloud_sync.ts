@@ -17,7 +17,10 @@ export const cloudSync = {
           date: booking.date,
           time: booking.time,
           status: booking.status,
-          paymentMode: booking.paymentMode
+          paymentMode: booking.paymentMode,
+          cashAmount: booking.cashAmount,
+          upiAmount: booking.upiAmount,
+          createdAt: booking.createdAt
         })
       });
       const data = await response.json();
