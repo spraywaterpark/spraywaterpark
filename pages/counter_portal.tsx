@@ -62,21 +62,59 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
     }
   }, [editingBooking]);
 
+  // helper to get date in 'en-CA' (YYYY-MM-DD) for Asia/Kolkata timezone
+  const getISTDateString = () => {
+    try {
+      const options: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' };
+      const formatter = new Intl.DateTimeFormat('en-CA', options);
+      return formatter.format(new Date());
+    } catch (e) {
+      return new Date().toLocaleDateString('en-CA');
+    }
+  };
+
+  // helper to check if a specific date string (YYYY-MM-DD) is Sunday in Asia/Kolkata timezone
+  const isSundayIST = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr + "T12:00:00Z");
+      const dayStr = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', weekday: 'long' }).format(d);
+      return dayStr === 'Sunday';
+    } catch (e) {
+      try {
+        const d = new Date(dateStr);
+        return d.getDay() === 0;
+      } catch (err) {
+        return false;
+      }
+    }
+  };
+
+  const targetDate = editingBooking ? editingBooking.date : getISTDateString();
+  const isSunday = isSundayIST(targetDate);
+
   // Compute rates and totals dynamically
   const getRates = () => {
+    let base = { adult: 400, kid: 300, name: '' };
     if (shift === 'MORNING') {
       if (foodOption === 'with_food') {
-        return { adult: 400, kid: 300, name: 'Morning (With Food)' };
+        base = { adult: 400, kid: 300, name: 'Morning (With Food)' };
       } else {
-        return { adult: 300, kid: 200, name: 'Morning (Without Food)' };
+        base = { adult: 300, kid: 200, name: 'Morning (Without Food)' };
       }
     } else {
       if (foodOption === 'with_food') {
-        return { adult: 600, kid: 400, name: 'Evening (With Dinner)' };
+        base = { adult: 600, kid: 400, name: 'Evening (With Dinner)' };
       } else {
-        return { adult: 400, kid: 300, name: 'Evening (Without Dinner)' };
+        base = { adult: 400, kid: 300, name: 'Evening (Without Dinner)' };
       }
     }
+
+    if (isSunday) {
+      base.adult += 50;
+      base.kid += 50;
+      base.name += ' (Sunday Extra ₹50 Active)';
+    }
+    return base;
   };
 
   const currentRates = getRates();
@@ -181,7 +219,7 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
     }
 
     setLoading(true);
-    const todayDate = new Date().toLocaleDateString('en-CA');
+    const todayDate = getISTDateString();
     
     // Exact detail string based on selection
     const finalTimeStr = shift === 'MORNING'
@@ -271,7 +309,7 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
   };
 
   // Report calculations for TODAY'S selected shift
-  const todayStr = new Date().toLocaleDateString('en-CA');
+  const todayStr = getISTDateString();
   
   // Filter bookings belonging strictly to selected shift of today
   const currentShiftBookings = bookings.filter(b => {
@@ -437,6 +475,13 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
               <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">{currentRates.name} Rates Active</p>
             </div>
 
+            {isSunday && (
+              <div className="bg-amber-500/10 border-2 border-amber-500/25 text-amber-300 p-5 rounded-[2rem] text-xs font-black text-center uppercase tracking-wider space-y-1">
+                <div>🎉 Sunday Holiday Extra Charge Active!</div>
+                <div className="text-[10px] opacity-75">+₹50 added per ticket (Adult & Kid)</div>
+              </div>
+            )}
+
             {/* Adults Counter */}
             <div className="bg-slate-800/85 p-6 rounded-3xl border border-slate-700 relative">
               <div className="flex justify-between items-center mb-4">
@@ -534,6 +579,11 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
               <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
                 {adults} Adults • {kids} Kids
               </div>
+              {isSunday && (
+                <div className="pt-2 text-[9px] text-amber-400 font-black uppercase tracking-widest">
+                  Sunday Surcharge Included (+₹50/guest)
+                </div>
+              )}
             </div>
 
             {/* Payment Options */}
