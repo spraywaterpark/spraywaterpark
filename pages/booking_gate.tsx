@@ -72,8 +72,24 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
     }
   };
 
+  const isSundayIST = (dateStr: string) => {
+    try {
+      if (!dateStr) return false;
+      const matchYMD = dateStr.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+      if (matchYMD) {
+        const y = parseInt(matchYMD[1], 10);
+        const m = parseInt(matchYMD[2], 10) - 1;
+        const d = parseInt(matchYMD[3], 10);
+        const utcNoon = new Date(Date.UTC(y, m, d, 12, 0, 0));
+        const dayStr = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', weekday: 'long' }).format(utcNoon);
+        return dayStr === 'Sunday';
+      }
+    } catch (e) {}
+    return false;
+  };
+
   const isMorning = slot.toLowerCase().includes('morning');
-  const isSunday = new Date(date).getDay() === 0;
+  const isSunday = isSundayIST(date);
   const sundayExtra = isSunday ? 50 : 0;
 
   const pricingData = useMemo(() => {
