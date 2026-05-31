@@ -62,30 +62,69 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
     }
   }, [editingBooking]);
 
-  // helper to get date in 'en-CA' (YYYY-MM-DD) for Asia/Kolkata timezone
+  // helper to get date in 'YYYY-MM-DD' for Asia/Kolkata timezone
   const getISTDateString = () => {
     try {
       const options: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' };
-      const formatter = new Intl.DateTimeFormat('en-CA', options);
-      return formatter.format(new Date());
+      const formatter = new Intl.DateTimeFormat('en-US', options);
+      const parts = formatter.formatToParts(new Date());
+      const d: any = {};
+      parts.forEach(p => d[p.type] = p.value);
+      return `${d.year}-${d.month}-${d.day}`; // Always YYYY-MM-DD format, e.g. "2026-05-31"
     } catch (e) {
-      return new Date().toLocaleDateString('en-CA');
+      // Fallback: manually offset UTC by 5h 30m
+      const d = new Date();
+      const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+      const istDate = new Date(utc + (3600000 * 5.5));
+      const year = istDate.getFullYear();
+      const month = String(istDate.getMonth() + 1).padStart(2, '0');
+      const day = String(istDate.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
     }
+  };
+
+  const parseDateToUTCNoon = (dateStr: string) => {
+    try {
+      // Try YYYY-MM-DD or YYYY/MM/DD
+      const matchYMD = dateStr.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+      if (matchYMD) {
+        const y = parseInt(matchYMD[1], 10);
+        const m = parseInt(matchYMD[2], 10) - 1;
+        const d = parseInt(matchYMD[3], 10);
+        return new Date(Date.UTC(y, m, d, 12, 0, 0));
+      }
+
+      // Try DD/MM/YYYY or DD-MM-YYYY
+      const matchDMY = dateStr.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+      if (matchDMY) {
+        const d = parseInt(matchDMY[1], 10);
+        const m = parseInt(matchDMY[2], 10) - 1;
+        const y = parseInt(matchDMY[3], 10);
+        return new Date(Date.UTC(y, m, d, 12, 0, 0));
+      }
+
+      // Fallback: standard Date parsing
+      const parsed = new Date(dateStr);
+      if (!isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    } catch (e) {
+      // ignore
+    }
+    return null;
   };
 
   // helper to check if a specific date string (YYYY-MM-DD) is Sunday in Asia/Kolkata timezone
   const isSundayIST = (dateStr: string) => {
     try {
-      const d = new Date(dateStr + "T12:00:00Z");
-      const dayStr = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', weekday: 'long' }).format(d);
+      if (!dateStr) return false;
+      const dateObj = parseDateToUTCNoon(dateStr);
+      if (!dateObj) return false;
+      
+      const dayStr = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', weekday: 'long' }).format(dateObj);
       return dayStr === 'Sunday';
     } catch (e) {
-      try {
-        const d = new Date(dateStr);
-        return d.getDay() === 0;
-      } catch (err) {
-        return false;
-      }
+      return false;
     }
   };
 
@@ -473,6 +512,9 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
             <div className="text-center">
               <h2 className="text-3xl font-black uppercase tracking-tight text-white mb-1">GUEST LIST</h2>
               <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">{currentRates.name} Rates Active</p>
+              <p className="text-[9px] font-semibold text-slate-400 mt-1.5 uppercase tracking-[0.15em]">
+                Booking Date: {targetDate} ({isSunday ? "SUNDAY 🌟" : "WEEKDAY"})
+              </p>
             </div>
 
             {isSunday && (
