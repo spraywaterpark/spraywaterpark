@@ -1,5 +1,4 @@
 
-import { google } from "googleapis";
 import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import LoginGate from './pages/login_gate';
