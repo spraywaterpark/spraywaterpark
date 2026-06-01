@@ -9,13 +9,28 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
 
   // GET IST LOCAL TIME & DATE
   const getISTInfo = () => {
-    const d = new Date();
-    const istStr = d.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-    const istDate = new Date(istStr);
-    return {
-      todayStr: istDate.toLocaleDateString('en-CA'), // YYYY-MM-DD
-      currentHour: istDate.getHours()
-    };
+    try {
+      const options: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false };
+      const formatter = new Intl.DateTimeFormat('en-US', options);
+      const parts = formatter.formatToParts(new Date());
+      const d: any = {};
+      parts.forEach(p => d[p.type] = p.value);
+      const todayStr = `${d.year}-${d.month}-${d.day}`;
+      const currentHour = parseInt(d.hour) || 0;
+      return { todayStr, currentHour };
+    } catch (e) {
+      const d = new Date();
+      const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+      const istDate = new Date(utc + (3600000 * 5.5));
+      const year = istDate.getFullYear();
+      const month = String(istDate.getMonth() + 1).padStart(2, '0');
+      const day = String(istDate.getDate()).padStart(2, '0');
+      const hour = istDate.getHours();
+      return {
+        todayStr: `${year}-${month}-${day}`,
+        currentHour: hour
+      };
+    }
   };
 
   const { todayStr, currentHour } = getISTInfo();
