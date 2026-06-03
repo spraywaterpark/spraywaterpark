@@ -62,98 +62,41 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
     }
   }, [editingBooking]);
 
-  // helper to get date in 'YYYY-MM-DD' for Asia/Kolkata timezone
-  const getISTDateString = () => {
-    try {
-      const options: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' };
-      const formatter = new Intl.DateTimeFormat('en-US', options);
-      const parts = formatter.formatToParts(new Date());
-      const d: any = {};
-      parts.forEach(p => d[p.type] = p.value);
-      return `${d.year}-${d.month}-${d.day}`; // Always YYYY-MM-DD format, e.g. "2026-05-31"
-    } catch (e) {
-      // Fallback: manually offset UTC by 5h 30m
-      const d = new Date();
-      const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
-      const istDate = new Date(utc + (3600000 * 5.5));
-      const year = istDate.getFullYear();
-      const month = String(istDate.getMonth() + 1).padStart(2, '0');
-      const day = String(istDate.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    }
-  };
-
-  const parseDateToUTCNoon = (dateStr: string) => {
-    try {
-      // Try YYYY-MM-DD or YYYY/MM/DD
-      const matchYMD = dateStr.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-      if (matchYMD) {
-        const y = parseInt(matchYMD[1], 10);
-        const m = parseInt(matchYMD[2], 10) - 1;
-        const d = parseInt(matchYMD[3], 10);
-        return new Date(Date.UTC(y, m, d, 12, 0, 0));
-      }
-
-      // Try DD/MM/YYYY or DD-MM-YYYY
-      const matchDMY = dateStr.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-      if (matchDMY) {
-        const d = parseInt(matchDMY[1], 10);
-        const m = parseInt(matchDMY[2], 10) - 1;
-        const y = parseInt(matchDMY[3], 10);
-        return new Date(Date.UTC(y, m, d, 12, 0, 0));
-      }
-
-      // Fallback: standard Date parsing
-      const parsed = new Date(dateStr);
-      if (!isNaN(parsed.getTime())) {
-        return parsed;
-      }
-    } catch (e) {
-      // ignore
-    }
-    return null;
-  };
-
-  // helper to check if a specific date string (YYYY-MM-DD) is Sunday in Asia/Kolkata timezone
-  const isSundayIST = (dateStr: string) => {
-    try {
-      if (!dateStr) return false;
-      const dateObj = parseDateToUTCNoon(dateStr);
-      if (!dateObj) return false;
-      
-      const dayStr = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', weekday: 'long' }).format(dateObj);
-      return dayStr === 'Sunday';
-    } catch (e) {
-      return false;
-    }
-  };
-
-  const targetDate = editingBooking ? editingBooking.date : getISTDateString();
-  const isSunday = isSundayIST(targetDate);
-
   // Compute rates and totals dynamically
   const getRates = () => {
-    let base = { adult: 400, kid: 300, name: '' };
+    let isSunday = false;
+    const bookingDateStr = editingBooking ? editingBooking.date : new Date().toLocaleDateString('en-CA');
+    if (bookingDateStr) {
+      const parts = bookingDateStr.split('-');
+      if (parts.length === 3) {
+        const yr = parseInt(parts[0], 10);
+        const mo = parseInt(parts[1], 10) - 1;
+        const dy = parseInt(parts[2], 10);
+        const refDate = new Date(yr, mo, dy);
+        isSunday = refDate.getDay() === 0;
+      }
+    } else {
+      const d = new Date();
+      const istStr = d.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+      const istDate = new Date(istStr);
+      isSunday = istDate.getDay() === 0;
+    }
+
+    const sundayExtra = isSunday ? 50 : 0;
+
     if (shift === 'MORNING') {
       if (foodOption === 'with_food') {
-        base = { adult: 400, kid: 300, name: 'Morning (With Food)' };
+        return { adult: 400 + sundayExtra, kid: 300 + sundayExtra, name: 'Morning (With Food)', isSunday };
       } else {
-        base = { adult: 300, kid: 200, name: 'Morning (Without Food)' };
+        return { adult: 300 + sundayExtra, kid: 200 + sundayExtra, name: 'Morning (Without Food)', isSunday };
       }
     } else {
       if (foodOption === 'with_food') {
-        base = { adult: 600, kid: 400, name: 'Evening (With Dinner)' };
+        return { adult: 600 + sundayExtra, kid: 400 + sundayExtra, name: 'Evening (With Dinner)', isSunday };
       } else {
-        base = { adult: 400, kid: 300, name: 'Evening (Without Dinner)' };
+        return { adult: 400 + sundayExtra, kid: 300 + sundayExtra, name: 'Evening (Without Dinner)', isSunday };
       }
     }
-
-    if (isSunday) {
-      base.adult += 50;
-      base.kid += 50;
-      base.name += ' (Sunday Extra ₹50 Active)';
-    }
-    return base;
   };
 
   const currentRates = getRates();
@@ -258,7 +201,7 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
     }
 
     setLoading(true);
-    const todayDate = getISTDateString();
+    const todayDate = new Date().toLocaleDateString('en-CA');
     
     // Exact detail string based on selection
     const finalTimeStr = shift === 'MORNING'
@@ -348,7 +291,7 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
   };
 
   // Report calculations for TODAY'S selected shift
-  const todayStr = getISTDateString();
+  const todayStr = new Date().toLocaleDateString('en-CA');
   
   // Filter bookings belonging strictly to selected shift of today
   const currentShiftBookings = bookings.filter(b => {
@@ -512,17 +455,12 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
             <div className="text-center">
               <h2 className="text-3xl font-black uppercase tracking-tight text-white mb-1">GUEST LIST</h2>
               <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">{currentRates.name} Rates Active</p>
-              <p className="text-[9px] font-semibold text-slate-400 mt-1.5 uppercase tracking-[0.15em]">
-                Booking Date: {targetDate} ({isSunday ? "SUNDAY 🌟" : "WEEKDAY"})
-              </p>
+              {currentRates.isSunday && (
+                <div className="mt-2 inline-block bg-amber-500 text-slate-950 font-black text-[10px] uppercase tracking-widest px-3 py-1 rounded-full animate-pulse shadow-md">
+                  ⚡ Sunday Extra Surcharge (₹50/ticket) applied!
+                </div>
+              )}
             </div>
-
-            {isSunday && (
-              <div className="bg-amber-500/10 border-2 border-amber-500/25 text-amber-300 p-5 rounded-[2rem] text-xs font-black text-center uppercase tracking-wider space-y-1">
-                <div>🎉 Sunday Holiday Extra Charge Active!</div>
-                <div className="text-[10px] opacity-75">+₹50 added per ticket (Adult & Kid)</div>
-              </div>
-            )}
 
             {/* Adults Counter */}
             <div className="bg-slate-800/85 p-6 rounded-3xl border border-slate-700 relative">
@@ -621,9 +559,9 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
               <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
                 {adults} Adults • {kids} Kids
               </div>
-              {isSunday && (
-                <div className="pt-2 text-[9px] text-amber-400 font-black uppercase tracking-widest">
-                  Sunday Surcharge Included (+₹50/guest)
+              {currentRates.isSunday && (
+                <div className="text-[10px] text-amber-400 font-black uppercase tracking-widest mt-1">
+                  (Includes ₹50 Sunday surcharge per ticket)
                 </div>
               )}
             </div>
