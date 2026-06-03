@@ -94,7 +94,7 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
       if (foodOption === 'with_food') {
         return { adult: 600 + sundayExtra, kid: 400 + sundayExtra, name: 'Evening (With Dinner)', isSunday };
       } else {
-        return { adult: 400 + sundayExtra, kid: 300 + sundayExtra, name: 'Evening (Without Dinner)', isSunday };
+        return { adult: 450 + sundayExtra, kid: 300 + sundayExtra, name: 'Evening (Without Dinner)', isSunday };
       }
     }
   };
