@@ -134,27 +134,48 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
     if (!booking.createdAt) return false;
     let createdTime = 0;
     try {
-      // Handle standard ISO and local date parsing
-      createdTime = new Date(booking.createdAt).getTime();
+      const cleanStr = booking.createdAt.trim();
+      createdTime = new Date(cleanStr).getTime();
       if (isNaN(createdTime)) {
-        // Try parsing DD/MM/YYYY, HH:MM:SS format
-        const parts = booking.createdAt.split(', ');
-        if (parts.length === 2) {
-          const dateParts = parts[0].split('/');
-          const timeParts = parts[1].split(':');
-          createdTime = new Date(
-            Number(dateParts[2]),
-            Number(dateParts[1]) - 1,
-            Number(dateParts[0]),
-            Number(timeParts[0]),
-            Number(timeParts[1]),
-            Number(timeParts[2])
-          ).getTime();
+        // Parse custom formats: "DD/MM/YYYY, HH:MM:SS" or "DD/MM/YY, HH:MM:SS [AM/PM/am/pm]"
+        // Split by whitespace and/or commas
+        const parts = cleanStr.split(/[\s,]+/);
+        if (parts.length >= 2) {
+          const datePart = parts[0];
+          const timePart = parts[1];
+          const ampm = parts[2] ? parts[2].toUpperCase() : null;
+
+          const dateParts = datePart.split('/');
+          const timeParts = timePart.split(':');
+
+          if (dateParts.length === 3 && timeParts.length >= 2) {
+            let day = parseInt(dateParts[0], 10);
+            let month = parseInt(dateParts[1], 10) - 1;
+            let year = parseInt(dateParts[2], 10);
+            if (year < 100) {
+              year += 2000; // e.g. 26 -> 2026
+            }
+
+            let hour = parseInt(timeParts[0], 10);
+            let min = parseInt(timeParts[1], 10);
+            let sec = timeParts[2] ? parseInt(timeParts[2], 10) : 0;
+
+            if (ampm === 'PM' && hour < 12) {
+              hour += 12;
+            } else if (ampm === 'AM' && hour === 12) {
+              hour = 0;
+            }
+
+            createdTime = new Date(year, month, day, hour, min, sec).getTime();
+          }
         }
       }
     } catch (e) {
       return false;
     }
+    
+    if (isNaN(createdTime) || createdTime <= 0) return false;
+    
     const now = new Date().getTime();
     return (now - createdTime) <= 10 * 60 * 1000;
   };
