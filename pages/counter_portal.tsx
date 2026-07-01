@@ -62,10 +62,20 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
     }
   }, [editingBooking]);
 
+  // Derived state to determine if booking is on or after July 1st, 2026
+  const bookingDateStr = editingBooking ? editingBooking.date : new Date().toLocaleDateString('en-CA');
+  const isJuly1stOrLater = bookingDateStr >= '2026-07-01';
+
+  // Force EVENING shift if July 1st or later
+  useEffect(() => {
+    if (isJuly1stOrLater && shift !== 'EVENING') {
+      setShift('EVENING');
+    }
+  }, [isJuly1stOrLater, shift]);
+
   // Compute rates and totals dynamically
   const getRates = () => {
     let isSunday = false;
-    const bookingDateStr = editingBooking ? editingBooking.date : new Date().toLocaleDateString('en-CA');
     if (bookingDateStr) {
       const parts = bookingDateStr.split('-');
       if (parts.length === 3) {
@@ -83,6 +93,14 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
     }
 
     const sundayExtra = isSunday ? 50 : 0;
+
+    if (isJuly1stOrLater) {
+      if (foodOption === 'with_food') {
+        return { adult: 550 + sundayExtra, kid: 400 + sundayExtra, name: '12 PM - 8 PM (With Food)', isSunday };
+      } else {
+        return { adult: 300 + sundayExtra, kid: 200 + sundayExtra, name: '12 PM - 8 PM (Without Food)', isSunday };
+      }
+    }
 
     if (shift === 'MORNING') {
       if (foodOption === 'with_food') {
@@ -135,10 +153,10 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
     let createdTime = 0;
     try {
       const cleanStr = booking.createdAt.trim();
-      createdTime = new Date(cleanStr).getTime();
-      if (isNaN(createdTime)) {
-        // Parse custom formats: "DD/MM/YYYY, HH:MM:SS" or "DD/MM/YY, HH:MM:SS [AM/PM/am/pm]"
-        // Split by whitespace and/or commas
+      
+      // If it contains slashes, we MUST parse it manually as DD/MM/YYYY because default
+      // JS Date parser assumes MM/DD/YYYY and misinterprets the date.
+      if (cleanStr.includes('/')) {
         const parts = cleanStr.split(/[\s,]+/);
         if (parts.length >= 2) {
           const datePart = parts[0];
@@ -166,9 +184,17 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
               hour = 0;
             }
 
-            createdTime = new Date(year, month, day, hour, min, sec).getTime();
+            const parsedDate = new Date(year, month, day, hour, min, sec);
+            if (!isNaN(parsedDate.getTime())) {
+              createdTime = parsedDate.getTime();
+            }
           }
         }
+      }
+      
+      // Fallback to standard parser if manual parse didn't succeed or was skipped
+      if (!createdTime || isNaN(createdTime)) {
+        createdTime = new Date(cleanStr).getTime();
       }
     } catch (e) {
       return false;
@@ -225,9 +251,11 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
     const todayDate = new Date().toLocaleDateString('en-CA');
     
     // Exact detail string based on selection
-    const finalTimeStr = shift === 'MORNING'
-      ? (foodOption === 'with_food' ? "Morning Shift (With Food)" : "Morning Shift (Without Food)")
-      : (foodOption === 'with_food' ? "Evening Shift (With Dinner)" : "Evening Shift (Without Dinner)");
+    const finalTimeStr = isJuly1stOrLater
+      ? (foodOption === 'with_food' ? "12 PM - 8 PM (With Food)" : "12 PM - 8 PM (Without Food)")
+      : (shift === 'MORNING'
+        ? (foodOption === 'with_food' ? "Morning Shift (With Food)" : "Morning Shift (Without Food)")
+        : (foodOption === 'with_food' ? "Evening Shift (With Dinner)" : "Evening Shift (Without Dinner)"));
 
     const bookingToSave: Booking = editingBooking ? {
       ...editingBooking,
@@ -401,32 +429,40 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
             {/* Shift choice */}
             <div className="space-y-3">
               <label className="text-[10px] font-black text-slate-400 tracking-[0.2em] uppercase px-2">SHIFT</label>
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  onClick={() => setShift('MORNING')}
-                  className={`py-8 rounded-3xl font-black text-xl transition-all border-4 flex flex-col justify-center items-center ${
-                    shift === 'MORNING'
-                      ? 'bg-blue-600 text-white border-blue-500 shadow-xl'
-                      : 'bg-slate-800/80 text-slate-400 border-transparent hover:border-slate-700'
-                  }`}
-                >
-                  <span className="text-3xl mb-1">☀️</span>
-                  <span>MORNING</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShift('EVENING')}
-                  className={`py-8 rounded-3xl font-black text-xl transition-all border-4 flex flex-col justify-center items-center ${
-                    shift === 'EVENING'
-                      ? 'bg-blue-600 text-white border-blue-500 shadow-xl'
-                      : 'bg-slate-800/80 text-slate-400 border-transparent hover:border-slate-700'
-                  }`}
-                >
-                  <span className="text-3xl mb-1">🌙</span>
-                  <span>EVENING</span>
-                </button>
-              </div>
+              {isJuly1stOrLater ? (
+                <div className="bg-blue-600 text-white rounded-3xl p-6 border-4 border-blue-500 shadow-xl flex flex-col justify-center items-center">
+                  <span className="text-3xl mb-1">⏰</span>
+                  <span className="font-black text-xl">12:00 PM - 08:00 PM</span>
+                  <span className="text-[10px] font-bold text-blue-200 tracking-wider uppercase mt-1">SINGLE SHIFT (NEW SYSTEM)</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setShift('MORNING')}
+                    className={`py-8 rounded-3xl font-black text-xl transition-all border-4 flex flex-col justify-center items-center ${
+                      shift === 'MORNING'
+                        ? 'bg-blue-600 text-white border-blue-500 shadow-xl'
+                        : 'bg-slate-800/80 text-slate-400 border-transparent hover:border-slate-700'
+                    }`}
+                  >
+                    <span className="text-3xl mb-1">☀️</span>
+                    <span>MORNING</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShift('EVENING')}
+                    className={`py-8 rounded-3xl font-black text-xl transition-all border-4 flex flex-col justify-center items-center ${
+                      shift === 'EVENING'
+                        ? 'bg-blue-600 text-white border-blue-500 shadow-xl'
+                        : 'bg-slate-800/80 text-slate-400 border-transparent hover:border-slate-700'
+                    }`}
+                  >
+                    <span className="text-3xl mb-1">🌙</span>
+                    <span>EVENING</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Food choice */}
@@ -764,7 +800,7 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
             <div className="text-center">
               <h2 className="text-3xl font-black uppercase tracking-tight text-amber-400 mb-1">TOTAL TICKET REPORT</h2>
               <p className="text-slate-400 text-xs font-black uppercase tracking-widest">
-                Shift: {shift === 'MORNING' ? '☀️ MORNING' : '🌙 EVENING'} • TODAY
+                Shift: {isJuly1stOrLater ? '⏰ 12:00 PM - 08:00 PM' : (shift === 'MORNING' ? '☀️ MORNING' : '🌙 EVENING')} • TODAY
               </p>
             </div>
 
