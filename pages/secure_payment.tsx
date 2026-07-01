@@ -36,10 +36,21 @@ const SecurePayment: React.FC<SecurePaymentProps> = ({ addBooking, bookings }) =
     const yy = String(d.getFullYear()).slice(-2);
     const datePart = `${dd}${mm}${yy}`;
     
-    const shiftCode = timeStr.toLowerCase().includes('morning') ? '1' : '2';
+    const isDateJuly1stOrLater = dateStr >= '2026-07-01';
+    const shiftCode = isDateJuly1stOrLater ? '2' : (timeStr.toLowerCase().includes('morning') ? '1' : '2');
     
-    // Sequential counter for this specific date and shift
-    const countToday = bookings.filter(b => b.date === dateStr && b.time === timeStr).length + 1;
+    let countToday = 0;
+    if (isDateJuly1stOrLater) {
+      countToday = bookings.filter(b => b.date === dateStr).length + 1;
+    } else {
+      const isMorning = timeStr.toLowerCase().includes('morning');
+      countToday = bookings.filter(b => {
+        const bSameDate = b.date === dateStr;
+        const bIsMorning = b.time.toLowerCase().includes('morning');
+        return bSameDate && (isMorning ? bIsMorning : !bIsMorning);
+      }).length + 1;
+    }
+    
     const seq = String(countToday).padStart(3, '0');
     
     return `SAR/${datePart}${shiftCode}-${seq}`;
