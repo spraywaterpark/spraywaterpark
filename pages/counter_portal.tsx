@@ -212,8 +212,20 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const yy = String(d.getFullYear()).slice(-2);
     const datePart = `${dd}${mm}${yy}`;
-    const shiftCode = timeStr.toLowerCase().includes('morning') ? '1' : '2';
-    const countToday = bookings.filter(b => b.date === dateStr && b.time.toLowerCase().includes(shift.toLowerCase())).length + 1;
+    
+    const isDateJuly1stOrLater = dateStr >= '2026-07-01';
+    const shiftCode = isDateJuly1stOrLater ? '2' : (timeStr.toLowerCase().includes('morning') ? '1' : '2');
+    
+    let countToday = 0;
+    if (isDateJuly1stOrLater) {
+      // For July 1st or later, there's only 1 shift, so we count all bookings for this date
+      countToday = bookings.filter(b => b.date === dateStr).length + 1;
+    } else {
+      // Old system: count bookings in the same shift (Morning or Evening)
+      const targetShift = timeStr.toLowerCase().includes('morning') ? 'morning' : 'evening';
+      countToday = bookings.filter(b => b.date === dateStr && b.time.toLowerCase().includes(targetShift)).length + 1;
+    }
+    
     const seq = String(countToday).padStart(3, '0');
     return `SAR/${datePart}${shiftCode}-${seq}`;
   };
