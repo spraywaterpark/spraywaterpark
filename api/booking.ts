@@ -72,15 +72,15 @@ export default async function handler(req: any, res: any) {
         });
         const rows = response.data.values || [];
         const settings: any = {
-          morningAdultRate: 500, morningKidRate: 350, eveningAdultRate: 800, eveningKidRate: 500,
+          morningAdultRate: 550, morningKidRate: 400, eveningAdultRate: 850, eveningKidRate: 550,
           earlyBirdDiscount: 20, extraDiscountPercent: 10, blockedSlots: []
         };
         if (rows.length > 0) {
           const firstRow = rows[0];
-          settings.morningAdultRate = parseInt(firstRow[0]) || 500;
-          settings.morningKidRate = parseInt(firstRow[1]) || 350;
-          settings.eveningAdultRate = parseInt(firstRow[2]) || 800;
-          settings.eveningKidRate = parseInt(firstRow[3]) || 500;
+          settings.morningAdultRate = parseInt(firstRow[0]) || 550;
+          settings.morningKidRate = parseInt(firstRow[1]) || 400;
+          settings.eveningAdultRate = parseInt(firstRow[2]) || 850;
+          settings.eveningKidRate = parseInt(firstRow[3]) || 550;
           settings.earlyBirdDiscount = parseInt(firstRow[4]) || 20;
           settings.extraDiscountPercent = parseInt(firstRow[5]) || 10;
           rows.forEach(row => {
