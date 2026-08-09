@@ -7,10 +7,10 @@ export const TERMS_AND_CONDITIONS = [
 ];
 
 export const PRICING = {
-  MORNING_ADULT: 500,
-  MORNING_KID: 350,
-  EVENING_ADULT: 800,
-  EVENING_KID: 500
+  MORNING_ADULT: 550,
+  MORNING_KID: 400,
+  EVENING_ADULT: 850,
+  EVENING_KID: 550
 };
 
 export const OFFERS = {
@@ -19,10 +19,10 @@ export const OFFERS = {
 };
 
 export const DEFAULT_ADMIN_SETTINGS = {
-  morningAdultRate: 500,
-  eveningAdultRate: 800,
-  morningKidRate: 350,
-  eveningKidRate: 500,
+  morningAdultRate: 550,
+  eveningAdultRate: 850,
+  morningKidRate: 400,
+  eveningKidRate: 550,
 
   earlyBirdDiscount: 20,
   extraDiscountPercent: 10,
