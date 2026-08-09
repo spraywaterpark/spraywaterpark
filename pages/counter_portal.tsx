@@ -96,23 +96,23 @@ const CounterPortal: React.FC<CounterPortalProps> = ({ settings, bookings, onAdd
 
     if (isJuly1stOrLater) {
       if (foodOption === 'with_food') {
-        return { adult: 550 + sundayExtra, kid: 400 + sundayExtra, name: '12 PM - 8 PM (With Food)', isSunday };
+        return { adult: 600 + sundayExtra, kid: 450 + sundayExtra, name: '12 PM - 8 PM (With Food)', isSunday };
       } else {
-        return { adult: 300 + sundayExtra, kid: 200 + sundayExtra, name: '12 PM - 8 PM (Without Food)', isSunday };
+        return { adult: 350 + sundayExtra, kid: 250 + sundayExtra, name: '12 PM - 8 PM (Without Food)', isSunday };
       }
     }
 
     if (shift === 'MORNING') {
       if (foodOption === 'with_food') {
-        return { adult: 400 + sundayExtra, kid: 300 + sundayExtra, name: 'Morning (With Food)', isSunday };
+        return { adult: 450 + sundayExtra, kid: 350 + sundayExtra, name: 'Morning (With Food)', isSunday };
       } else {
-        return { adult: 300 + sundayExtra, kid: 200 + sundayExtra, name: 'Morning (Without Food)', isSunday };
+        return { adult: 350 + sundayExtra, kid: 250 + sundayExtra, name: 'Morning (Without Food)', isSunday };
       }
     } else {
       if (foodOption === 'with_food') {
-        return { adult: 600 + sundayExtra, kid: 400 + sundayExtra, name: 'Evening (With Dinner)', isSunday };
+        return { adult: 650 + sundayExtra, kid: 450 + sundayExtra, name: 'Evening (With Dinner)', isSunday };
       } else {
-        return { adult: 450 + sundayExtra, kid: 300 + sundayExtra, name: 'Evening (Without Dinner)', isSunday };
+        return { adult: 500 + sundayExtra, kid: 350 + sundayExtra, name: 'Evening (Without Dinner)', isSunday };
       }
     }
   };
