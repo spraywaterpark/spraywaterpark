@@ -9,28 +9,13 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
 
   // GET IST LOCAL TIME & DATE
   const getISTInfo = () => {
-    try {
-      const options: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false };
-      const formatter = new Intl.DateTimeFormat('en-US', options);
-      const parts = formatter.formatToParts(new Date());
-      const d: any = {};
-      parts.forEach(p => d[p.type] = p.value);
-      const todayStr = `${d.year}-${d.month}-${d.day}`;
-      const currentHour = parseInt(d.hour) || 0;
-      return { todayStr, currentHour };
-    } catch (e) {
-      const d = new Date();
-      const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
-      const istDate = new Date(utc + (3600000 * 5.5));
-      const year = istDate.getFullYear();
-      const month = String(istDate.getMonth() + 1).padStart(2, '0');
-      const day = String(istDate.getDate()).padStart(2, '0');
-      const hour = istDate.getHours();
-      return {
-        todayStr: `${year}-${month}-${day}`,
-        currentHour: hour
-      };
-    }
+    const d = new Date();
+    const istStr = d.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+    const istDate = new Date(istStr);
+    return {
+      todayStr: istDate.toLocaleDateString('en-CA'), // YYYY-MM-DD
+      currentHour: istDate.getHours()
+    };
   };
 
   const { todayStr, currentHour } = getISTInfo();
@@ -87,31 +72,15 @@ const BookingGate: React.FC<{ settings: AdminSettings, bookings: Booking[], onPr
     }
   };
 
-  const isSundayIST = (dateStr: string) => {
-    try {
-      if (!dateStr) return false;
-      const matchYMD = dateStr.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-      if (matchYMD) {
-        const y = parseInt(matchYMD[1], 10);
-        const m = parseInt(matchYMD[2], 10) - 1;
-        const d = parseInt(matchYMD[3], 10);
-        const utcNoon = new Date(Date.UTC(y, m, d, 12, 0, 0));
-        const dayStr = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', weekday: 'long' }).format(utcNoon);
-        return dayStr === 'Sunday';
-      }
-    } catch (e) {}
-    return false;
-  };
-
   const isMorning = slot.toLowerCase().includes('morning');
-  const isSunday = isSundayIST(date);
+  const isSunday = new Date(date).getDay() === 0;
   const sundayExtra = isSunday ? 50 : 0;
 
   const pricingData = useMemo(() => {
-    let adultMRP = isMorning ? 500 : 800;
-    let kidMRP = isMorning ? 350 : 500;
-    let adultFinal = isMorning ? 400 : 600;
-    let kidFinal = isMorning ? 300 : 400;
+    let adultMRP = isMorning ? 550 : 850;
+    let kidMRP = isMorning ? 400 : 550;
+    let adultFinal = isMorning ? 450 : 650;
+    let kidFinal = isMorning ? 350 : 450;
     let studentFinal = 200; // Fixed price for both shifts
 
     // Apply Sunday Surcharge
